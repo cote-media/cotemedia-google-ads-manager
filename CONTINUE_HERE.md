@@ -1,4 +1,46 @@
-╔═══ SESSION CLOSE 2026-09-12 (EARLY) — PROOF LANE LIVE (ab48975): CRON → ESCENTIAL, BACKFILL 8,077, DRIVER WHOLE · ROW-CAP READERS FIXED (bf910f1) · ESCENTIAL PRESS CLOSED 03:02Z · 2/2 B PARKED ON hold/rotation-2-2b. NEXT: MORNING READ OF ESCENTIAL'S OVERNIGHT WALK, THEN RUSS'S START DATE, THEN THE HONEST-INSTRUMENT FIXES ═══╗
+╔═══ SESSION CLOSE 2026-09-13 — COLD PROOF COMPLETE ON ESCENTIAL: 6/6 + RECONCILE PASS · DEALIAS a7743cd · DRIVER 5c29b2e · MISSED LANE 70d224b + 090 · CURSOR 8d8b6d3 + 091. NEXT: PENDING CHECKS (a)/(b′), THEN SECOND COLD ACCOUNT. ═══╗
+
+⛔ **THE PRIORITY LAW GOVERNS (ESSENCE, Russ): CAPTURE FIRST, LORA SECOND, EVERYTHING ELSE THIRD.** All GET.
+Recompute days-to-2026-09-30 at resume from the clock; never read it off this block.
+
+── THE ARC 2026-09-12 → 13 (session log, newest-first; DECISIONS owns every ruling and figure named here) ──
+· MORNING READ (18:58Z 09-12): Escential's descent had reached its floor overnight — 349/349 sealed at stop 2026-02-23 by 13:10:25Z, 4,560 requests, 0 errors, meter never bit.
+· PROOF VERDICT (~19:40Z): 2/5 — INTERIOR red: 294 sealed-but-unasked days on campaign|base and customer|base; QUIET WEEK / FIRST SPEND red against the 03-02 constant (the warehouse's first spend is 02-23; 03-02 is the second campaign's start).
+· DIAGNOSIS: the four base twins' read-side alias (universe-surfaces.ts, 2026-08-12) + coveredDaysStrict's newest-day rule made EVERY 30-day parent a ONE-DAY ASK; the anchor receded past 29 unasked days per parent; the seal held over them. RESEARCH: the ''-rows are planted on every customer by sync/catchup/drain — the cold-account shape, not a legacy accident; the lookback lane restates at the walk spelling only. ADVERSARY: re-buy bill measured at 1,318 requests fleet-wide (0.16 lane-day); neither patch restores restatement.
+· `a7743cd` LORAMER_WALK_BASE_DEALIAS_V1 — the four base entries deleted (WALK_ONLY now), driver catalogue 323, driver 5,491 / backfill 8,009; guards re-legged (leg (t) by key, seen red first). READ-FIRST found commit 1's own seam: the driver's pending-set read was producer-blind → `5c29b2e` LORAMER_DRIVER_PENDING_OWN_PRODUCER_V1 (producer like 'driver-%'; guard leg (f) seen red).
+· `70d224b` LORAMER_MISSED_DAY_WALK_V1 + migration 090 (lane 'missed') — hole-map candidates oldest-first in 30-day windows ≤ T−B, own bound 8, same meter, no self-chain, seals/rotation untouched. PENDING CHECK (b) drained campaign|base 107 days in one fire and found the clock page starving a tail → `8d8b6d3` LORAMER_MISSED_CURSOR_V1 + migration 091 (durable cursor; guard legs (h)(i) seen red 5/5).
+· PROOF RE-READ (~02:55Z 09-13): 6/6 — 349/349 accounted, held by nobody 0, held-and-scheduled 79 (06-16..07-29, by 10-28). HUMAN RECONCILE PASS (Russ, Google Ads app): August clicks/impressions/cost/CTR exact; conversions 716 vs 713 (0.4% restatement drift, expected). DECISIONS LORAMER_COLD_PROOF_ESCENTIAL_COMPLETE_V1 owns it.
+
+── SHIPPED 2026-09-12/13 (four code commits + two migrations, all through the push gate; check:data 25 green · 9 red on each, same set, nothing baselined) ──
+· `a7743cd` DEALIAS · `5c29b2e` DRIVER PENDING OWN PRODUCER · `70d224b` MISSED LANE (+090 via MCP) · `8d8b6d3` MISSED CURSOR (+091 via MCP). Deploys READY 21:08Z · 23:20Z · 00:20Z · 01:56Z.
+· Guard suite 179/179 (missed-lane-shape new). Lane numbers: driver 5,491 = 17 × 323 · backfill 8,009.
+
+── STANDING RULINGS (Russ, this session; DECISIONS LORAMER_COLD_PROOF_ESCENTIAL_COMPLETE_V1 owns the text) ──
+· (i) ACTUAL-CUSTOMERS SCOPE TEST — a defect is in scope if it touches a real customer account as actually captured.
+· (ii) HELD-AND-SCHEDULED SCORING — a day is accounted when walk-covered, attested-empty, or legacy-held with its walk-ask scheduled; red is only held-by-nobody-and-unscheduled.
+· ESCENTIAL DATES FINAL: inception = first served = first spend = 2026-02-23; Russ's 03-02 = second campaign's start.
+
+── ▶▶ NEXT STEP, IN ORDER ──
+(1) PENDING CHECK (a) — the 11:00Z driver window (first on 5c29b2e's read) shows 323/connection driver-observed surfaces for its window_end with the four base keys present (forward_observation_log producer like 'driver-%'); check-forward-driver-connection-day-complete GREEN the morning after. If a fire still logs "273/273 observed" with 0 driver-observed bases, do not re-pin the allocation.
+(2) PENDING CHECK (b′) — universe_missed_cursor sweep ≥ 1 (wrap at 349; 11 fires in, cursor 176 at 02:50Z, every fire 16/16); the first live allowance-cut fire (missedNextEntry < missedCursorFrom + 16) followed by the next fire's missedCursorFrom equal to it.
+(3) SECOND COLD ACCOUNT — pick from the 14 inception-less google connections (discovery precedes the walk; the enumerator refuses without it), point the */5 entry or wait for 2/2 B, then the same six-condition read.
+(4) 2/2 B from hold/rotation-2-2b — rebase onto main resolving vercel.json, universe-stream-consumer.guard.mjs, universe-resumer.ts, route.ts to the rotation versions with the proof-lane numbers (driver 5,491 / backfill 8,009 now, not 5,423 / 8,077).
+(5) HONEST-INSTRUMENT FIXES — ★FLEET-METER-DRIFT-FLICKERS · ★BACKFILL-STATUS-READS-DRY-FIRES · ★ROTATION-INDEX-HEAP-FETCH (migration) · the fire_log advanced=0 counter.
+
+── CLOCKS ──
+· T−B on Escential = today − 90 (click-through 90 · view-through 1 · cost horizon 90); the 79 held-and-scheduled base days drain as it rolls, done by 2026-10-28.
+· The missed lane sweeps 16 entries per fire from the cursor: one full pass ≈ 22 fires ≈ 1.8 h.
+· Foam OH's lookback stays PAUSED while Escential holds the cron entry (2/2 B returns it).
+
+── STANDING ──
+· ⛔ LEGACY IS FROZEN FOR GOOGLE STANDARD ACCESS (DECISIONS:2461) — the '' writers stay byte-identical; ★LEGACY-RETIREMENT (new, owner-gated) names the four gates.
+· Reconcile already PASSED; nothing awaited from Russ except the Supabase compute-event read for 2026-09-08 16:09–16:13Z (device merge; blocks nothing now).
+· check:data's standing reds (9): completion-claims · drain-throttle · coverage-density · nongrain-window-resolves · anchor-recedes-by-window · top-edge-is-held · no-owed-day-left-behind (Foam OH; the four bases there are the missed lane's first fleet population) · forward-driver-connection-day-complete (REQUIRED 323, red until the first 323 window) · drain-alias-coverage live leg (v) (two geo aliases ±1 impression on 09-09 — writer drift, not baselined). None baselined.
+· Do not run check:data beside a press or a proof read (★CHECKDATA-EVICTS-THE-CACHE). Pushes gated; deploy-poll-until-terminal; one-block output; CITED gate — all bind.
+
+╚═══════════════════════════════════════════════════════════════════════════════════════════════════════════╝
+
+╔═══ ⛔ SUPERSEDED 2026-09-13 · HISTORY · DO NOT ACT ON ITS DATES — SESSION CLOSE 2026-09-12 (EARLY) — PROOF LANE LIVE (ab48975): CRON → ESCENTIAL, BACKFILL 8,077, DRIVER WHOLE · ROW-CAP READERS FIXED (bf910f1) · ESCENTIAL PRESS CLOSED 03:02Z · 2/2 B PARKED ON hold/rotation-2-2b. NEXT: MORNING READ OF ESCENTIAL'S OVERNIGHT WALK, THEN RUSS'S START DATE, THEN THE HONEST-INSTRUMENT FIXES ═══╗
 
 ⛔ **THE PRIORITY LAW GOVERNS (ESSENCE, Russ): CAPTURE FIRST, LORA SECOND, EVERYTHING ELSE THIRD.** All GET.
 Recompute days-to-2026-09-30 at resume from the clock; never read it off this block.
