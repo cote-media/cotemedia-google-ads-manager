@@ -472,6 +472,7 @@ const GUARDS = [
   'tests/guards/driver-never-writes-attempt-log.guard.mjs', // LORAMER_FORWARD_DRIVER_V1 — the driver writes forward_observation_log, never universe_attempt_log
   'tests/guards/driver-partial-unit.guard.mjs', // LORAMER_DRIVER_PARTIAL_UNIT_V1 — an over-budget unit is admitted at ≥ MIN_PARTIAL_MS, cut at the deadline, resumed from pendingOnly; no phantom coverage
   'tests/guards/driver-skips-alias-covered.guard.mjs', // LORAMER_FORWARD_DRIVER_V1 — 16 alias-covered + 14 legacy-asked surfaces excluded; HEAVY 41
+  'tests/guards/missed-fire-durability.guard.mjs', // LORAMER_MISSED_FIRE_DURABILITY_V1 — the missed lane's per-fire cursor facts ride universe_fire_log (092: three nullable columns; NULL = lane did not run)
   'tests/guards/missed-lane-shape.guard.mjs', // LORAMER_MISSED_DAY_WALK_V1 — the fourth lane: hole-map candidates, T−B end, lane 'missed', no self-chain, attests, own bound + shared meter
   'tests/guards/every-unit-observed.guard.mjs', // LORAMER_FORWARD_DRIVER_V1 — one observation per asked surface, ok|zero|nongrain|error
   'tests/guards/unit-lease-covers-max-duration.guard.mjs', // LORAMER_FORWARD_DRIVER_V1 — DRIVER_CLAIM_LEASE_S = DRIVER_MAX_DURATION_S + N, pinned to the sync route's maxDuration

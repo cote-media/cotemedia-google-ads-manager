@@ -90,6 +90,7 @@ import {
   LOOKBACK_REQUESTS_PER_RUN, LOOKBACK_WINDOW_DAYS_BASIC,
   SEALED_STRIP_DERIVATIONS_PER_RUN,
   MISSED_REQUESTS_PER_RUN, MISSED_SURFACES_PER_RUN, MISSED_ALLOWANCE_MS, MISSED_WINDOW_DAYS, chunkSpanOldestFirst, advanceMissedCursor, // LORAMER_MISSED_DAY_WALK_V1 / LORAMER_MISSED_CURSOR_V1
+  missedFireColumns, // LORAMER_MISSED_FIRE_DURABILITY_V1 — the fire row carries the lane's cursor facts (092)
   addDaysISO,
   type LastAttempt,
 } from '@/lib/backfill/universe-resumer'
@@ -185,6 +186,11 @@ export async function GET(request: Request) {
     scanned?: number; scanCompleted?: boolean; catalogSize?: number; candidates?: number
     published?: number; requestsSelected?: number; advanced?: number
     refusals?: Array<{ verdict: string }>; elapsedMs?: number; held?: string | null
+    // LORAMER_MISSED_FIRE_DURABILITY_V1 (migration 092) — the missed lane's per-fire cursor facts, durable on the fire row.
+    // Passed by the completed and meter-held heartbeats (both run after the enumeration and the 091 cursor write);
+    // absent/null on the pre-lane exits (lease-held, quota-hold, rotation-error) and on a refused/errored lane → three
+    // NULL columns, which is how a reader tells "did not run" from "started at entry 0".
+    missed?: { cursorFrom: number | null; nextEntry: number | null; wrapped: boolean | null } | null
   }): Promise<string | null> => {
     try {
       const histogram: Record<string, number> = {}
@@ -194,6 +200,8 @@ export async function GET(request: Request) {
         scanned: h.scanned ?? 0, scan_completed: h.scanCompleted ?? false, catalog_size: h.catalogSize ?? 0,
         candidates: h.candidates ?? 0, published: h.published ?? 0, requests_selected: h.requestsSelected ?? 0,
         advanced: h.advanced ?? 0, refusals: histogram, elapsed_ms: h.elapsedMs ?? 0, held: h.held ?? null,
+        // LORAMER_MISSED_FIRE_DURABILITY_V1 — NULL means the lane did not run on this fire; never 0 / false.
+        missed_cursor_from: h.missed?.cursorFrom ?? null, missed_next_entry: h.missed?.nextEntry ?? null, missed_wrapped: h.missed?.wrapped ?? null,
       })
       if (error) { console.error('[universe-resume] HEARTBEAT WRITE FAILED (fire unaffected):', error.message); return error.message }
       return null
@@ -855,6 +863,9 @@ export async function GET(request: Request) {
       fireOutcome: 'meter-held', scanned, scanCompleted: scanned >= MAX_ENTRIES_SCANNED_PER_RUN || scanned === entries.length,
       catalogSize: entries.length, candidates: candidates.length, advanced: advancedCovered, refusals,
       elapsedMs: Date.now() - startedAt, held: gate.reason,
+      // LORAMER_MISSED_FIRE_DURABILITY_V1 — the enumeration and the 091 cursor write happened above the meter gate, so a
+      // held fire still moved the cursor and the row says where to.
+      missed: missedFireColumns({ enumerated: missedCursorNext !== null, cursorFrom: missedFrom, nextEntry: missedNextEntry, wrapped: missedWrapped }),
     })
     return NextResponse.json({
       ok: true, published: 0, held: gate.reason, scanned, heartbeatError: hbErr,
@@ -1012,6 +1023,9 @@ export async function GET(request: Request) {
     // EXECUTION-DARK in check-walk-liveness). ONE addend: the witness equals publishedOf by construction.
     candidates: candidates.length, published: published.length, requestsSelected: sel.requests + lookbackRequestsToSend + selMissed.requests,
     advanced: advancedCovered, refusals, elapsedMs,
+    // LORAMER_MISSED_FIRE_DURABILITY_V1 — the same three values the FIRE line prints (missedCursorFrom / missedNextEntry /
+    // missedWrapped), durable on the row; null when the lane did not enumerate (refused or errored).
+    missed: missedFireColumns({ enumerated: missedCursorNext !== null, cursorFrom: missedFrom, nextEntry: missedNextEntry, wrapped: missedWrapped }),
   })
 
   return NextResponse.json({

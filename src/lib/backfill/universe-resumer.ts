@@ -179,6 +179,21 @@ export function advanceMissedCursor(a: { cursor: number; nextEntry: number | nul
   return { next, wrapped: false }
 }
 
+/**
+ * LORAMER_MISSED_FIRE_DURABILITY_V1 — what the fire row records about the missed lane (migration 092: missed_cursor_from ·
+ * missed_next_entry · missed_wrapped on universe_fire_log). The per-fire cursor facts lived only in the FIRE console line
+ * (Vercel, ~1 h) — the (b′) cut/resume pair could not be read for 136 of 144 fires on 2026-09-13, and the first live cut
+ * (Glenn Stearns 18:15Z, 0 → 4 of 16) would have raced the same hour. `enumerated` = the lane's page was neither refused
+ * nor thrown (the cursor was advanced and written). NULL — the whole triple — means "the lane did not run": never 0,
+ * never false, so a reader can tell a refusal from a fire that started at entry 0. A wrap carries nextEntry null with
+ * wrapped true (the enumerator reached the catalogue end). tests/guards/missed-fire-durability.guard.mjs drives this.
+ */
+export interface MissedFireColumns { cursorFrom: number; nextEntry: number | null; wrapped: boolean }
+export function missedFireColumns(a: { enumerated: boolean; cursorFrom: number; nextEntry: number | null; wrapped: boolean }): MissedFireColumns | null {
+  if (!a.enumerated) return null
+  return { cursorFrom: Math.max(0, Math.floor(a.cursorFrom)), nextEntry: a.nextEntry === null ? null : Math.max(0, Math.floor(a.nextEntry)), wrapped: Boolean(a.wrapped) }
+}
+
 /** LORAMER_MISSED_DAY_WALK_V1 — split a contiguous owed span into ≤ width-day windows, OLDEST FIRST. */
 export function chunkSpanOldestFirst(start: string, end: string, width: number): Array<{ start: string; end: string; days: number }> {
   const out: Array<{ start: string; end: string; days: number }> = []
