@@ -1,4 +1,47 @@
-╔═══ SESSION CLOSE 2026-09-13 — COLD PROOF COMPLETE ON ESCENTIAL: 6/6 + RECONCILE PASS · DEALIAS a7743cd · DRIVER 5c29b2e · MISSED LANE 70d224b + 090 · CURSOR 8d8b6d3 + 091. NEXT: PENDING CHECKS (a)/(b′), THEN SECOND COLD ACCOUNT. ═══╗
+╔═══ SESSION CLOSE 2026-09-13 (LATE) — ROTATION LIVE: THE */5 ENTRY SERVES THE WHOLE FLEET (158c608) · PARTIAL-UNIT DRIVER a7a5f11 · MISSED FIRE DURABILITY 38e264e + 092 · PENDING CHECKS (a)/(b′) CLOSED · 14 COLD DESCENTS SELF-STARTED 18:05Z. NEXT: MORNING READ, THEN THE SECOND COLD PROOF ON WHICHEVER FLOOR SEALS FIRST. ═══╗
+
+⛔ **THE PRIORITY LAW GOVERNS (ESSENCE, Russ): CAPTURE FIRST, LORA SECOND, EVERYTHING ELSE THIRD.** All GET.
+Recompute days-to-2026-09-30 at resume from the clock; never read it off this block.
+
+── THE ARC 2026-09-13, 14:49Z → 20:30Z (session log, newest-first; DECISIONS LORAMER_SESSION_2026_09_13_ROTATION_LIVE_V1 owns every ruling and figure named here) ──
+· R9 LAP ACCOUNTED (20:15Z): 17/17 served once in the designed order in 85 min (611 requests); second turns at 48 each; 14 inceptions discovered on first touch, 0 failures; one meter-held fire (7621, 20:05Z, "google meter unreadable", cause UNESTABLISHED); 0 vendor errors in 3,700+ attempt rows; walk today 1,584 of 8,009, fleet 8,142 of 15,000.
+· `38e264e` LORAMER_MISSED_FIRE_DURABILITY_V1 + migration 092 (READY 19:11:32Z) — missed_cursor_from / missed_next_entry / missed_wrapped on universe_fire_log, NULL = lane did not run. (b′) CLOSED FROM THE TABLE: Glenn Stearns cut at 4 (18:15Z), row 7617 at 19:42Z reads missed_cursor_from = 4.
+· `158c608` LORAMER_ONE_CLICK_WALK_V1 2/2 B (READY 18:00:15Z) — hold/rotation-2-2b rebased (four conflicts, all "which entry"); the entry is `?dryRun=0`, live enumeration, never-served-first LRU. ⛔ A CRON TURN IS A FIRST TOUCH: 13 inception-less clients discovered and descended from 18:05Z with no button and no hand edit — the zero-touch cold path exists and is proven. The hand-edit inventory for a new customer is now EMPTY (only the MCC link before PICK remains, outside the app).
+· R5 CONNECT TRACE: at connect we know customer id · descriptive name · owner email · priority 10 and nothing else (currency/timezone fetched at PICK, dropped); the connect kick fires the frozen legacy drain via the scoped bypass; forward + driver pick a new connection up with zero edits; DRIVER_ALLOCATION is a 17-connection literal nobody instruments.
+· R4 SELECTION FACTS: 13 candidates read (all now served by rotation, so the selection question dissolved); Postgres restarted 17:49:41Z (pg_stat reset → check-parent-analyze red until 03:30Z).
+· `a7a5f11` LORAMER_DRIVER_PARTIAL_UNIT_V1 (READY 16:06:05Z) — Bath Fitter's REST slice was skipped forever (`estimate 768 s vs remaining 676 s → skip-over-budget`); now admitted at ≥ MIN_PARTIAL_MS 120 s, cut at the deadline, estimate over pendingOnly; proven 273/273 in exactly 2 partials, 2 s overrun. (a) CLOSED: 16/16 at 323 with four bases; day-complete FIRST GREEN 17/17 for 2026-09-12.
+· R1 OPEN-VERIFY (14:49Z): (a) 16/16 + Bath Fitter 50/323 (→ the partial-unit find); (b′) sweep ≥ 1 (6 sweeps) but the pair unobservable — FIRE lines only live an hour (→ the 092 build).
+
+── SHIPPED 2026-09-13 (three code commits + one migration through the push gate; check:data 25 green · 9 red on each, standing set + the restart artefact, nothing baselined) ──
+· `a7a5f11` PARTIAL UNIT (guards 180/180) · `158c608` ROTATION 2/2 B (180/180) · `38e264e` MISSED FIRE DURABILITY + 092 (181/181; ledger 20260913184245). Deploys READY 16:06Z · 18:00Z · 19:11Z.
+· Lane numbers unchanged: driver 5,491 = 17 × 323 · backfill 8,009 · forward reserve 1,500 (sum = the 15,000 cap, zero headroom by construction).
+
+── STANDING RULINGS FROM TODAY (DECISIONS LORAMER_SESSION_2026_09_13_ROTATION_LIVE_V1 owns the text) ──
+· A cron rotation turn IS a first touch (discovery + descend bite); the button is a trigger, not a precondition.
+· Ship the proven rotation, measure the meter, then decide descent weighting (★DESCENT-WEIGHTING-DECISION) — never the other order.
+· The fleet's descent state is the attempt ledger; universe_run_state is the Escential/Foam-OH-era table.
+
+── ▶▶ NEXT STEP, IN ORDER ──
+(1) MORNING READ (read-only, universe_fire_log + cron_runs + pg_stat): meter-held onset vs the ~08:30Z 09-14 forecast and % of turns served since (fire_outcome by hour) · Bath Fitter's 09-14 driver window (11:00Z; 273/273 in ≤ 2 partials, `deferred N` in the ran-in line) · check-parent-analyze cleared at 03:30Z or not (pg_stat last_analyze) · fire-7621 recurrence scan (any meter-held row with a NULL missed triple: quote elapsed_ms) · the 8 zero-row accounts after ~10 more turns each (attempt_finished rows_written by client, descend lane).
+(2) SECOND COLD PROOF — the fleet's descents ARE cold connects now: when the first non-Escential floor seals (fire_log refusals floor-sealed = 349 on a client, or sealedHeld 349 in its FIRE line), run the six-condition read + Russ's reconcile on THAT account. No entry repoint exists any more; nothing to point.
+(3) HONEST-INSTRUMENT FIXES from the queue, smallest blast first: ★METER-UNREADABLE-HOLD-7621 (watch) · ★ANALYZE-LEDGER-STALE · ★DRIVER-ALLOCATION-LITERAL-18TH-CONNECTION · ★FLEET-METER-DRIFT-FLICKERS · ★BACKFILL-STATUS-READS-DRY-FIRES · ★ROTATION-INDEX-HEAP-FETCH (migration) · the fire_log advanced=0 counter · ★FORWARD-18-ERRORS-DAILY (read-only, legacy frozen) · ★CONNECT-DROPS-CURRENCY-TIMEZONE · ★CONNECT-KICK-FIRES-LEGACY-DRAIN (with ★LEGACY-RETIREMENT).
+(4) OWNER-GATED, unchanged: ★LEGACY-RETIREMENT (four gates) · Google Standard Access pending (DO-NOT-REAPPLY).
+
+── CLOCKS ──
+· Rotation lap = 17 fires × 5 min = 85 min; a client's turn recurs every ~85 min while the meter allows; ~730 requests per lap ≈ 12,400/day vs 8,009 → meter-held turns expected from ~08:30Z 09-14, ~65% of turns served after that as the 24 h window rolls.
+· Missed sweep on a cold account ≈ 4 days (2–16 entries per turn at the 20 s allowance); Escential 16/16 per turn (sweep 8+).
+· Escential's 79 held-and-scheduled base days now drain on its rotation turns (every ~85 min, 2 lookback requests each); Foam OH's lookback is un-paused the same way.
+· check-parent-analyze: 03:30Z 09-14 analyze job clears leg (a); its ledger row will not move (★ANALYZE-LEDGER-STALE).
+
+── STANDING ──
+· ⛔ LEGACY IS FROZEN FOR GOOGLE STANDARD ACCESS (DECISIONS:2461) — the '' writers stay byte-identical; ★LEGACY-RETIREMENT names the four gates.
+· Nothing awaited from Russ. The second cold proof's reconcile is Russ's when a floor seals.
+· check:data's standing reds (8 + the restart artefact): completion-claims · drain-throttle · coverage-density · nongrain-window-resolves · anchor-recedes-by-window · top-edge-is-held · no-owed-day-left-behind · drain-alias-coverage live leg (v) · check-parent-analyze (until 03:30Z). forward-driver-connection-day-complete is GREEN. None baselined.
+· Do not run check:data beside a press or a proof read (★CHECKDATA-EVICTS-THE-CACHE). Pushes gated; deploy-poll-until-terminal; one-block output; CITED gate — all bind.
+
+╚═══════════════════════════════════════════════════════════════════════════════════════════════════════════╝
+
+╔═══ ⛔ SUPERSEDED 2026-09-13 (LATE) · HISTORY · DO NOT ACT ON ITS DATES — SESSION CLOSE 2026-09-13 (EARLY) — COLD PROOF COMPLETE ON ESCENTIAL: 6/6 + RECONCILE PASS · DEALIAS a7743cd · DRIVER 5c29b2e · MISSED LANE 70d224b + 090 · CURSOR 8d8b6d3 + 091. NEXT: PENDING CHECKS (a)/(b′), THEN SECOND COLD ACCOUNT. ═══╗
 
 ⛔ **THE PRIORITY LAW GOVERNS (ESSENCE, Russ): CAPTURE FIRST, LORA SECOND, EVERYTHING ELSE THIRD.** All GET.
 Recompute days-to-2026-09-30 at resume from the clock; never read it off this block.
