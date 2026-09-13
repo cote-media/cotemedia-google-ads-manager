@@ -135,10 +135,28 @@ export function estimateUnitMs(a: { rows: number; surfaces: number; rateRowsPerS
 export type UnitDecision = 'run' | 'skip-over-budget'
 
 /**
- * THE DOOR CHECK, PER UNIT, IN ORDER. A unit runs when its estimate fits the remaining budget; two units in one
- * invocation is the "packed" case, and it is decided by the same predicate, not a flag (ruling m: heavy takes a fire
- * alone follows from the estimate, never from a name).
+ * LORAMER_DRIVER_PARTIAL_UNIT_V1 — THE ADMISSION FLOOR. A unit is admitted whenever at least this much budget remains,
+ * WHATEVER its estimate; the deadline cut in runCatalogueUnit bounds what it actually does, and the ledger
+ * (readSliceObservationState's set-difference) resumes the remainder next fire.
+ * = DRIVER_MAX_DURATION_S 800 s − DRIVER_BUDGET_MS 680 s (forward-driver.ts): the headroom that bounds ONE worst-case
+ * in-flight surface past the deadline — measured on the 2026-09-12 fleet: driver-HEAVY worst 104,198 rows ≈ 98 s at the
+ * 1,060 rows/s shared-host rate, Bath Fitter driver-REST worst 57,254 ≈ 54 s — plus its observation write. Below this an
+ * admission burns a DRIVER_CLAIM_LEASE_S (900 s) claim for ≤ 1 ask and hands the next fire a claim-lost.
+ * tests/guards/driver-partial-unit.guard.mjs pins the value and the door.
+ */
+export const MIN_PARTIAL_MS = 120_000
+
+/**
+ * THE DOOR CHECK, PER UNIT, IN ORDER — LORAMER_DRIVER_PARTIAL_UNIT_V1 (2026-09-13). A unit is admitted when at least
+ * MIN_PARTIAL_MS remains, regardless of its estimate: the estimate is a PRIOR (rows last observed ÷ a rate floor), not a
+ * measurement, and a unit whose prior exceeds the WHOLE budget must still run — cut at the deadline by runCatalogueUnit
+ * and resumed from the pending remainder next fire (the shape that already ran 112 + 157 = 269 surfaces across two fires
+ * on 2026-09-11). MEASURED 2026-09-13, Bath Fitter 60e6dd99: the old predicate (estimate > remaining → skip) refused
+ * "estimate 717452 rows ≈ 768 s vs remaining 676 s" on every fire, and the REST slice went unobserved for two days.
+ * 'skip-over-budget' survives ONLY below the floor. Ruling m's "heavy takes a fire alone" is now a consequence of the
+ * cut, not of the door: a heavy unit admitted late does what fits and defers the rest.
  */
 export function decideUnit(a: { estimateMs: number; remainingMs: number }): UnitDecision {
-  return a.estimateMs > a.remainingMs ? 'skip-over-budget' : 'run'
+  void a.estimateMs // printed in the FIRE line as the unit's expected duration; no longer gates admission
+  return a.remainingMs >= MIN_PARTIAL_MS ? 'run' : 'skip-over-budget'
 }

@@ -13,10 +13,13 @@
 // `__fwd_google:<slice>` (disjoint from '<platform>', '__fwd_google', '__drain_google', catchup's key; pseudo-rows
 // `left(platform,2) = '__'` are excluded by check-frozen-cursors and the walk never reads sync_state). One invocation
 // loops PENDING units — pending = the ledger holds no observation with window_end = D for some surface of the slice
-// (ruling q: completeness is read from forward_observation_log, never the schedule) — and the budget is checked PER
+// (ruling q: completeness is read from forward_observation_log, never the schedule) — and the door is checked PER
 // UNIT before its claim (★BUDGET-CHECKED-ONCE-PER-FIRE-NOT-PER-UNIT-OF-WORK): estimate = last observed rows for the
-// (client, slice) ÷ write rate + one round-trip per surface. Two units in one invocation is the packed case; ruling m's
-// "heavy takes a fire alone" follows from the estimate, never from a name.
+// PENDING surfaces of the (client, slice) ÷ write rate + one round-trip per pending surface. LORAMER_DRIVER_PARTIAL_UNIT_V1
+// (2026-09-13): the estimate no longer gates admission — a unit is admitted whenever ≥ MIN_PARTIAL_MS remains, cut at the
+// deadline by runCatalogueUnit, and resumed from the ledger's pending remainder next fire (the old "estimate > remaining →
+// skip" door refused Bath Fitter's REST slice on every fire once its own prior grew past the whole budget). Two units in
+// one invocation is the packed case; ruling m's "heavy takes a fire alone" is a consequence of the cut, not of a name.
 //
 // WHAT IT WRITES: metrics_daily through captureSurfaceStreaming's ONE upsert path (upsertMetricsChunked) and
 // forward_observation_log (one row per asked surface, producer `driver-<slice>`). ⛔ NEVER the walk's ledger (ruling b/f —
@@ -182,8 +185,10 @@ export async function runForwardDriver(opts: RunForwardDriverOpts): Promise<Driv
         const entries = slice === 'HEAVY' ? catalogue.heavy : catalogue.rest
         const surfaces = entries.map((e) => ({ resource: e.resource, segment: e.segment ?? '' }))
         const pendingOnly = surfaces.filter((s) => !state.observedAtWindowEnd.has(surfaceKey(s)))
-        const estimateRows = surfaces.reduce((sum, s) => sum + (state.lastRowsBySurface.get(surfaceKey(s)) ?? 0), 0)
-        const estimateMs = estimateUnitMs({ rows: estimateRows, surfaces: surfaces.length, rateRowsPerSec: rate, latencyPerSurfaceMs: LATENCY_PER_SURFACE_MS })
+        // LORAMER_DRIVER_PARTIAL_UNIT_V1 — the estimate is over the PENDING remainder, both terms. Over the whole slice a
+        // unit that ran 112 of 273 re-estimated at the full 768 s next fire; the number printed below is what is left to do.
+        const estimateRows = pendingOnly.reduce((sum, s) => sum + (state.lastRowsBySurface.get(surfaceKey(s)) ?? 0), 0)
+        const estimateMs = estimateUnitMs({ rows: estimateRows, surfaces: pendingOnly.length, rateRowsPerSec: rate, latencyPerSurfaceMs: LATENCY_PER_SURFACE_MS })
         const unit: DriverUnitReport = {
           clientId: client.id, customerId, slice, surfaces: surfaces.length, pendingSurfaces: pendingOnly.length, estimateMs, estimateRows,
           decision: 'not-pending', claimed: false, ran: false, actualMs: null, rows: 0, apiRows: 0, requests: 0, errors: 0,

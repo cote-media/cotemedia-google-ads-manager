@@ -470,6 +470,7 @@ const GUARDS = [
   'tests/guards/push-gate.guard.mjs', // LORAMER_PUSH_GATE_V1 — git push blocked on any non-green or unparseable guard verdict (PreToolUse Bash)
   'tests/guards/conversion-action-attribute-only.guard.mjs', // LORAMER_CONVERSION_ACTION_ATTRIBUTE_ONLY_V1 — the conversion_action read is attribute-only; template-scoped, denominator verdict
   'tests/guards/driver-never-writes-attempt-log.guard.mjs', // LORAMER_FORWARD_DRIVER_V1 — the driver writes forward_observation_log, never universe_attempt_log
+  'tests/guards/driver-partial-unit.guard.mjs', // LORAMER_DRIVER_PARTIAL_UNIT_V1 — an over-budget unit is admitted at ≥ MIN_PARTIAL_MS, cut at the deadline, resumed from pendingOnly; no phantom coverage
   'tests/guards/driver-skips-alias-covered.guard.mjs', // LORAMER_FORWARD_DRIVER_V1 — 16 alias-covered + 14 legacy-asked surfaces excluded; HEAVY 41
   'tests/guards/missed-lane-shape.guard.mjs', // LORAMER_MISSED_DAY_WALK_V1 — the fourth lane: hole-map candidates, T−B end, lane 'missed', no self-chain, attests, own bound + shared meter
   'tests/guards/every-unit-observed.guard.mjs', // LORAMER_FORWARD_DRIVER_V1 — one observation per asked surface, ok|zero|nongrain|error
