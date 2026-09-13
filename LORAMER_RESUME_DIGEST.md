@@ -7,8 +7,8 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-09-12T23:55:43.285Z
-- built_from HEAD: 5c29b2e3b2a69142654f1567785a63bcf6f3ce9d  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-09-13T01:27:53.950Z
+- built_from HEAD: 70d224bdf92ca0e4f59c3370d05e27be36d2859f  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
@@ -16,8 +16,8 @@
   Source-doc content_hash at build time:
     - LORAMER_ESSENCE.md: f5047b1702afe312eea1e36ba12179e72e3072584fbb23a46300e22a6f17bc5a
     - LORAMER_HANDOFF.md: 9f349d7d232366b1bb0b29f797f7225540b3ff6c8b43fbbea32eb0db4e761680
-    - CONTINUE_HERE.md: 27223705af16e21463c31b188bbf00cf4559e65f40109ac361e86a3e9ec99ad4
-    - LORAMER_DECISIONS.md: 77506149faaf33590b12e58da7ff20550a4e49f755f0d1e9a4d2b7b8ad74e32e
+    - CONTINUE_HERE.md: 66f7a36020433992eefcbb9cdef5ec465e1ce6f3a17524f8dfca2e9b929bc4b7
+    - LORAMER_DECISIONS.md: be7d9636a334f8128b22d609310659d381ce01f0c57bc88ae39455daca6103c9
     - LORAMER_QUEUE_OF_RECORD.md: 948f0179799be694f8ac9d61999ff900730d0a83dc7278bd11c592fad0963493
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: f4bef31497a46984a3a54acc5be044d48000688ba74ed59689e7c4bfafca21a1
     - RESUME_INSTRUCTIONS.md: 2f317be8a48fcd7767dad447cebcaa417cae0e8d8cd5bc5a01cc3939fb9f994a
@@ -538,7 +538,10 @@ Recompute days-to-2026-09-30 at resume from the clock; never read it off this bl
   LORAMER_WALK_BASE_DEALIAS_V1 owns the measured case (294 Escential / 114 Foam OH sealed-unasked base days; fleet owed set 58,528 days ≈
   1,995 requests under the alias-blind read, READ-FIRST ~22:40Z). check:data after it: 25 green · 9 red — no-owed-day-left-behind now names
   Foam OH's four bases (29 days each) = the TRUE red commit 2 heals; forward-driver-connection-day-complete reads REQUIRED 323.
-· COMMIT 2 LORAMER_MISSED_DAY_WALK_V1 (this commit) — the fourth lane 'missed' (migration 090 applied via MCP before the push): hole-map
+· COMMIT 2b LORAMER_MISSED_CURSOR_V1 (this commit) — the missed lane's enumeration resumes from a durable cursor (migration 091
+  universe_missed_cursor, applied via MCP before the push) instead of a clock page; measured cause: page 7/22 cut at entry 103 by the
+  allowance, entries 103–111 skipped for the sweep. DECISIONS rider under LORAMER_MISSED_DAY_WALK_V1.
+· COMMIT 2 LORAMER_MISSED_DAY_WALK_V1 (`70d224b`, READY 00:20Z 09-13) — the fourth lane 'missed' (migration 090 applied via MCP before the push): hole-map
   candidates oldest-first in 30-day windows at or below T−B, MISSED_REQUESTS_PER_RUN 8, same meter, no self-chain, seals/rotation untouched;
   DECISIONS LORAMER_MISSED_DAY_WALK_V1 owns the shape; QUEUE ★MISSED-DAY-WALK → shipped-proving, Escential-first.
 · COMMIT 1b LORAMER_DRIVER_PENDING_OWN_PRODUCER_V1 (`5c29b2e`, READY 23:20Z 09-12) — the driver's pending-set read (forward-observation-log.ts
@@ -597,6 +600,11 @@ returned zero rows; the earliest v1 'ok' window with rows starts 2026-02-12; met
     (2026-06-15 on 09-13); the 349 floor_stop seals keep their stop=2026-02-23 basis (no new seal rows, no descend rotation
     stamp); the hole map over [2026-02-23..T−B] trends to 0 uncovered on the two bases; the 06-16..07-29 remainder drains as
     T−B rolls (done by 2026-10-28). The 14 inception-less clients read 'missed-inception-unknown' by design.
+    (b′) commit 2b (LORAMER_MISSED_CURSOR_V1): the instrument carries missedCursorFrom/missedCursorNext/missedSweep; after an
+    allowance-cut fire (missedNextEntry < missedCursorFrom + 16) the NEXT fire's missedCursorFrom equals that nextEntry (the
+    01:10Z cut at 103 → entries 103–111 are enumerated on the next pass, not skipped); missedSweep increments once per full
+    catalogue pass; universe_missed_cursor holds one row for Escential. customer|base uncovered ≤ T−B → 0 (its page came
+    round ≈ 01:30Z, pre-2b).
 (1) MORNING READ of Escential's overnight walk, read-only: surfaces asked of 349 (81 attempts / 77 surfaces at 03:22Z); earliest descend
     window_start receding BELOW 2026-09-05 once all 349 have a top (≈ 9 fires); errors and held reasons in universe_fire_log (every held
     reason must name 8077); the adapter meter (v1 + v2) against 8,077; `node scripts/check-walk-liveness.mjs` ALIVE; Foam OH silent

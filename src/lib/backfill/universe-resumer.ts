@@ -160,11 +160,19 @@ export const MISSED_SURFACES_PER_RUN = 16
 export const MISSED_ALLOWANCE_MS = 20_000
 export const MISSED_WINDOW_DAYS = 30
 
-/** LORAMER_MISSED_DAY_WALK_V1 — which catalogue page this fire enumerates: stateless, rotating with the five-minute cron clock. */
-export function missedPageFor(nowMs: number, totalEntries: number, perPage: number): { page: number; pages: number; fromEntry: number } {
-  const pages = Math.max(1, Math.ceil(totalEntries / Math.max(1, perPage)))
-  const page = Math.floor(nowMs / 300_000) % pages
-  return { page, pages, fromEntry: page * perPage }
+/**
+ * LORAMER_MISSED_CURSOR_V1 — where the NEXT fire's enumeration starts, from what THIS fire actually enumerated.
+ * The enumerator reports `nextEntry` = the first entry it did NOT reach (null when it reached the catalogue end). The
+ * cursor advances only to that point — a page cut by the allowance resumes exactly where it was cut, never at the next
+ * page — and wraps to 0 at the end (one sweep = every entry). A pass that reached nothing (nextEntry === cursor) HOLDS.
+ * A stale cursor beyond a shrunk catalogue wraps. Replaced missedPageFor (a clock page: measured 2026-09-13 01:10Z, page
+ * 7/22 cut at entry 103, entries 103–111 skipped for the whole sweep).
+ */
+export function advanceMissedCursor(a: { cursor: number; nextEntry: number | null; total: number }): { next: number; wrapped: boolean } {
+  const total = Math.max(0, Math.floor(a.total))
+  if (a.nextEntry === null || a.nextEntry >= total || a.cursor >= total) return { next: 0, wrapped: true }
+  const next = Math.max(0, Math.floor(a.nextEntry))
+  return { next, wrapped: false }
 }
 
 /** LORAMER_MISSED_DAY_WALK_V1 — split a contiguous owed span into ≤ width-day windows, OLDEST FIRST. */

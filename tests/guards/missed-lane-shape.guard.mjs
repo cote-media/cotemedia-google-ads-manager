@@ -13,8 +13,16 @@
 //  (e) coverage's attesting set is exactly {descend, lookback, missed} (ATTESTING_LANES) — a missed zero seals a day
 //  (f) the missed lane has its own bound (MISSED_REQUESTS_PER_RUN) and is metered with the other lanes in mayFetchProgram
 //  (g) registered in scripts/run-guards.mjs
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+//  (h) LORAMER_MISSED_CURSOR_V1 — the enumeration RESUMES from a durable cursor (readMissedCursor / writeMissedCursor),
+//      never from a clock page: a page cut by the allowance at entry N must resume at N on the next fire, not skip to the
+//      next page. Seen live 2026-09-13 01:10Z: page 7/22 cut at nextEntry 103, the next fire moved to page 8 — entries
+//      103–111 unenumerated for the whole sweep (a deterministic cut starves the same entries every sweep).
+//  (i) the pure advanceMissedCursor is driven: cut → resume at nextEntry; end → wrap to 0 and count a sweep; refusal → hold.
+import { readFileSync, mkdtempSync, rmSync } from 'node:fs'
+import { resolve, join } from 'node:path'
+import { tmpdir } from 'node:os'
+import { spawnSync } from 'node:child_process'
+import { createRequire } from 'node:module'
 const ROOT = process.env.LORAMER_GUARD_ROOT || process.cwd()
 const findings = []
 const read = (p) => { try { return readFileSync(resolve(ROOT, p), 'utf8') } catch { return '' } }
@@ -57,9 +65,43 @@ if (route && !/boundedSelection\(missed,\s*MISSED_REQUESTS_PER_RUN\)/.test(route
 if (route && !/mayFetchProgram\(adapter,\s*\[\.\.\.sel\.taken,\s*\.\.\.lookbackToSend,\s*\.\.\.selMissed\.taken\]/.test(route)) findings.push(`(f) ${ROUTE} does not meter the missed lane's spans with the other lanes in mayFetchProgram — a lane the meter cannot see is a governor granting itself the difference`)
 // (g) registered
 if (!/missed-lane-shape\.guard\.mjs/.test(read('scripts/run-guards.mjs'))) findings.push('(g) not registered in scripts/run-guards.mjs')
+// (h) durable cursor, not a clock page
+if (route && /missedPageFor\(/.test(route)) findings.push(`(h) ${ROUTE} still derives the enumeration start from missedPageFor (a clock page) — a page cut by the allowance skips its tail for the whole sweep (LORAMER_MISSED_CURSOR_V1)`)
+if (route && !/readMissedCursor\(/.test(route)) findings.push(`(h) ${ROUTE} never reads the missed cursor (readMissedCursor)`)
+if (route && !/writeMissedCursor\(/.test(route)) findings.push(`(h) ${ROUTE} never writes the missed cursor (writeMissedCursor) — the enumeration cannot resume`)
+if (route && !/fromEntry:\s*missedFrom/.test(route)) findings.push(`(h) ${ROUTE} does not pass the cursor (missedFrom) as enumerateGoogleHoles' fromEntry`)
+// (i) the pure cursor advance, driven
+{
+  const out = mkdtempSync(join(tmpdir(), 'loramer-missed-cursor-'))
+  try {
+    const r = spawnSync(join(ROOT, 'node_modules', '.bin', 'tsc'), [
+      resolve(ROOT, RESUMER), resolve(ROOT, 'src/lib/backfill/universe-surfaces.ts'),
+      '--target', 'es2020', '--module', 'commonjs', '--moduleResolution', 'node',
+      '--skipLibCheck', '--noResolve', '--rootDir', resolve(ROOT), '--outDir', out,
+    ], { encoding: 'utf8' })
+    if (r.error) throw new Error(`tsc did not run: ${r.error.message}`)
+    const R = createRequire(import.meta.url)(join(out, 'src/lib/backfill/universe-resumer.js'))
+    if (typeof R.advanceMissedCursor !== 'function') findings.push(`(i) ${RESUMER} does not export advanceMissedCursor — the cursor's advance rule is not a pure, driven function`)
+    else {
+      const table = [
+        { name: 'CUT at 103 inside page 96..111 → resume at 103, no wrap', a: { cursor: 96, nextEntry: 103, total: 349 }, want: { next: 103, wrapped: false } },
+        { name: 'page fully enumerated → resume at its end', a: { cursor: 96, nextEntry: 112, total: 349 }, want: { next: 112, wrapped: false } },
+        { name: 'catalogue end (nextEntry null) → wrap to 0, one sweep counted', a: { cursor: 336, nextEntry: null, total: 349 }, want: { next: 0, wrapped: true } },
+        { name: 'nextEntry at/after total → wrap', a: { cursor: 336, nextEntry: 349, total: 349 }, want: { next: 0, wrapped: true } },
+        { name: 'nothing scanned (nextEntry == cursor) → HOLD, never skip', a: { cursor: 96, nextEntry: 96, total: 349 }, want: { next: 96, wrapped: false } },
+        { name: 'stale cursor beyond a shrunk catalogue → 0', a: { cursor: 400, nextEntry: null, total: 349 }, want: { next: 0, wrapped: true } },
+      ]
+      for (const c of table) {
+        const got = R.advanceMissedCursor(c.a)
+        if (!got || got.next !== c.want.next || got.wrapped !== c.want.wrapped) findings.push(`(i) advanceMissedCursor — ${c.name}: got ${JSON.stringify(got)}, expected ${JSON.stringify(c.want)}`)
+      }
+    }
+  } catch (e) { findings.push(`(i) could not compile/drive ${RESUMER}: ${e.message}`) }
+  finally { rmSync(out, { recursive: true, force: true }) }
+}
 if (findings.length) {
   console.error(`[missed-lane-shape] FAIL — ${findings.length} finding(s):`)
   for (const f of findings) console.error(`  - ${f}`)
   process.exit(1)
 }
-console.log("[missed-lane-shape] PASS — missed candidates come from the hole map, end at T−B, publish lane 'missed' without touching the lookback frontier, never self-chain (both advance() sites), attest, and are bounded and metered with the other lanes.")
+console.log("[missed-lane-shape] PASS — missed candidates come from the hole map, end at T−B, publish lane 'missed' without touching the lookback frontier, never self-chain (both advance() sites), attest, are bounded and metered with the other lanes, and the enumeration resumes from a durable cursor (advanceMissedCursor driven 6/6).")

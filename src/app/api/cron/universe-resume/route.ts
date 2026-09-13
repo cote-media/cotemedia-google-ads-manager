@@ -75,12 +75,13 @@ import {
   MAX_REQUESTS_PER_RUN, MAX_ENTRIES_SCANNED_PER_RUN, WINDOWS_PER_PUBLISHED_MESSAGE,
   LOOKBACK_REQUESTS_PER_RUN, LOOKBACK_WINDOW_DAYS_BASIC,
   SEALED_STRIP_DERIVATIONS_PER_RUN,
-  MISSED_REQUESTS_PER_RUN, MISSED_SURFACES_PER_RUN, MISSED_ALLOWANCE_MS, MISSED_WINDOW_DAYS, missedPageFor, chunkSpanOldestFirst, // LORAMER_MISSED_DAY_WALK_V1
+  MISSED_REQUESTS_PER_RUN, MISSED_SURFACES_PER_RUN, MISSED_ALLOWANCE_MS, MISSED_WINDOW_DAYS, chunkSpanOldestFirst, advanceMissedCursor, // LORAMER_MISSED_DAY_WALK_V1 / LORAMER_MISSED_CURSOR_V1
   addDaysISO,
   type LastAttempt,
 } from '@/lib/backfill/universe-resumer'
 import { boundaryDaysFor } from '@/lib/backfill/lookback-boundary' // LORAMER_LOOKBACK_LANE_V1 — the boundary, read from the store per account per fire
 import { enumerateGoogleHoles } from '@/lib/backfill/google-hole-map' // LORAMER_MISSED_DAY_WALK_V1 — the fourth lane's candidates come from the hole map, never from the clock
+import { readMissedCursor, writeMissedCursor } from '@/lib/backfill/universe-missed-cursor' // LORAMER_MISSED_CURSOR_V1 — the enumeration resumes where the allowance cut it
 
 export const dynamic = 'force-dynamic'
 export const fetchCache = 'force-no-store'
@@ -698,8 +699,14 @@ export async function GET(request: Request) {
   // the lookback cannot (its strip climbs above the descent's top). Which surfaces this fire enumerates rotates with
   // the cron clock (missedPageFor): stateless, no frontier, no second rotation — a hole asked today is covered or
   // attested tomorrow and simply drops out of the next enumeration.
+  // ⛔ LORAMER_MISSED_CURSOR_V1 — WHICH ENTRIES THIS FIRE ENUMERATES IS A DURABLE CURSOR, NOT A CLOCK PAGE. Measured
+  // 2026-09-13 01:10Z: the clock page 7/22 was cut by the allowance at entry 103 and the next fire moved to page 8, so
+  // entries 103–111 went unenumerated for the whole sweep — and a deterministic cut starves the same entries every
+  // sweep. Now each fire starts at the stored cursor and the cursor advances only past what the enumerator actually
+  // reached (its nextEntry), wrapping at the catalogue end: one sweep = every entry, whatever the allowance does.
   const missed: Candidate[] = []
-  let missedPage: { page: number; pages: number; fromEntry: number } | null = null
+  let missedFrom = 0, missedSweep = 0, missedCursorNext: number | null = null, missedWrapped = false
+  let missedCursorWriteError: string | null = null
   let missedScanned = 0, missedNextEntry: number | null = null, missedOwedDaysSeen = 0, missedSurfacesWithHoles = 0
   let missedBoundaryEnd: string | null = null
   if (!boundary.known) {
@@ -709,18 +716,25 @@ export async function GET(request: Request) {
   } else {
     // T−B: the same arithmetic deriveBoundaryStrip uses — today = yesterday + 1, boundaryEnd = today − B.
     missedBoundaryEnd = addDaysISO(addDaysISO(yesterday, 1), -Math.max(1, Math.floor(boundary.days)))
-    missedPage = missedPageFor(Date.now(), entries.length, MISSED_SURFACES_PER_RUN)
     try {
+      const stored = await readMissedCursor(clientId, adapter.platform)
+      missedSweep = stored.sweep
+      missedFrom = stored.cursor >= entries.length ? 0 : stored.cursor
       const page = await enumerateGoogleHoles({
         clientId, start: stopFacts.inceptionDate, end: missedBoundaryEnd,
         bounds: { allowanceMs: MISSED_ALLOWANCE_MS, maxEntries: MISSED_SURFACES_PER_RUN },
-        fromEntry: missedPage.fromEntry, entries,
+        fromEntry: missedFrom, entries,
       })
       if (page.refused) {
+        // A refused enumeration advances nothing — the cursor holds where it was.
         refusals.push({ label: '(missed lane)', verdict: 'missed-refused', reason: page.reason })
       } else {
         missedScanned = page.scanned
         missedNextEntry = page.nextEntry
+        const adv = advanceMissedCursor({ cursor: missedFrom, nextEntry: page.nextEntry, total: entries.length })
+        missedCursorNext = adv.next
+        missedWrapped = adv.wrapped
+        if (!dryRun) missedCursorWriteError = await writeMissedCursor(clientId, adapter.platform, adv.next, adv.wrapped ? missedSweep + 1 : missedSweep)
         missedOwedDaysSeen = page.tiers.uncovered
         missedSurfacesWithHoles = new Set(page.uncovered.map((h) => `${h.surface.resource}|${h.surface.segment}`)).size
         // OLDEST FIRST across every hole this page found; each contiguous span is split into ≤30-day windows.
@@ -733,7 +747,7 @@ export async function GET(request: Request) {
             missed.push({
               entry, label, ranges: 1, owedDays: w.days,
               windowStart: w.start, windowEnd: w.end, sizingBasis: 'missed-hole',
-              anchorBasis: `hole ${h.start}..${h.end} (${h.days} day(s)) from the hole map, page ${missedPage.page + 1}/${missedPage.pages}; window ${w.start}..${w.end} ≤ T−B ${missedBoundaryEnd}`,
+              anchorBasis: `hole ${h.start}..${h.end} (${h.days} day(s)) from the hole map, cursor ${missedFrom}→${missedCursorNext ?? '?'} of ${entries.length} (sweep ${missedSweep}); window ${w.start}..${w.end} ≤ T−B ${missedBoundaryEnd}`,
               receded: false, stopBasis: `boundary T−${boundary.days} — ${boundary.basis}`,
               rangeSpans: [w.days],
             })
@@ -908,7 +922,7 @@ export async function GET(request: Request) {
     lookbackOwedDays: lookback.reduce((n, c) => n + c.owedDays, 0),
     lookbackWaiting, lookbackEarliestAskable: earliestAskable, lookbackNone,
     // LORAMER_MISSED_DAY_WALK_V1
-    missedBoundaryEnd, missedPage: missedPage ? `${missedPage.page + 1}/${missedPage.pages}` : null, missedScanned, missedNextEntry,
+    missedBoundaryEnd, missedCursorFrom: missedFrom, missedCursorNext, missedSweep, missedWrapped, missedCursorWriteError, missedScanned, missedNextEntry,
     missedSurfacesWithHoles, missedOwedDaysSeen, missedCandidates: missed.length, missedSelected: selMissed.taken.length,
     missedRequestsSelected: selMissed.requests, missedDroppedForBound: selMissed.droppedForBound,
     // LORAMER_QUEUE_REMOVED_INLINE_WALK_V1 — the fire now EXECUTES: these three are the execution half.
@@ -953,7 +967,7 @@ export async function GET(request: Request) {
     instrument,
     published, executed, unitErrors, deferredUnits, refusals,
     lookback: { mode: LOOKBACK_SLOT_MODE, boundary, width: lookbackWidth, observed: lookbackObserved, waiting: lookbackWaiting, earliestAskable, none: lookbackNone },
-    missed: { boundaryEnd: missedBoundaryEnd, page: missedPage, scanned: missedScanned, nextEntry: missedNextEntry, surfacesWithHoles: missedSurfacesWithHoles, owedDaysSeen: missedOwedDaysSeen, candidates: missed.length, selected: selMissed.taken.map((c) => ({ label: c.label, window: `${c.windowStart}..${c.windowEnd}`, days: c.owedDays })), requests: selMissed.requests, droppedForBound: selMissed.droppedForBound },
+    missed: { boundaryEnd: missedBoundaryEnd, cursorFrom: missedFrom, cursorNext: missedCursorNext, sweep: missedSweep, wrapped: missedWrapped, cursorWriteError: missedCursorWriteError, scanned: missedScanned, nextEntry: missedNextEntry, surfacesWithHoles: missedSurfacesWithHoles, owedDaysSeen: missedOwedDaysSeen, candidates: missed.length, selected: selMissed.taken.map((c) => ({ label: c.label, window: `${c.windowStart}..${c.windowEnd}`, days: c.owedDays })), requests: selMissed.requests, droppedForBound: selMissed.droppedForBound },
   })
 
   } finally {

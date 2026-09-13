@@ -9,7 +9,10 @@ Recompute days-to-2026-09-30 at resume from the clock; never read it off this bl
   LORAMER_WALK_BASE_DEALIAS_V1 owns the measured case (294 Escential / 114 Foam OH sealed-unasked base days; fleet owed set 58,528 days ≈
   1,995 requests under the alias-blind read, READ-FIRST ~22:40Z). check:data after it: 25 green · 9 red — no-owed-day-left-behind now names
   Foam OH's four bases (29 days each) = the TRUE red commit 2 heals; forward-driver-connection-day-complete reads REQUIRED 323.
-· COMMIT 2 LORAMER_MISSED_DAY_WALK_V1 (this commit) — the fourth lane 'missed' (migration 090 applied via MCP before the push): hole-map
+· COMMIT 2b LORAMER_MISSED_CURSOR_V1 (this commit) — the missed lane's enumeration resumes from a durable cursor (migration 091
+  universe_missed_cursor, applied via MCP before the push) instead of a clock page; measured cause: page 7/22 cut at entry 103 by the
+  allowance, entries 103–111 skipped for the sweep. DECISIONS rider under LORAMER_MISSED_DAY_WALK_V1.
+· COMMIT 2 LORAMER_MISSED_DAY_WALK_V1 (`70d224b`, READY 00:20Z 09-13) — the fourth lane 'missed' (migration 090 applied via MCP before the push): hole-map
   candidates oldest-first in 30-day windows at or below T−B, MISSED_REQUESTS_PER_RUN 8, same meter, no self-chain, seals/rotation untouched;
   DECISIONS LORAMER_MISSED_DAY_WALK_V1 owns the shape; QUEUE ★MISSED-DAY-WALK → shipped-proving, Escential-first.
 · COMMIT 1b LORAMER_DRIVER_PENDING_OWN_PRODUCER_V1 (`5c29b2e`, READY 23:20Z 09-12) — the driver's pending-set read (forward-observation-log.ts
@@ -68,6 +71,11 @@ returned zero rows; the earliest v1 'ok' window with rows starts 2026-02-12; met
     (2026-06-15 on 09-13); the 349 floor_stop seals keep their stop=2026-02-23 basis (no new seal rows, no descend rotation
     stamp); the hole map over [2026-02-23..T−B] trends to 0 uncovered on the two bases; the 06-16..07-29 remainder drains as
     T−B rolls (done by 2026-10-28). The 14 inception-less clients read 'missed-inception-unknown' by design.
+    (b′) commit 2b (LORAMER_MISSED_CURSOR_V1): the instrument carries missedCursorFrom/missedCursorNext/missedSweep; after an
+    allowance-cut fire (missedNextEntry < missedCursorFrom + 16) the NEXT fire's missedCursorFrom equals that nextEntry (the
+    01:10Z cut at 103 → entries 103–111 are enumerated on the next pass, not skipped); missedSweep increments once per full
+    catalogue pass; universe_missed_cursor holds one row for Escential. customer|base uncovered ≤ T−B → 0 (its page came
+    round ≈ 01:30Z, pre-2b).
 (1) MORNING READ of Escential's overnight walk, read-only: surfaces asked of 349 (81 attempts / 77 surfaces at 03:22Z); earliest descend
     window_start receding BELOW 2026-09-05 once all 349 have a top (≈ 9 fires); errors and held reasons in universe_fire_log (every held
     reason must name 8077); the adapter meter (v1 + v2) against 8,077; `node scripts/check-walk-liveness.mjs` ALIVE; Foam OH silent
