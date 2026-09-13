@@ -159,7 +159,7 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance, opts
   // rotation reads, the lane that may attest, the lane that self-chains. A forgotten field can therefore
   // only ever produce the OLD behaviour, never a silently-unchained or silently-unattesting one.
   const lane: NonNullable<UniverseMessageV2['lane']> = msg.lane ?? 'descend'
-  const label = `${entry.resource}${entry.segment ? ' / ' + entry.segment : ''}${lane === 'top-edge' ? ' [top-edge]' : lane === 'lookback' ? ' [lookback]' : ''}`
+  const label = `${entry.resource}${entry.segment ? ' / ' + entry.segment : ''}${lane === 'top-edge' ? ' [top-edge]' : lane === 'lookback' ? ' [lookback]' : lane === 'missed' ? ' [missed]' : ''}`
 
   // ══ 0 · THE VENDOR'S OWN REFUSAL, BEFORE ANYTHING ELSE ════════════════════════════════════════════════
   // ⛔ LORAMER_V2_QUOTA_SENTINEL_WIRED_V1 (★WALK-DOES-NOT-READ-OR-ARM-THE-QUOTA-SENTINEL). Placed FIRST, the
@@ -299,6 +299,12 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance, opts
     // lane's own frontier every fire (deriveBoundaryStrip); a chained successor would start a second descent.
     if (lane === 'lookback') {
       console.log(`[universe-v2] LOOKBACK ${clientId} ${label}: window ${startDate}..${endDate} already covered — NOT advancing (a lookback message never self-chains).`)
+      return
+    }
+    // LORAMER_MISSED_DAY_WALK_V1 — the fourth lane never self-chains either: its windows are re-enumerated from the
+    // hole map every fire; a chained successor would be a second descent.
+    if (lane === 'missed') {
+      console.log(`[universe-v2] MISSED ${clientId} ${label}: window ${startDate}..${endDate} already covered — NOT advancing (a missed message never self-chains).`)
       return
     }
     const adv = await advance(msg, adapter, { stopDate: floorDate, inceptionKnown: walkStop.inceptionKnown }, 'already covered — nothing owed in this window')
@@ -574,6 +580,11 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance, opts
   // LORAMER_LOOKBACK_LANE_V1 — both advance() exits carry the refusal for the lookback lane too.
   if (lane === 'lookback') {
     console.log(`[universe-v2] LOOKBACK ${clientId} ${label}: walked ${owed.ranges.length} range(s), ${totalRows} rows, ${daysCommitted.length} day(s) committed — NOT advancing (a lookback message never self-chains).`)
+    return
+  }
+  // LORAMER_MISSED_DAY_WALK_V1 — both advance() exits carry the refusal for the missed lane too.
+  if (lane === 'missed') {
+    console.log(`[universe-v2] MISSED ${clientId} ${label}: walked ${owed.ranges.length} range(s), ${totalRows} rows, ${daysCommitted.length} day(s) committed — NOT advancing (a missed message never self-chains).`)
     return
   }
   const adv = await advance({ ...msg, emptyStretch }, adapter, { stopDate: effectiveFloor, inceptionKnown: walkStop.inceptionKnown },

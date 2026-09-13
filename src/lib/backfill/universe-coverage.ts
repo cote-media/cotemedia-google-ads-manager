@@ -318,7 +318,10 @@ export async function attestedEmptyDays(k: CoverageKey, windowStart: string, win
     // account's MEASURED restatement boundary — DECISIONS (i)/(j) — so its zero is final). 'top-edge' still never
     // attests (its 20k+ historical rows resolve exactly as before), and 'unknown' still refuses.
     const lane = resolveTerminalLane(r, startsByKey)
-    if (lane !== 'descend' && lane !== 'lookback') continue
+    // LORAMER_MISSED_DAY_WALK_V1 — the attesting set is {descend, lookback, missed}: a missed window sits at or below
+    // the restatement boundary by construction (route: holes ≤ T−B only), so its zero seals a day exactly as a
+    // lookback zero does. 'top-edge' and 'unknown' still never attest.
+    if (!ATTESTING_LANES.has(lane)) continue
     for (const d of dayList(String(r.window_start), String(r.window_end))) {
       if (d >= windowStart && d <= windowEnd) attested.add(d)
     }
@@ -361,10 +364,13 @@ export interface TerminalRow {
  *     attesting terminals, 0 orphans by key and 0 by key+invocation). If one ever appears its provenance is
  *     unknown, and unknown must cost one vendor request rather than seal a day.
  */
+/** The lanes whose terminal zero|nongrain ATTESTS a day empty. Read by the guard from this literal, never re-derived. */
+export const ATTESTING_LANES: ReadonlySet<string> = new Set(['descend', 'lookback', 'missed'])
+
 export function resolveTerminalLane(
   r: { message_key?: string | null; invocation_id?: string | null },
   startsByKey: Map<string, Array<{ invocationId: string | null; lane: string | null }>>,
-): 'descend' | 'top-edge' | 'lookback' | 'unknown' {
+): 'descend' | 'top-edge' | 'lookback' | 'missed' | 'unknown' {
   const key = r.message_key ?? null
   if (key === null) return 'descend'
   const starts = startsByKey.get(key)
@@ -373,12 +379,15 @@ export function resolveTerminalLane(
   // ATTESTS like a descend one (its window ends at or below the measured boundary by construction), but a reader
   // that wants to tell "the descent answered" from "the lookback sealed" must be able to. The REFUSAL still wins:
   // a redelivery that EVER asked at the top edge resolves 'top-edge' whatever else it asked.
-  const nameOf = (lane: string | null): 'descend' | 'top-edge' | 'lookback' =>
-    lane === 'top-edge' ? 'top-edge' : lane === 'lookback' ? 'lookback' : 'descend'
+  const nameOf = (lane: string | null): 'descend' | 'top-edge' | 'lookback' | 'missed' =>
+    lane === 'top-edge' ? 'top-edge' : lane === 'lookback' ? 'lookback' : lane === 'missed' ? 'missed' : 'descend'
   const exact = starts.find((s) => (s.invocationId ?? '') === (r.invocation_id ?? ''))
   if (exact) return nameOf(exact.lane)
   if (starts.some((s) => s.lane === 'top-edge')) return 'top-edge'
-  return starts.some((s) => s.lane === 'lookback') ? 'lookback' : 'descend'
+  // LORAMER_MISSED_DAY_WALK_V1 — a redelivery mixing lookback/missed/descend starts names the most specific lane;
+  // all three attest, so the choice is a label, never a verdict.
+  if (starts.some((s) => s.lane === 'lookback')) return 'lookback'
+  return starts.some((s) => s.lane === 'missed') ? 'missed' : 'descend'
 }
 
 /**

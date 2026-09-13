@@ -9,7 +9,10 @@ Recompute days-to-2026-09-30 at resume from the clock; never read it off this bl
   LORAMER_WALK_BASE_DEALIAS_V1 owns the measured case (294 Escential / 114 Foam OH sealed-unasked base days; fleet owed set 58,528 days ≈
   1,995 requests under the alias-blind read, READ-FIRST ~22:40Z). check:data after it: 25 green · 9 red — no-owed-day-left-behind now names
   Foam OH's four bases (29 days each) = the TRUE red commit 2 heals; forward-driver-connection-day-complete reads REQUIRED 323.
-· COMMIT 1b LORAMER_DRIVER_PENDING_OWN_PRODUCER_V1 (this commit) — the driver's pending-set read (forward-observation-log.ts
+· COMMIT 2 LORAMER_MISSED_DAY_WALK_V1 (this commit) — the fourth lane 'missed' (migration 090 applied via MCP before the push): hole-map
+  candidates oldest-first in 30-day windows at or below T−B, MISSED_REQUESTS_PER_RUN 8, same meter, no self-chain, seals/rotation untouched;
+  DECISIONS LORAMER_MISSED_DAY_WALK_V1 owns the shape; QUEUE ★MISSED-DAY-WALK → shipped-proving, Escential-first.
+· COMMIT 1b LORAMER_DRIVER_PENDING_OWN_PRODUCER_V1 (`5c29b2e`, READY 23:20Z 09-12) — the driver's pending-set read (forward-observation-log.ts
   readSliceObservationState) counted the LEGACY family's window_end observations of the four bases as its own: the 21:30Z 09-12 fire logged
   "REST: complete for 2026-09-11 (273/273 observed)" on 16/17 connections while the ledger held 319 driver-observed surfaces and 0 bases.
   Fixed with producer like 'driver-%' on that one read; guard leg (f) in driver-skips-alias-covered seen RED against the pre-fix module.
@@ -56,10 +59,15 @@ returned zero rows; the earliest v1 'ok' window with rows starts 2026-02-12; met
 (earliest campaign start ≠ earliest served day), not the data.
 
 ── ▶▶ NEXT STEP, IN ORDER ──
-(0) PENDING CHECK (commit 1b): the FIRST driver fire after its deploy (*/10 11-16Z, or 17:30Z / 21:30Z) must show 323/connection
+(0) PENDING CHECKS — (a) commit 1b: the FIRST driver fire after its deploy (*/10 11-16Z, or 17:30Z / 21:30Z) must show 323/connection
     driver-observed surfaces for its window_end (forward_observation_log producer like 'driver-%', 4 base keys present), and
     check-forward-driver-connection-day-complete must read GREEN the morning after (REQUIRED 323). If a fire still logs "273/273
     observed" with 0 driver-observed bases, the pending read is still reading another family — do not re-pin the allocation.
+    (b) commit 2 (LORAMER_MISSED_DAY_WALK_V1): Escential's */5 fires carry `missed:` in the instrument (page x/22, candidates,
+    selected ≤ 8 requests); universe_attempt_log rows with lane='missed' land on campaign|base and customer|base windows ≤ T−B
+    (2026-06-15 on 09-13); the 349 floor_stop seals keep their stop=2026-02-23 basis (no new seal rows, no descend rotation
+    stamp); the hole map over [2026-02-23..T−B] trends to 0 uncovered on the two bases; the 06-16..07-29 remainder drains as
+    T−B rolls (done by 2026-10-28). The 14 inception-less clients read 'missed-inception-unknown' by design.
 (1) MORNING READ of Escential's overnight walk, read-only: surfaces asked of 349 (81 attempts / 77 surfaces at 03:22Z); earliest descend
     window_start receding BELOW 2026-09-05 once all 349 have a top (≈ 9 fires); errors and held reasons in universe_fire_log (every held
     reason must name 8077); the adapter meter (v1 + v2) against 8,077; `node scripts/check-walk-liveness.mjs` ALIVE; Foam OH silent

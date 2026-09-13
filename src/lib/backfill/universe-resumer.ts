@@ -140,6 +140,48 @@ export const WINDOWS_PER_PUBLISHED_MESSAGE = 1
 export const LOOKBACK_REQUESTS_PER_RUN = 2
 
 /**
+ * ⛔ LORAMER_MISSED_DAY_WALK_V1 — THE FOURTH LANE'S BOUNDS (QUEUE ★MISSED-DAY-WALK, Russ 2026-09-12: "a walk that RE-ASKS ANY
+ * DAY THE LEDGER SHOWS NEVER ASKED OR FAILED — any age, any client — once it is past the restatement boundary, on the
+ * same meter"). The candidates come from the hole map (google-hole-map.ts enumerateGoogleHoles — coverage-derived,
+ * alias-blind since LORAMER_WALK_BASE_DEALIAS_V1), OLDEST FIRST, in ≤ MISSED_WINDOW_DAYS ranges, admitted only at or
+ * below T−B (the same boundary the lookback lane derives). Its own bound beside the descent's 40 and the lookback's 2
+ * — three lanes, three bounds, one meter (the 8,009 backfill lane bills every resumer lane).
+ *   · MISSED_REQUESTS_PER_RUN = 8 ⇐ one fifth of the descent's bite; worst case 8 × 288 = 2,304/day, under the lane
+ *     alone and far under it beside a finished descent (Escential's descent is sealed: the bite is idle).
+ *   · MISSED_SURFACES_PER_RUN = 16 ⇐ 2× the request bound, the same "derive twice what you can publish" margin
+ *     SEALED_STRIP_DERIVATIONS_PER_RUN uses; 349/16 = 22 pages ⇒ a full catalogue sweep every 22 fires ≈ 1.8 h.
+ *   · MISSED_ALLOWANCE_MS = 20_000 ⇐ the enumerator probes coverage per day per surface (windowCoverage); a 200-day
+ *     interior is ~200 reads per surface, so 16 surfaces stay inside a 20 s slice of the fire; the enumerator returns
+ *     nextEntry when the allowance cuts it short and the next page is simply the next fire's.
+ *   · MISSED_WINDOW_DAYS = 30 ⇐ one vendor request per contiguous ≤30-day range (GAQL bills BETWEEN as one op).
+ */
+export const MISSED_REQUESTS_PER_RUN = 8
+export const MISSED_SURFACES_PER_RUN = 16
+export const MISSED_ALLOWANCE_MS = 20_000
+export const MISSED_WINDOW_DAYS = 30
+
+/** LORAMER_MISSED_DAY_WALK_V1 — which catalogue page this fire enumerates: stateless, rotating with the five-minute cron clock. */
+export function missedPageFor(nowMs: number, totalEntries: number, perPage: number): { page: number; pages: number; fromEntry: number } {
+  const pages = Math.max(1, Math.ceil(totalEntries / Math.max(1, perPage)))
+  const page = Math.floor(nowMs / 300_000) % pages
+  return { page, pages, fromEntry: page * perPage }
+}
+
+/** LORAMER_MISSED_DAY_WALK_V1 — split a contiguous owed span into ≤ width-day windows, OLDEST FIRST. */
+export function chunkSpanOldestFirst(start: string, end: string, width: number): Array<{ start: string; end: string; days: number }> {
+  const out: Array<{ start: string; end: string; days: number }> = []
+  const w = Math.max(1, Math.floor(width))
+  let s = start
+  while (s <= end) {
+    const e0 = addDaysISO(s, w - 1)
+    const e = e0 < end ? e0 : end
+    out.push({ start: s, end: e, days: Math.round((Date.parse(e + 'T00:00:00Z') - Date.parse(s + 'T00:00:00Z')) / 86_400_000) + 1 })
+    s = addDaysISO(e, 1)
+  }
+  return out
+}
+
+/**
  * ⛔ LORAMER_SEALED_STRIP_PASS_V1 — THE BOUND ON STRIP DERIVATIONS FOR FLOOR-SEALED SURFACES, per fire.
  *
  * WHY IT EXISTS: at fleet-terminal (ALL surfaces floor-sealed — Foam OH reached it 2026-08-25 ~20:00Z,

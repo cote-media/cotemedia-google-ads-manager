@@ -75,9 +75,12 @@ import {
   MAX_REQUESTS_PER_RUN, MAX_ENTRIES_SCANNED_PER_RUN, WINDOWS_PER_PUBLISHED_MESSAGE,
   LOOKBACK_REQUESTS_PER_RUN, LOOKBACK_WINDOW_DAYS_BASIC,
   SEALED_STRIP_DERIVATIONS_PER_RUN,
+  MISSED_REQUESTS_PER_RUN, MISSED_SURFACES_PER_RUN, MISSED_ALLOWANCE_MS, MISSED_WINDOW_DAYS, missedPageFor, chunkSpanOldestFirst, // LORAMER_MISSED_DAY_WALK_V1
+  addDaysISO,
   type LastAttempt,
 } from '@/lib/backfill/universe-resumer'
 import { boundaryDaysFor } from '@/lib/backfill/lookback-boundary' // LORAMER_LOOKBACK_LANE_V1 — the boundary, read from the store per account per fire
+import { enumerateGoogleHoles } from '@/lib/backfill/google-hole-map' // LORAMER_MISSED_DAY_WALK_V1 — the fourth lane's candidates come from the hole map, never from the clock
 
 export const dynamic = 'force-dynamic'
 export const fetchCache = 'force-no-store'
@@ -683,7 +686,67 @@ export async function GET(request: Request) {
   }
 
   // ── BOUNDED BY CONSTRUCTION, IN THE UNIT THAT GETS SPENT ────────────────────────────────────────────
+  // ── ⛔ THE FOURTH LANE — LORAMER_MISSED_DAY_WALK_V1 (QUEUE ★MISSED-DAY-WALK, Russ 2026-09-12) ─────────────────
+  // "A walk that RE-ASKS ANY DAY THE LEDGER SHOWS NEVER ASKED OR FAILED — any age, any client — once it is past the
+  // restatement boundary, on the same meter." Same catalog, same coverage module (alias-blind since
+  // LORAMER_WALK_BASE_DEALIAS_V1), same fetcher, same writer, same meter. What differs: the candidates are HOLES from
+  // google-hole-map.ts enumerateGoogleHoles (coverage-derived, forward-observed days excluded), taken OLDEST FIRST in
+  // ≤ MISSED_WINDOW_DAYS ranges, admitted only at or below T−B (the lookback lane's own boundary), under their own
+  // bound (MISSED_REQUESTS_PER_RUN), published under lane 'missed'. It never stamps the descend rotation (084 reads
+  // lane='descend' only) and never touches a floor seal (this route reads outcome='floor_stop' AND lane='descend'),
+  // so it asks windows on sealed surfaces without disturbing the seal — the descent cannot (the seal excludes it),
+  // the lookback cannot (its strip climbs above the descent's top). Which surfaces this fire enumerates rotates with
+  // the cron clock (missedPageFor): stateless, no frontier, no second rotation — a hole asked today is covered or
+  // attested tomorrow and simply drops out of the next enumeration.
+  const missed: Candidate[] = []
+  let missedPage: { page: number; pages: number; fromEntry: number } | null = null
+  let missedScanned = 0, missedNextEntry: number | null = null, missedOwedDaysSeen = 0, missedSurfacesWithHoles = 0
+  let missedBoundaryEnd: string | null = null
+  if (!boundary.known) {
+    refusals.push({ label: '(missed lane)', verdict: 'missed-boundary-unknown', reason: boundary.reason })
+  } else if (!stopFacts.inceptionDate) {
+    refusals.push({ label: '(missed lane)', verdict: 'missed-inception-unknown', reason: 'no universe_account_inception row — the hole map refuses without a floor; discovery precedes this lane' })
+  } else {
+    // T−B: the same arithmetic deriveBoundaryStrip uses — today = yesterday + 1, boundaryEnd = today − B.
+    missedBoundaryEnd = addDaysISO(addDaysISO(yesterday, 1), -Math.max(1, Math.floor(boundary.days)))
+    missedPage = missedPageFor(Date.now(), entries.length, MISSED_SURFACES_PER_RUN)
+    try {
+      const page = await enumerateGoogleHoles({
+        clientId, start: stopFacts.inceptionDate, end: missedBoundaryEnd,
+        bounds: { allowanceMs: MISSED_ALLOWANCE_MS, maxEntries: MISSED_SURFACES_PER_RUN },
+        fromEntry: missedPage.fromEntry, entries,
+      })
+      if (page.refused) {
+        refusals.push({ label: '(missed lane)', verdict: 'missed-refused', reason: page.reason })
+      } else {
+        missedScanned = page.scanned
+        missedNextEntry = page.nextEntry
+        missedOwedDaysSeen = page.tiers.uncovered
+        missedSurfacesWithHoles = new Set(page.uncovered.map((h) => `${h.surface.resource}|${h.surface.segment}`)).size
+        // OLDEST FIRST across every hole this page found; each contiguous span is split into ≤30-day windows.
+        const spans = [...page.uncovered].sort((a, b) => (a.start < b.start ? -1 : a.start > b.start ? 1 : 0))
+        for (const h of spans) {
+          const entry = byKey.get(`${h.surface.resource}|${h.surface.segment}`)
+          if (!entry) continue
+          const label = `${h.surface.resource}${h.surface.segment ? ' / ' + h.surface.segment : ''}`
+          for (const w of chunkSpanOldestFirst(h.start, h.end, MISSED_WINDOW_DAYS)) {
+            missed.push({
+              entry, label, ranges: 1, owedDays: w.days,
+              windowStart: w.start, windowEnd: w.end, sizingBasis: 'missed-hole',
+              anchorBasis: `hole ${h.start}..${h.end} (${h.days} day(s)) from the hole map, page ${missedPage.page + 1}/${missedPage.pages}; window ${w.start}..${w.end} ≤ T−B ${missedBoundaryEnd}`,
+              receded: false, stopBasis: `boundary T−${boundary.days} — ${boundary.basis}`,
+              rangeSpans: [w.days],
+            })
+          }
+        }
+        missed.sort((a, b) => (a.windowStart < b.windowStart ? -1 : a.windowStart > b.windowStart ? 1 : 0))
+      }
+    } catch (e: any) {
+      refusals.push({ label: '(missed lane)', verdict: 'missed-enumeration-error', reason: String(e?.message ?? e) })
+    }
+  }
   const sel = boundedSelection(candidates, MAX_REQUESTS_PER_RUN)
+  const selMissed = boundedSelection(missed, MISSED_REQUESTS_PER_RUN) // LORAMER_MISSED_DAY_WALK_V1 — its own bound, oldest first
   // ⛔ A SEPARATE BOUND, NOT A SHARE OF THE 40 — LORAMER_LOOKBACK_LANE_V1 (was LORAMER_TOP_EDGE_LANE_V1). Folding the
   // boundary strip into the descending bite would let a fragmented descent starve the lookback, or the lookback
   // starve the descent, depending only on scan order. Two lanes, two bounds, ONE meter (the program below sums both).
@@ -716,7 +779,7 @@ export async function GET(request: Request) {
   // governor over the same pool — the shape LORAMER_GOOGLE_LANE_ALLOCATION_V1 replaced.
   // ⛔ AND THE QUOTA SENTINEL NEEDS NO CHANGE AT ALL: it is checked at :125-126, BEFORE the catalog load, so
   // a vendor pause holds BOTH lanes for free and neither can publish into an armed quota.
-  const gate = await mayFetchProgram(adapter, [...sel.taken, ...lookbackToSend].flatMap((c) => c.rangeSpans))
+  const gate = await mayFetchProgram(adapter, [...sel.taken, ...lookbackToSend, ...selMissed.taken].flatMap((c) => c.rangeSpans))
   if (!gate.ok) {
     const hbErr = await fireHeartbeat({
       fireOutcome: 'meter-held', scanned, scanCompleted: scanned >= MAX_ENTRIES_SCANNED_PER_RUN || scanned === entries.length,
@@ -725,7 +788,7 @@ export async function GET(request: Request) {
     })
     return NextResponse.json({
       ok: true, published: 0, held: gate.reason, scanned, heartbeatError: hbErr,
-      wouldHavePublished: [...sel.taken.map((c) => c.label), ...lookbackToSend.map((c) => `${c.label} [lookback]`)], refusals,
+      wouldHavePublished: [...sel.taken.map((c) => c.label), ...lookbackToSend.map((c) => `${c.label} [lookback]`), ...selMissed.taken.map((c) => `${c.label} [missed]`)], refusals,
     })
   }
 
@@ -757,9 +820,10 @@ export async function GET(request: Request) {
     console.log(`[universe-resume] LOOKBACK ${LOOKBACK_SLOT_MODE === 'observe' ? 'OBSERVE' : 'PUBLISH'} ${clientId}: ${o.label} ${o.window} owed ${o.owedDays} day(s) → ${o.wouldBe} · boundary T−${o.boundaryDays ?? '?'} (${o.boundarySource})`)
   }
   console.log(`[universe-resume] LOOKBACK ${clientId}: mode=${LOOKBACK_SLOT_MODE} boundary=${boundary.known ? `${boundary.days}d` : 'UNKNOWN'} width=${lookbackWidth} frontier=${lookbackFrontier.size}${lookbackFrontierReadFailed ? ' (READ FAILED)' : ''} candidates=${lookback.length} selected=${selLook.taken.length} waiting=${lookbackWaiting} (earliest askable ${earliestAskable ?? 'n/a'}) none=${lookbackNone}`)
-  const toSend: Array<{ c: Candidate; lane: 'descend' | 'lookback' }> = [
+  const toSend: Array<{ c: Candidate; lane: 'descend' | 'lookback' | 'missed' }> = [
     ...sel.taken.map((c) => ({ c, lane: 'descend' as const })),
     ...lookbackToSend.map((c) => ({ c, lane: 'lookback' as const })),
+    ...selMissed.taken.map((c) => ({ c, lane: 'missed' as const })), // LORAMER_MISSED_DAY_WALK_V1 — after the two lanes that hold the clock
   ]
   for (let unitIdx = 0; unitIdx < toSend.length; unitIdx++) {
     const { c, lane } = toSend[unitIdx]
@@ -843,6 +907,10 @@ export async function GET(request: Request) {
     lookbackRequestsSelected: selLook.requests, lookbackDroppedForBound: selLook.droppedForBound,
     lookbackOwedDays: lookback.reduce((n, c) => n + c.owedDays, 0),
     lookbackWaiting, lookbackEarliestAskable: earliestAskable, lookbackNone,
+    // LORAMER_MISSED_DAY_WALK_V1
+    missedBoundaryEnd, missedPage: missedPage ? `${missedPage.page + 1}/${missedPage.pages}` : null, missedScanned, missedNextEntry,
+    missedSurfacesWithHoles, missedOwedDaysSeen, missedCandidates: missed.length, missedSelected: selMissed.taken.length,
+    missedRequestsSelected: selMissed.requests, missedDroppedForBound: selMissed.droppedForBound,
     // LORAMER_QUEUE_REMOVED_INLINE_WALK_V1 — the fire now EXECUTES: these three are the execution half.
     // ⚠ COLUMN-SEMANTICS NOTE for readers of universe_fire_log: `published` now means UNITS SELECTED FOR
     // EXECUTION (the wet ones all execute or error in-fire), and `elapsed_ms` now spans SCAN + CAPTURE
@@ -872,7 +940,7 @@ export async function GET(request: Request) {
     // pushed at `published.push(…)` with its lane — so the f75d8aa sum `published.length + lookbackToSend.length` counted
     // each lookback unit twice (fire 6688: published 4 vs publishedOf 2; the 24 h witness 68 vs 34 attempts → a FALSE
     // EXECUTION-DARK in check-walk-liveness). ONE addend: the witness equals publishedOf by construction.
-    candidates: candidates.length, published: published.length, requestsSelected: sel.requests + lookbackRequestsToSend,
+    candidates: candidates.length, published: published.length, requestsSelected: sel.requests + lookbackRequestsToSend + selMissed.requests,
     advanced: advancedCovered, refusals, elapsedMs,
   })
 
@@ -885,6 +953,7 @@ export async function GET(request: Request) {
     instrument,
     published, executed, unitErrors, deferredUnits, refusals,
     lookback: { mode: LOOKBACK_SLOT_MODE, boundary, width: lookbackWidth, observed: lookbackObserved, waiting: lookbackWaiting, earliestAskable, none: lookbackNone },
+    missed: { boundaryEnd: missedBoundaryEnd, page: missedPage, scanned: missedScanned, nextEntry: missedNextEntry, surfacesWithHoles: missedSurfacesWithHoles, owedDaysSeen: missedOwedDaysSeen, candidates: missed.length, selected: selMissed.taken.map((c) => ({ label: c.label, window: `${c.windowStart}..${c.windowEnd}`, days: c.owedDays })), requests: selMissed.requests, droppedForBound: selMissed.droppedForBound },
   })
 
   } finally {

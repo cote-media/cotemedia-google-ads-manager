@@ -471,6 +471,7 @@ const GUARDS = [
   'tests/guards/conversion-action-attribute-only.guard.mjs', // LORAMER_CONVERSION_ACTION_ATTRIBUTE_ONLY_V1 — the conversion_action read is attribute-only; template-scoped, denominator verdict
   'tests/guards/driver-never-writes-attempt-log.guard.mjs', // LORAMER_FORWARD_DRIVER_V1 — the driver writes forward_observation_log, never universe_attempt_log
   'tests/guards/driver-skips-alias-covered.guard.mjs', // LORAMER_FORWARD_DRIVER_V1 — 16 alias-covered + 14 legacy-asked surfaces excluded; HEAVY 41
+  'tests/guards/missed-lane-shape.guard.mjs', // LORAMER_MISSED_DAY_WALK_V1 — the fourth lane: hole-map candidates, T−B end, lane 'missed', no self-chain, attests, own bound + shared meter
   'tests/guards/every-unit-observed.guard.mjs', // LORAMER_FORWARD_DRIVER_V1 — one observation per asked surface, ok|zero|nongrain|error
   'tests/guards/unit-lease-covers-max-duration.guard.mjs', // LORAMER_FORWARD_DRIVER_V1 — DRIVER_CLAIM_LEASE_S = DRIVER_MAX_DURATION_S + N, pinned to the sync route's maxDuration
   'tests/guards/driver-never-touches-legacy.guard.mjs', // LORAMER_FORWARD_DRIVER_V1 — the legacy path is frozen (DECISIONS:2461); the driver is catalogue-only and excludes the demo twin

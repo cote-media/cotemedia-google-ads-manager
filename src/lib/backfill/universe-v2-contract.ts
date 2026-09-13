@@ -127,7 +127,7 @@ export interface UniverseMessageV2 {
    * this module stays a pure contract; db-enum-mirrors-ts registers THIS union against the CHECK (migrations/088)
    * beside AttemptLane, so the two spellings cannot drift.
    */
-  lane?: 'descend' | 'top-edge' | 'lookback'
+  lane?: 'descend' | 'top-edge' | 'lookback' | 'missed' // LORAMER_MISSED_DAY_WALK_V1 — the fourth value, registered against migrations/090 beside AttemptLane
   /**
    * ⛔ THE PRODUCER-ASSIGNED MESSAGE IDENTIFIER — LORAMER_COMPLETION_SIGNAL_V1, and it is REQUIRED prior art
    * rather than a convenience. Enterprise Integration Patterns: *"Use a producer-assigned message identifier

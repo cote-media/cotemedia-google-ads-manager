@@ -105,7 +105,11 @@ export interface ParentWindow {
  * that may seal a day. The rotation still reads ONLY 'descend' (migrations/084:197); a lookback attempt never
  * moves the descending anchor. The CHECK constraint gained the value in migrations/088 (alters what 084 created).
  */
-export type AttemptLane = 'descend' | 'top-edge' | 'lookback'
+// LORAMER_MISSED_DAY_WALK_V1 (2026-09-12) — the FOURTH lane, 'missed': re-asks days the ledger shows never asked or
+// failed, oldest first, at or below the restatement boundary (T−B). Its terminal ATTESTS like descend/lookback (its
+// window is below the boundary by construction); it never self-chains and never enters the descend rotation. The
+// CHECK constraint gained the value in migrations/090 (alters what 084/088 created). QUEUE ★MISSED-DAY-WALK.
+export type AttemptLane = 'descend' | 'top-edge' | 'lookback' | 'missed'
 
 export interface WriteProvenance {
   messageKey?: string | null

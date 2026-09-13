@@ -136,6 +136,10 @@ if (typeof C.resolveTerminalLane === 'function') {
     ['k-redelivered-look', [{ invocationId: 'inv-a', lane: 'lookback' }, { invocationId: 'inv-b', lane: 'lookback' }]],
     ['k-mixed-look-descend', [{ invocationId: 'inv-a', lane: 'descend' }, { invocationId: 'inv-b', lane: 'lookback' }]],
     ['k-mixed-look-top', [{ invocationId: 'inv-a', lane: 'lookback' }, { invocationId: 'inv-b', lane: 'top-edge' }]],
+    // LORAMER_MISSED_DAY_WALK_V1 — the fourth lane attests; the refusal still wins over it; lookback outranks it as a label
+    ['k-missed', [{ invocationId: 'inv-m', lane: 'missed' }]],
+    ['k-mixed-missed-top', [{ invocationId: 'inv-a', lane: 'missed' }, { invocationId: 'inv-b', lane: 'top-edge' }]],
+    ['k-mixed-missed-look', [{ invocationId: 'inv-a', lane: 'missed' }, { invocationId: 'inv-b', lane: 'lookback' }]],
   ])
   const table = [
     { name: 'exact key+invocation, LOOKBACK', r: { message_key: 'k-look', invocation_id: 'inv-l' }, want: 'lookback' },
@@ -143,6 +147,9 @@ if (typeof C.resolveTerminalLane === 'function') {
     { name: 'REDELIVERY — descend + lookback starts, invocation unknown → lookback (both attest; the more specific lane names the row)', r: { message_key: 'k-mixed-look-descend', invocation_id: 'inv-zzz' }, want: 'lookback' },
     { name: 'REDELIVERY — lookback + TOP-EDGE starts, invocation unknown → the refusal wins', r: { message_key: 'k-mixed-look-top', invocation_id: 'inv-zzz' }, want: 'top-edge' },
     { name: 'exact invocation on the mixed key → lookback', r: { message_key: 'k-mixed-look-top', invocation_id: 'inv-a' }, want: 'lookback' },
+    { name: 'exact key+invocation, MISSED (LORAMER_MISSED_DAY_WALK_V1)', r: { message_key: 'k-missed', invocation_id: 'inv-m' }, want: 'missed' },
+    { name: 'REDELIVERY — missed + TOP-EDGE starts, invocation unknown → the refusal wins', r: { message_key: 'k-mixed-missed-top', invocation_id: 'inv-zzz' }, want: 'top-edge' },
+    { name: 'REDELIVERY — missed + lookback starts, invocation unknown → lookback (both attest; the label is the more specific lane)', r: { message_key: 'k-mixed-missed-look', invocation_id: 'inv-zzz' }, want: 'lookback' },
   ]
   for (const c of table) {
     const got = C.resolveTerminalLane(c.r, L)
@@ -150,10 +157,13 @@ if (typeof C.resolveTerminalLane === 'function') {
   }
   // the attesting set is exactly {descend, lookback}: read from the compiled module's own filter, never re-derived
   const covSrc = readFileSync(resolve(ROOT, COVERAGE), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1')
-  if (!/lane\s*!==\s*'descend'\s*&&\s*lane\s*!==\s*'lookback'/.test(covSrc) && !/\['descend',\s*'lookback'\]/.test(covSrc)) {
-    findings.push(`LOOKBACK TABLE — attestedEmptyDays in ${COVERAGE} does not admit BOTH 'descend' and 'lookback' as attesting lanes (and only those). Expected a filter of the shape \`lane !== 'descend' && lane !== 'lookback'\`.`)
+  // LORAMER_MISSED_DAY_WALK_V1 — the attesting set is exactly {descend, lookback, missed}, read from the module's own
+  // ATTESTING_LANES literal (universe-coverage.ts), never re-derived. Seen RED 2026-09-12 with the old two-lane regex.
+  if (!/ATTESTING_LANES[^=]*=\s*new Set\(\['descend',\s*'lookback',\s*'missed'\]\)/.test(covSrc) || !/if\s*\(!ATTESTING_LANES\.has\(lane\)\)\s*continue/.test(covSrc)) {
+    findings.push(`LOOKBACK TABLE — attestedEmptyDays in ${COVERAGE} does not admit exactly {'descend','lookback','missed'} as attesting lanes through ATTESTING_LANES. Expected \`ATTESTING_LANES = new Set(['descend', 'lookback', 'missed'])\` and \`if (!ATTESTING_LANES.has(lane)) continue\` — a top-edge or unknown terminal must never seal a day, and a missed terminal (below T−B by construction) must.`)
   }
-  if (!findings.some((f) => f.startsWith('LOOKBACK TABLE'))) console.log('[top-edge-never-attests] LOOKBACK TABLE PASS — 5/5: a lookback terminal resolves as lookback, a redelivery that ever touched the top edge still refuses, and attestedEmptyDays admits exactly {descend, lookback}.')
+
+  if (!findings.some((f) => f.startsWith('LOOKBACK TABLE'))) console.log('[top-edge-never-attests] LOOKBACK TABLE PASS — 8/8: a lookback terminal resolves as lookback, a redelivery that ever touched the top edge still refuses, and attestedEmptyDays admits exactly {descend, lookback}.')
 }
 
 // ── LIVE — WHAT ACTUALLY LANDED ──────────────────────────────────────────────────────────────────────
