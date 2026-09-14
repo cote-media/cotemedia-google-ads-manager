@@ -42,9 +42,12 @@ async function googleWalkStatus(clientId: string): Promise<{ state: GoogleWalkSt
     .limit(5000)
   const sealed = new Set((sealRows ?? []).map((r: any) => `${r.resource}|${r.segment ?? ''}`)).size
 
+  // LORAMER_STATUS_WET_FIRES_ONLY_V1 — WET fires only: a dry (diagnostic) completed fire carries the catalogue it was
+  // run against (Foam OH's three dry completed rows say 346 where the wet answer is 349), and the "complete" verdict
+  // below divides by this number. tests/guards/fire-log-readers-wet-only.guard.mjs pins the filter on every reader.
   const { data: fire } = await supabaseAdmin.from('universe_fire_log')
     .select('catalog_size')
-    .eq('client_id', clientId).eq('fire_outcome', 'completed')
+    .eq('client_id', clientId).eq('dry_run', false).eq('fire_outcome', 'completed')
     .order('fired_at', { ascending: false }).limit(1).maybeSingle()
   const catalogSize = fire?.catalog_size != null ? Number(fire.catalog_size) : null
 
