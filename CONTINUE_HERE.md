@@ -1,9 +1,12 @@
-╔═══ SESSION CLOSE 2026-09-14 — FIRE-7621 CLOSED (EBUSY RESOLVER EXHAUSTION → BOUNDED LAUNCHER 9f7ec28, RETUNE 64 9ff445c) · THE THREE PROOF-BLOCKING INSTRUMENTS SHIPPED (e83b2db · fb0a457 · 094 + 190e5cd) · THE LANE-BUDGET HOLD LANDED HONEST 17:56Z. NEXT: MORNING READ, THEN ★DESCENT-WEIGHTING-DECISION, THEN THE VET SEAL PROOF. ═══╗
+╔═══ SESSION CLOSE 2026-09-14 — FIRE-7621 CLOSED (EBUSY RESOLVER EXHAUSTION → BOUNDED LAUNCHER 9f7ec28, RETUNE 64 9ff445c) · THE THREE PROOF-BLOCKING INSTRUMENTS SHIPPED (e83b2db · fb0a457 · 094 + 190e5cd) · THE LANE-BUDGET HOLD LANDED HONEST 17:56Z. NEXT: MORNING READ, THEN THE LANE-DERIVATION READ (NO WEIGHTING MECHANISM — RUSS), THEN THE VET SEAL PROOF. ═══╗
 
 ⛔ **THE PRIORITY LAW GOVERNS (ESSENCE, Russ): CAPTURE FIRST, LORA SECOND, EVERYTHING ELSE THIRD.** All GET.
 Recompute days-to-2026-09-30 at resume from the clock; never read it off this block.
 
-── THE ARC 2026-09-14, 13:14Z → 19:20Z (session log, newest-first; DECISIONS LORAMER_SESSION_2026_09_14_STORM_AND_INSTRUMENTS_V1 owns every ruling and figure) ──
+── THE ARC 2026-09-14, 13:14Z → 21:45Z (session log, newest-first; DECISIONS LORAMER_SESSION_2026_09_14_STORM_AND_INSTRUMENTS_V1 owns every ruling and figure) ──
+· `824e389` (READY ~21:39Z) LORAMER_FANOUT_BOUNDED_GUARD_V1 — mapBounded's home src/lib/concurrency.ts; the cross-line fan-out guard found the SECOND live member (clients/metrics:131, one fetch per client on a live page) and bounded it at 8; runtime rail resolved GUARD-ONLY (Russ) with its trigger written; 186/186.
+· `0d07bc6` (READY 20:38:18Z) LORAMER_FIRE_LOG_WITNESSES_OPENED_V1 — requests_selected = requests OPENED (worker-returned sum); all three deferral classes witnessed by construction; Gate-A 3/3 diff 0, post-deploy drift 0; the 7847 row's +1 ages out ~17:20Z 09-15.
+· RUSS, EVENING: no runtime governor on the seam · the daily lane is a BASIC-ACCESS constraint — no weighting mechanism to a temporary cap · Standard Access escalation #2 resubmitted 2026-09-14 (contact_ads_api, "waiting to hear back"), DO-NOT-REAPPLY stands.
 · `190e5cd` + MIGRATION 094 (ledger 20260914190403, READY 19:18:45Z) LORAMER_ROTATION_SKIP_SCAN_V1 — universe_surface_rotation body → recursive skip-scan + LATERAL; EXCEPT-equal on 17/17 before apply; Foam OH 34,898 → 3,901 buffers; 3/3 post-apply fires clean; check-rotation-buffers leg (ceiling 5,000) in check:data.
 · `fb0a457` (READY ~18:35Z) LORAMER_FLEET_METER_PINNED_WINDOW_V1 — pinned closed fire interval, in-flight subtracted, discovery ops counted, ceiling 50 read from the code, drift must be 0. THE INSTRUMENT FOUND A REAL ONE: fire 7847 (Vet, 258 s) selected 47 / started 46 — a deadline-deferred unit → ★FIRE-LOG-WITNESSES-DEFERRED; the leg reads DRIFT +1 until ~17:20Z 09-15.
 · `9ff445c` (READY 18:04:32Z) COVERAGE_PROBE_CONCURRENCY 200 → 64 — the DB caps ~340 probes/s regardless; origin tail 3,278–4,149 ms → max 669 ms on the same deep fire; throughput unchanged.
@@ -13,27 +16,28 @@ Recompute days-to-2026-09-30 at resume from the clock; never read it off this bl
 · R4 DIAGNOSIS: "meter unreadable" was `getaddrinfo EBUSY` on the Vercel host — 3,000–3,700 concurrent probes per wall-less surface on the three deepest inceptions; 0.123 ms per probe server-side; not a timeout, not a socket. Tri-Copy and Influential Drones had written nothing for 19 h.
 · R3 MORNING READ: the 03:30Z ANALYZE SUCCEEDED (351.8 s, ledger id 43, gate PASSED — ★ANALYZE-LEDGER-STALE's premise did not hold); Bath Fitter 09-13 driver 323/323 (REST in 3 partials); Ennis 412 / Glass Plus 3,760 rows off zero; Glenn Stearns 0 descend rows on 440 attempts (its rows are missed-lane).
 
-── SHIPPED 2026-09-14 (five code pushes + one migration; check:data 15:22Z on 9f7ec28: 25 green · 8 red · 1 crashed — check-parent-analyze GREEN, the 8 reds the standing set, canonical-key-spelling's crash its own 57014 at 121 s) ──
-· `9f7ec28` PROBE BOUND (guards 182/182) · `e83b2db` WET FIRES (183/183) · `9ff445c` RETUNE 64 (183/183) · `fb0a457` PINNED METER (184/184) · `190e5cd` SKIP-SCAN + 094 (184/184). All deploys READY at report time.
+── SHIPPED 2026-09-14 (seven code pushes + one migration; check:data 15:22Z on 9f7ec28: 25 green · 8 red · 1 crashed — check-parent-analyze GREEN, the 8 reds the standing set, canonical-key-spelling's crash its own 57014 at 121 s) ──
+· `9f7ec28` PROBE BOUND (guards 182/182) · `e83b2db` WET FIRES (183/183) · `9ff445c` RETUNE 64 (183/183) · `fb0a457` PINNED METER (184/184) · `190e5cd` SKIP-SCAN + 094 (184/184) · `0d07bc6` WITNESSES OPENED (185/185) · `824e389` FAN-OUT GUARD (186/186). All deploys READY at report time.
 · Lane numbers unchanged: driver 5,491 = 17 × 323 · backfill 8,009 · forward reserve 1,500.
 
 ── STANDING RULINGS FROM TODAY (DECISIONS LORAMER_SESSION_2026_09_14_STORM_AND_INSTRUMENTS_V1 owns the text) ──
 · The backfill completeness meter is a CHILD of the Data Completeness Onboarding meter (d5bf56e), not the same feature (Russ) → ★BACKFILL-PROGRESS-METER.
-· The lane binds at full service: weighting is a reallocation inside 8,009, not headroom (★DESCENT-WEIGHTING-DECISION has its input).
+· The lane binds at full service — and it is a BASIC-ACCESS constraint (Russ, evening): NO weighting mechanism to a temporary cap; the design targets Standard (★DESCENT-WEIGHTING-DECISION rider). No runtime governor on the fetch seam (★ADMIN-FETCH-CLASS-RAIL closed guard-only).
 · A bounded launcher is necessary; the DB (~340 probes/s) is the ceiling — a deep surface costs ~11 s whatever N; the structural end is ★COVERAGE-DAY-SET-RPC behind one plpgsql measurement.
 
 ── ▶▶ NEXT STEP, IN ORDER ──
 (1) MORNING READ 2026-09-15 (read-only): lane posture overnight — fire_outcome by hour since 18:00Z 09-14 and % of turns served as the 09-13 spend ages out of the 24 h window · the deep three's missed cursors advancing (skinregimen 7 → · Tri-Copy 2 → · Influential Drones 2 →) and their descend attempts resuming · `node scripts/check-fleet-meter-visibility.mjs` reads DRIFT +1 until ~17:20Z then drift 0 (quote the pinned line) · zero "fetch failed" attempt rows · zero rotation-error fires · `node scripts/check-rotation-buffers.mjs --gate` GREEN · Veterinary mastermind's frontier (per-surface oldest window_start histogram; 188 surfaces were still on their first ask).
-(2) ★DESCENT-WEIGHTING-DECISION — BUILD the reallocation: serve Veterinary mastermind ~8× inside the 8,009 lane (the LRU pick weighted toward the nearest-to-seal cold descent; meter-held turns still count as service; the fleet's other 16 keep their turns at the reduced share). Blast: backend-writer (universe-resumer.ts pick + route). Gate-A: the pick order over one lap; Gate-B: Vet's seal projected inside ~8–10 h of weighted service.
+(2) READ-ONLY (Russ, 09-14 evening — NO weighting mechanism to a temporary cap): verify the 8,009 walk lane derives from the Basic 15,000 ops/day cap and nothing else (LANE_ALLOCATIONS in google-op-budget.ts / the lane table — name every term), and name exactly what a DISPOSABLE Vet share nudge would touch (a constant? the LRU pick?). If it is a config-only change of minutes → do it and say so; else NO BUILD — Veterinary mastermind seals unweighted ~09-17 (09-20 if windows stall). Either way the mechanism question resolves at Standard Access.
 (3) VET SEAL → the six-condition proof read as ONE paste (pre-read banked: round 7 item 3 / DECISIONS (g)) — refusals floor-sealed=349 · terminal-per-surface 349 · day_committed ∪ attested-empty every day 03-23..T−B · lookback frontier ≥ T−90 · check:data Vet-scoped legs · then Russ's UI reconcile (spend · clicks · conversions, 2026-08-07..09-05). Condition 6 reads red on the standing legs until they are fixed or scoped per account — say so on the proof, do not paper it.
-(4) THEN per queue order: ★FIRE-LOG-WITNESSES-DEFERRED (route + column) · ★ANALYZE-LEDGER-STALE re-examine (likely closable) · ★DRIVER-ALLOCATION-LITERAL-18TH-CONNECTION · the remaining honest-instrument items · ★COVERAGE-DAY-SET-RPC (measure first) · ★ADMIN-FETCH-CLASS-RAIL (optional).
+(4) THEN per queue order: ★ANALYZE-LEDGER-STALE re-examine (likely closable) · ★DRIVER-ALLOCATION-LITERAL-18TH-CONNECTION · the remaining honest-instrument items · ★COVERAGE-DAY-SET-RPC (measure first). (★FIRE-LOG-WITNESSES-DEFERRED and ★ADMIN-FETCH-CLASS-RAIL closed this evening.)
 (5) OWNER-GATED, unchanged: ★LEGACY-RETIREMENT (four gates) · Google Standard Access pending (DO-NOT-REAPPLY).
 
 ── CLOCKS ──
 · Rotation lap = 17 fires × 5 min = 85 min; the walk lane 8,009 now BINDS — after ~17:56Z 09-14 roughly one turn in three holds until the window rolls past 09-13's storm-free evening; weighting (2) changes who gets the served turns, not how many there are.
 · Deep-account missed sweep: 2 wall-less entries per 20 s allowance (~3,700 probes at ~340/s ≈ 11 s each) → ~175 turns ≈ 10 days per sweep on Tri-Copy / Influential Drones / skinregimen.
-· Veterinary mastermind seal: ~2026-09-17 flat LRU (30-day windows), 09-20 if windows stall, 10-09 at the frozen 24 h pace; ~8–10 h of weighted service.
-· Fleet meter leg: DRIFT +1 until fire 7847 leaves the trailing window ~17:20Z 09-15.
+· Veterinary mastermind seal: ~2026-09-17 flat LRU (30-day windows), 09-20 if windows stall, 10-09 at the frozen 24 h pace. No weighting mechanism (Russ); a disposable nudge only if it is minutes.
+· Fleet meter leg: DRIFT +1 until fire 7847 leaves the trailing window ~17:20Z 09-15 — every fire since 20:38Z 09-14 witnesses requests OPENED (0d07bc6), so after that it reads 0 by construction.
+· Google Standard Access: escalation #2 filed 2026-09-14; if silent by ~09-21 → forum post with the MCC ID (Russ). DO-NOT-REAPPLY.
 
 ── STANDING ──
 · ⛔ LEGACY IS FROZEN FOR GOOGLE STANDARD ACCESS (DECISIONS:2461) — the '' writers stay byte-identical; ★LEGACY-RETIREMENT names the four gates.
