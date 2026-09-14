@@ -78,15 +78,19 @@ export function coveredDaysStrict(
 
 /**
  * ⛔ LORAMER_COVERAGE_PROBE_BOUND_V1 — how many per-day probes may be IN FLIGHT at once.
- * DERIVED FORWARD from the requirement, not backward from the break: the missed lane's page allowance is
- * MISSED_ALLOWANCE_MS 20,000 over MISSED_SURFACES_PER_RUN 16 entries = 1,250 ms per surface; the worst surface
- * (Tri-Copy, inception 2016-04-20, wall-less) is 3,710 days ⇒ up to 7,420 probes with the alias re-probe, at ~8 ms
- * RTT ⇒ N ≥ 48 to fit the allowance. Ceiling: the host's fd pool (~1,024 on Lambda-class hosts) — the unbounded
- * launcher broke at ~3,000 in flight and was flaky at 2,200–2,400. 200 carries 4× throughput headroom and 5× fd
- * headroom. The RTT input is re-measured on a real fire in the ship's Gate-A. The constant is exported so the guard
- * (tests/guards/coverage-probe-bound.guard.mjs) judges the launcher against the real value, never a copy.
+ * MEASURED 2026-09-14 (N=16 fires, the first lap after the bound shipped at 200): the DATABASE is the throughput
+ * ceiling, not the host — ~340 probes/s at the PostgREST edge whatever the window (3,443 req/10 s at 200 in flight,
+ * 3,016/10 s under the old unbounded storm); per-probe origin_time is 25–55 ms idle and rose to 460–540 ms AVERAGE
+ * with tails of 3,278–4,149 ms at 200 in flight — pure queueing against PostgREST's 8 s statement ceiling, the one
+ * limit that still matters now the host's fd pool is out of reach. 64 in flight ÷ ~0.05 s ≈ 1,280 probes/s of
+ * capacity = 3.7× the DB ceiling (throughput unchanged), queue depth ~1/3 of 200's, and the tail pulled far from
+ * 8 s. The allowance arithmetic still holds (20,000 ms ÷ 16 entries = 1,250 ms per surface; a 3,710-day surface at
+ * the DB ceiling is ~11 s either way — the missed lane cuts a deep page at 2 entries regardless of N). Superseded
+ * derivation (200 = 4× throughput / 5× fd headroom at an assumed 8 ms RTT) is recorded in DECISIONS, not here.
+ * The constant is exported so the guard (tests/guards/coverage-probe-bound.guard.mjs) judges the launcher against
+ * the real value, never a copy.
  */
-export const COVERAGE_PROBE_CONCURRENCY = 200
+export const COVERAGE_PROBE_CONCURRENCY = 64
 
 /**
  * A sliding window over `items`: at most `limit` calls of `fn` in flight, the next launched as each completes

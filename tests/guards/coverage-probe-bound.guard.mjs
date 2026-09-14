@@ -106,7 +106,7 @@ module.exports = { supabaseAdmin: { from: (t) => new Q(t) } }
   const cov = req(join(out, 'src/lib/backfill/universe-coverage.js'))
   const N = Number(cov.COVERAGE_PROBE_CONCURRENCY)
   if (!(N > 0)) findings.push(`(β) the compiled module exports COVERAGE_PROBE_CONCURRENCY=${cov.COVERAGE_PROBE_CONCURRENCY} — not a positive number`)
-  const B = N > 0 ? N : 200 // the driven legs judge an unbounded launcher against the expected bound, so they read RED rather than vacuous
+  const B = N > 0 ? N : 64 // the driven legs judge an unbounded launcher against the expected bound, so they read RED rather than vacuous
 
   const K = { clientId: 'c1', platform: 'google', entityLevel: 'campaign', breakdownType: '' }
   const KA = { clientId: 'c1', platform: 'google', entityLevel: 'geographic_view', breakdownType: 'geo_target_city' } // has a drain alias → campaign/geo_city
