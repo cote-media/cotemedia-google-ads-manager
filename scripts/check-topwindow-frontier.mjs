@@ -92,6 +92,7 @@ try {
   const tsc = join(ROOT, 'node_modules', '.bin', 'tsc')
   const r = spawnSync(tsc, [
     resolve(ROOT, COVERAGE), resolve(ROOT, SURFACES), resolve(ROOT, RESUMER),
+    resolve(ROOT, 'src/lib/concurrency.ts'), // LORAMER_FANOUT_BOUNDED_GUARD_V1 lifted mapBounded here; this harness resolves it too
     '--target', 'es2020', '--module', 'commonjs', '--moduleResolution', 'node',
     '--skipLibCheck', '--noResolve', '--rootDir', resolve(ROOT), '--outDir', out,
   ], { encoding: 'utf8' })
@@ -109,6 +110,7 @@ try {
   const surfacesJs = join(out, 'src/lib/backfill/universe-surfaces.js')
   Module._resolveFilename = function (request, ...rest) {
     if (/universe-surfaces$/.test(request)) return surfacesJs          // REAL alias map + segment mapping
+    if (/\/concurrency$/.test(request)) return join(out, 'src/lib/concurrency.js') // the bounded fan-out home
     if (/@\/lib\/supabase$/.test(request)) return shim                 // REAL client
     return origResolve.call(this, request, ...rest)
   }

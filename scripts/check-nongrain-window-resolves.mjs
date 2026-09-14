@@ -23,7 +23,22 @@
 // must end up either COVERED or ATTESTED. It stays valid whichever way the fix goes, and it goes green only
 // when the days actually resolve.
 //
-// USAGE: node scripts/check-nongrain-window-resolves.mjs
+// ── RE-SPEC 2026-09-14 — LORAMER_CHECKDATA_RESPEC_BATCH_A_V1 (DECISIONS LORAMER_NONGRAIN_ATTESTS_V1) ────────────
+// The remedy landed: the worker classifies "the vendor answered and nothing was a grain" as outcome 'nongrain', and
+// attestedEmptyDays reads `.in('outcome', ['zero','nongrain'])` (universe-coverage.ts). Two assertions here still
+// described the world BEFORE that:
+//   A2 read ONLY outcome='zero' — the exact narrowing the remedy removed — and stayed red on a window that IS
+//      attested (Foam OH campaign/travel_destination_city 2026-03-19..20, attempt 6, outcome nongrain, 2026-08-18).
+//      A2 now mirrors the reader it checks: attested by outcome zero OR nongrain.
+//   A3 read `attempt_no <= 1` — a count that includes the passes that were burned BEFORE the remedy existed and can
+//      never fall. The property is "a RESOLVED window is not re-asked": A3 is red only when a completed pass on the
+//      same bounds is recorded AFTER the newest nongrain|zero terminal. No terminal → nothing to anchor; A1/A2 carry
+//      that state, and A3 says so rather than reading green silently.
+//   A1 unchanged — the window must end up covered or attested.
+// The fixture (`--self`, also run inline before the DB read) drives the pure A2/A3 cores: the Foam OH ledger shape
+// reads GREEN; the same shape plus one 'ok' pass recorded after the terminal reads RED.
+//
+// USAGE: node scripts/check-nongrain-window-resolves.mjs [--self]
 // EXIT:  0 resolved · 1 still owed after a completed pass · 2 CANNOT RUN
 // READ-ONLY. No writes, no vendor requests.
 import { readFileSync, writeFileSync, mkdtempSync, rmSync, existsSync } from 'node:fs'
@@ -47,6 +62,52 @@ const WIN_END = '2026-03-20'
 const results = []
 const ok = (id, what) => results.push({ id, pass: true, what })
 const red = (id, what, why) => results.push({ id, pass: false, what, why })
+
+// ── PURE CORES (the fixture and the live read drive the SAME logic) ───────────────────────────────────────
+export const TERMINAL_OUTCOMES = ['zero', 'nongrain'] // mirrors universe-coverage.ts attestedEmptyDays `.in('outcome', [...])`
+/** A2: the window is attestable iff a completed pass with a terminal outcome overlaps it. */
+export function attestedBy(records) { return (records || []).filter((r) => TERMINAL_OUTCOMES.includes(r.outcome)) }
+/** A3: passes on the SAME bounds recorded after the newest terminal. { terminal, after } — terminal null when none. */
+export function reaskedAfterTerminal(passes) {
+  const terminals = (passes || []).filter((p) => TERMINAL_OUTCOMES.includes(p.outcome))
+  if (!terminals.length) return { terminal: null, after: [] }
+  const terminal = terminals.reduce((a, b) => (String(b.recorded_at) > String(a.recorded_at) ? b : a))
+  const after = (passes || []).filter((p) => String(p.recorded_at) > String(terminal.recorded_at))
+  return { terminal, after }
+}
+function runFixture() {
+  // The Foam OH ledger shape as read live 2026-09-14: ok ×4, error, nongrain (attempt 6, 2026-08-18T00:31:56Z).
+  const foam = [
+    { attempt_no: 1, outcome: 'ok', recorded_at: '2026-08-16T15:33:06.362Z' },
+    { attempt_no: 2, outcome: 'ok', recorded_at: '2026-08-17T03:16:46.398Z' },
+    { attempt_no: 3, outcome: 'ok', recorded_at: '2026-08-17T17:02:22.687Z' },
+    { attempt_no: 4, outcome: 'ok', recorded_at: '2026-08-17T19:17:07.606Z' },
+    { attempt_no: 5, outcome: 'error', recorded_at: '2026-08-17T21:02:05.017Z' },
+    { attempt_no: 6, outcome: 'nongrain', recorded_at: '2026-08-18T00:31:56.913Z' },
+  ]
+  const reask = [...foam, { attempt_no: 7, outcome: 'ok', recorded_at: '2026-08-19T00:00:00.000Z' }]
+  const zeroOnly = foam.filter((p) => p.outcome !== 'nongrain')
+  const cases = [
+    { name: 'A2 · Foam OH shape (terminal = nongrain) → attested (green)', got: attestedBy(foam).length > 0, want: true },
+    { name: 'A2 · same shape with no terminal → not attested (red)', got: attestedBy(zeroOnly).length > 0, want: false },
+    { name: 'A3 · Foam OH shape — nothing recorded after the terminal → green', got: reaskedAfterTerminal(foam).after.length === 0, want: true },
+    { name: 'A3 · synthetic re-ask (attempt 7 ok) recorded AFTER the terminal → red', got: reaskedAfterTerminal(reask).after.length === 0, want: false },
+    { name: 'A3 · no terminal → nothing to anchor (terminal null)', got: reaskedAfterTerminal(zeroOnly).terminal === null, want: true },
+  ]
+  let bad = 0
+  for (const c of cases) { const pass = c.got === c.want; if (!pass) bad++; console.log(`  ${pass ? '✓' : '✗'} fixture ${c.name}`) }
+  return bad
+}
+if (process.argv.includes('--self')) {
+  const bad = runFixture()
+  console.log(bad ? `[nongrain-resolves] --self: ${bad} fixture(s) FAILED` : '[nongrain-resolves] --self: 5/5 fixtures hold')
+  process.exit(bad ? 1 : 0)
+}
+{
+  const bad = runFixture()
+  if (bad) { console.error(`[nongrain-resolves] CANNOT RUN — ${bad} fixture(s) failed; the instrument does not measure what it claims.`)
+    console.log('[nongrain-resolves] VERDICT — CANNOT-RUN · 0 green · 0 red · fixture'); process.exit(2) }
+}
 
 if (typeof globalThis.WebSocket === 'undefined') {
   globalThis.WebSocket = class { constructor() { throw new Error('Realtime unused; shim exists only so createClient() constructs on Node < 22.') } }
@@ -74,6 +135,7 @@ let cov, sb
 try {
   const r = spawnSync(join(ROOT, 'node_modules', '.bin', 'tsc'), [
     resolve(ROOT, 'src/lib/backfill/universe-coverage.ts'), resolve(ROOT, 'src/lib/backfill/universe-surfaces.ts'),
+    resolve(ROOT, 'src/lib/concurrency.ts'), // LORAMER_FANOUT_BOUNDED_GUARD_V1 lifted mapBounded here; this harness resolves it too
     '--target', 'es2020', '--module', 'commonjs', '--moduleResolution', 'node',
     '--skipLibCheck', '--noResolve', '--rootDir', resolve(ROOT), '--outDir', out,
   ], { encoding: 'utf8' })
@@ -86,6 +148,7 @@ try {
   const surfacesJs = join(out, 'src/lib/backfill/universe-surfaces.js')
   Module._resolveFilename = function (request, ...rest) {
     if (/universe-surfaces$/.test(request)) return surfacesJs
+    if (/\/concurrency$/.test(request)) return join(out, 'src/lib/concurrency.js')
     if (/@\/lib\/supabase$/.test(request)) return shim
     return origResolve.call(this, request, ...rest)
   }
@@ -131,23 +194,22 @@ try {
   }
 
   // ── A2 · IT MUST BE ATTESTABLE. A grain the vendor cannot populate has to be recordable as empty. ────
-  const { data: zeros, error: zErr } = await sb.from('universe_attempt_log')
-    .select('attempt_no').eq('client_id', CLIENT_ID).eq('vendor', VENDOR)
-    .eq('resource', RESOURCE).eq('segment', SEGMENT).eq('phase', 'attempt_finished').eq('outcome', 'zero')
+  const { data: terms, error: zErr } = await sb.from('universe_attempt_log')
+    .select('attempt_no, outcome, recorded_at').eq('client_id', CLIENT_ID).eq('vendor', VENDOR)
+    .eq('resource', RESOURCE).eq('segment', SEGMENT).eq('phase', 'attempt_finished').in('outcome', TERMINAL_OUTCOMES)
     .lte('window_start', WIN_END).gte('window_end', WIN_START)
   if (zErr) throw new Error(`attestation read failed: ${zErr.message}`)
-  if ((zeros?.length ?? 0) > 0) ok('A2', `${zeros.length} attestation record(s) exist — the days can be recorded empty.`)
+  const attested = attestedBy(terms)
+  if (attested.length > 0) ok('A2', `${attested.length} terminal record(s) (outcome zero|nongrain: ${attested.map((r) => `#${r.attempt_no} ${r.outcome}`).join(', ')}) overlap the window — the days are attestable, by the same read attestedEmptyDays makes.`)
   else red('A2', 'a window where nothing was a grain must be ATTESTABLE as empty.',
-    `zero 'zero'-outcome records overlap ${WIN_START}..${WIN_END}. attestedEmptyDays reads ONLY outcome='zero', ` +
-    `and this surface can never produce one while apiRows is counted before the grain filter — so no amount of ` +
-    `re-asking will ever make these days attest.`)
-
-  // ── A3 · THE COST. The identical range must not be re-asked indefinitely. ───────────────────────────
-  if (Number(top.attempt_no) <= 1) ok('A3', `the range has been asked once (attempt_no=${top.attempt_no}).`)
-  else red('A3', 'the identical range must not be re-asked pass after pass.',
-    `attempt_no has reached ${top.attempt_no} on the SAME bounds; ${passes.length} completed passes have each ` +
-    `spent a vendor request and stored ${passes.reduce((s, p) => s + Number(p.rows_written ?? 0), 0)} rows. ` +
-    `Fleet-wide this class stands at 32 stuck windows across 14 surfaces and 65 requests burned.`)
+    `zero records with outcome in [${TERMINAL_OUTCOMES.join(', ')}] overlap ${WIN_START}..${WIN_END} — the vendor answered and nothing was a grain, ` +
+    `yet no pass recorded it as a terminal, so attestedEmptyDays (which reads exactly these outcomes) can never attest these days.`)
+  const { terminal, after } = reaskedAfterTerminal(passes)
+  if (terminal === null) ok('A3', `no terminal pass (zero|nongrain) exists on these bounds yet — nothing to anchor a re-ask against; A1/A2 carry the unresolved state (attempt_no=${top.attempt_no}).`)
+  else if (after.length === 0) ok('A3', `the newest terminal is attempt #${terminal.attempt_no} (${terminal.outcome}, ${terminal.recorded_at}); no completed pass on the same bounds is recorded after it — the resolved window is not re-asked.`)
+  else red('A3', 'a RESOLVED window must not be re-asked pass after pass.',
+    `${after.length} completed pass(es) on the SAME bounds were recorded AFTER the newest terminal (attempt #${terminal.attempt_no} ${terminal.outcome} at ${terminal.recorded_at}): ` +
+    `${after.map((p) => `#${p.attempt_no} ${p.outcome} at ${p.recorded_at}`).join(', ')} — each spent a vendor request to re-learn an attested nothing.`)
 } catch (e) {
   cleanup(); console.error(`[nongrain-resolves] CANNOT RUN — ${e.message}`)
   console.log('[nongrain-resolves] VERDICT — CANNOT-RUN · 0 green · 0 red · exception'); process.exit(2)

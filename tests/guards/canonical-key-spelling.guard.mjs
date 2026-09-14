@@ -214,7 +214,14 @@ if (WITH_DB) {
     // walk row and was CANCELLED by the statement timeout — a guard that cannot complete is not a guard.
     // The walk side is small (16,387 after the cleanup) and the join key is the natural key, so at most one
     // legacy row matches and the LEFT JOIN cannot multiply the count.
-    const { rows } = await db.query(`
+    // ⛔ RE-SPEC 2026-09-14 — LORAMER_CHECKDATA_RESPEC_BATCH_A_V1: BATCHED PER CLIENT. The one fleet-wide hash join
+    // above was cancelled by the statement timeout at 121 s on 2026-09-14 (57014, an uncaught crash — the leg
+    // read as "crashed", proving nothing). The join key carries client_id, so the scan partitions exactly by
+    // client with no double counting; each batch runs under its own statement_timeout and prints its elapsed
+    // time, and the findings are SUMMED across batches — the same numbers the single scan would have produced.
+    // Scope: every row of `clients` (the (t) leg's roster), so a client the roster does not carry is not scanned;
+    // the batch count prints so that scope is visible.
+    const SCAN_SQL = `
       with walk as (
         select client_id, entity_level, breakdown_type, date,
                split_part(entity_id,'/',-1) as bare_id,
@@ -224,12 +231,12 @@ if (WITH_DB) {
                         when '6' then 'CONNECTED_TV' else breakdown_value end
                     else lpad(breakdown_value,2,'0') end as canon_value
         from metrics_daily
-        where platform='google' and entity_level in ('campaign','ad_group','ad')
+        where client_id=$1 and platform='google' and entity_level in ('campaign','ad_group','ad')
           and breakdown_type in ('device','hour') and entity_id like 'customers/%'
       ), legacy as (
         select client_id, entity_level, breakdown_type, date, entity_id, breakdown_value
         from metrics_daily
-        where platform='google' and entity_level in ('campaign','ad_group','ad')
+        where client_id=$1 and platform='google' and entity_level in ('campaign','ad_group','ad')
           and breakdown_type in ('device','hour') and entity_id not like 'customers/%'
       )
       select w.entity_level, w.breakdown_type,
@@ -240,8 +247,31 @@ if (WITH_DB) {
         on l.client_id=w.client_id and l.entity_level=w.entity_level
        and l.breakdown_type=w.breakdown_type and l.date=w.date
        and l.entity_id=w.bare_id and l.breakdown_value=w.canon_value
-      group by 1,2 having count(*) > 0`)
+      group by 1,2 having count(*) > 0`
+    const { rows: sClients } = await db.query(`select id, name from clients order by name`)
+    const agg = new Map()
+    let sFailed = null, sElapsed = 0, sBatches = 0, sMax = 0
+    for (const c of sClients) {
+      const t0 = Date.now()
+      try {
+        await db.query("SET statement_timeout='115s'")   // per batch — the budget is per statement, never pooled
+        const { rows: part } = await db.query(SCAN_SQL, [c.id])
+        const ms = Date.now() - t0; sElapsed += ms; sBatches++; if (ms > sMax) sMax = ms
+        console.log(`  (s) ${c.name}: ${ms} ms · ${part.length} surface(s)${part.length ? ' · ' + part.map((r) => `${r.entity_level}/${r.breakdown_type} ${r.twinned}/${r.walk_spelled}`).join(', ') : ''}`)
+        for (const r of part) {
+          const k = `${r.entity_level}/${r.breakdown_type}`
+          const a = agg.get(k) || { entity_level: r.entity_level, breakdown_type: r.breakdown_type, walk_spelled: 0, twinned: 0 }
+          a.walk_spelled += Number(r.walk_spelled); a.twinned += Number(r.twinned); agg.set(k, a)
+        }
+      } catch (e) {
+        sFailed = `${c.name}: ${e.code === '57014' ? 'statement timeout' : e.message} after ${Date.now() - t0} ms`
+        break
+      }
+    }
     await db.end()
+    console.log(`  (s) walk-spelling scan: ${sBatches}/${sClients.length} client batch(es), ${sElapsed} ms total, ${sBatches ? Math.round(sElapsed / sBatches) : 0} ms mean, ${sMax} ms slowest (budget 115000 ms per batch)`)
+    if (sFailed) blockers.push(`(s) the walk-spelling scan could not complete — ${sFailed}; ${sBatches} batch(es) finished before it. NOTHING is proven about the clients it did not reach — this is NOT a clean fleet.`)
+    const rows = [...agg.values()]
     const twinned = rows.reduce((a, r) => a + Number(r.twinned), 0)
     const walk = rows.reduce((a, r) => a + Number(r.walk_spelled), 0)
     const untwinned = walk - twinned

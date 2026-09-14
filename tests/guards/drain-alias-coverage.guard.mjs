@@ -19,8 +19,12 @@
 //  (t) every walk surface whose vendor data the drain also stores declares an ALIAS or an explicit WALK-ONLY
 //  (u) rangesStillOwed / windowCoverage actually PROBES the alias when one exists
 //  (v) --db: every declared alias is DEMONSTRATED against live rows — same fact, same or finer grain
-import { readFileSync, existsSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { readFileSync, existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { resolve, join } from 'node:path'
+import { tmpdir } from 'node:os'
+import { spawnSync } from 'node:child_process'
+import { createRequire } from 'node:module'
+import Module from 'node:module'
 
 const ROOT = process.env.LORAMER_GUARD_ROOT || process.cwd()
 const WITH_DB = process.argv.includes('--db')
@@ -141,6 +145,91 @@ const coverage = read(COVERAGE)
 // TRUSTED ON ANYONE'S READING. For each declared alias it finds a day where BOTH keys hold rows and compares
 // the vendor's own additive counters. Impressions and clicks must match EXACTLY; spend is allowed a cent of
 // per-row rounding because the two keys aggregate different row counts at 2dp.
+//
+// ⛔ RE-SPEC 2026-09-14 — LORAMER_CHECKDATA_RESPEC_BATCH_A_V1 (DECISIONS LORAMER_RESTATEMENT_WINDOW_LAW_V1):
+// EXACT EQUALITY IS ONLY A VALID PROXY FOR "SAME FACT" ON GROUND THE VENDOR HAS STOPPED RESTATING. The walk key
+// and the drain key are written by different fetches at different hours, and inside the restatement boundary
+// the vendor's own counters move between them (Escential 2026-09-09: impressions 6514 vs 6513, clicks equal —
+// a day-old restatement, not a wrong alias). So this leg compares ONLY days at or past the lane's boundary:
+// T−B, where T is today and B is the account's restatement boundary — `boundaryDaysFor` (lookback-boundary.ts,
+// read from entity_state_history, per account) and `addDaysISO` (universe-resumer.ts), tsc-compiled and
+// IMPORTED here, never re-derived. ⛔ THIS IS A BOUNDARY, NOT A TOLERANCE BAND: a 1-impression delta on a day
+// past T−B is still a wrong alias and still RED. An account whose boundary is UNKNOWN is skipped and named —
+// unknown refuses (the inception posture), it does not default. The boundary and the day compared are printed.
+// The rule `day ≤ T−B` is the lane's own (deriveBoundaryStrip: a window ending ≤ T−B is askable).
+
+/** The lane's rule for "past the boundary": the day is at or before T−B. */
+export function pastBoundary(dayISO, boundaryEndISO) { return String(dayISO) <= String(boundaryEndISO) }
+/** Exact equality on the vendor's additive counters — the same-fact test. null = holds. */
+export function countersMismatch(r) {
+  return (String(r.wi) !== String(r.di) || String(r.wc) !== String(r.dc)) ? `impressions ${r.wi} vs ${r.di}, clicks ${r.wc} vs ${r.dc}` : null
+}
+/**
+ * Walk the candidate days (newest first): skip any inside the boundary, compare the first past-boundary day
+ * where either key holds rows. readRow(cand) → { wi, wc, di, dc }. Pure over its inputs; the DB is behind readRow.
+ */
+export async function demonstrateAlias(cands, readRow) {
+  const skipped = []
+  for (const c of cands) {
+    if (!pastBoundary(c.d, c.boundaryEnd)) { skipped.push(c); continue }
+    const r = await readRow(c)
+    if (Number(r.wi) === 0 && Number(r.di) === 0) continue   // neither key present on this day
+    return { compared: c, mismatch: countersMismatch(r), row: r, skipped }
+  }
+  return { compared: null, mismatch: null, row: null, skipped }
+}
+
+// ⛔ THE LANE'S OWN DAY ARITHMETIC AND BOUNDARY READ, COMPILED FROM THE TS — never re-rolled here (Lesson 19).
+function compileLane() {
+  const out = mkdtempSync(join(tmpdir(), 'loramer-alias-'))
+  const r = spawnSync(join(ROOT, 'node_modules', '.bin', 'tsc'), [
+    resolve(ROOT, 'src/lib/backfill/universe-resumer.ts'), resolve(ROOT, 'src/lib/backfill/lookback-boundary.ts'),
+    '--target', 'es2020', '--module', 'commonjs', '--moduleResolution', 'node',
+    '--skipLibCheck', '--noResolve', '--rootDir', resolve(ROOT), '--outDir', out,
+  ], { encoding: 'utf8' })
+  if (r.error) throw new Error(`tsc did not run: ${r.error.message}`)
+  const resumerJs = join(out, 'src/lib/backfill/universe-resumer.js')
+  const boundaryJs = join(out, 'src/lib/backfill/lookback-boundary.js')
+  if (!existsSync(resumerJs) || !existsSync(boundaryJs)) throw new Error(`tsc produced no output (${(r.stdout || '').slice(0, 300)})`)
+  return { out, resumerJs, boundaryJs }
+}
+
+// ── (v-fixture) THE BOUNDARY FILTER IS PROVEN BEFORE ANY LIVE ROW IS READ — runs hermetically too ──────────
+{
+  let lane = null
+  try {
+    lane = compileLane()
+    const resumer = createRequire(import.meta.url)(lane.resumerJs)
+    const T = new Date().toISOString().slice(0, 10)
+    const B = resumer.LOOKBACK_FLEET_FLOOR_DAYS   // the fleet floor, imported — the fixture's B; live uses the account's own
+    const boundaryEnd = resumer.addDaysISO(T, -B)
+    const young = { d: resumer.addDaysISO(T, -1), boundaryEnd, name: 'fixture' }
+    const old = { d: resumer.addDaysISO(boundaryEnd, -1), boundaryEnd, name: 'fixture' }
+    const rowsByDay = {
+      [young.d]: { wi: 6514, wc: 84, di: 6513, dc: 84 },   // the 1-impression restatement delta, inside the boundary
+      [old.d]: { wi: 100, wc: 10, di: 90, dc: 10 },        // a real mismatch, past the boundary
+    }
+    const readRow = async (c) => rowsByDay[c.d] || { wi: 0, wc: 0, di: 0, dc: 0 }
+    const a = await demonstrateAlias([young], readRow)
+    const b = await demonstrateAlias([young, old], readRow)
+    const c = await demonstrateAlias([{ ...old, d: resumer.addDaysISO(old.d, -1) }], async () => ({ wi: 5, wc: 1, di: 5, dc: 1 }))
+    const cases = [
+      { name: `young day ${young.d} (1-impression delta) inside T−B=${boundaryEnd} → NOT compared`, ok: a.compared === null && a.skipped.length === 1 },
+      { name: `old day ${old.d} (real mismatch) past T−B → compared and RED`, ok: b.compared?.d === old.d && b.mismatch !== null && b.skipped.length === 1 },
+      { name: 'old day with equal counters → compared and HOLDS', ok: c.compared !== null && c.mismatch === null },
+    ]
+    for (const k of cases) {
+      if (!k.ok) findings.push(`(v-fixture) ${k.name} — the boundary filter does not behave; the live leg may not be trusted.`)
+      else console.log(`  ✓ (v-fixture) ${k.name}`)
+    }
+    console.log(`  (v-fixture) T=${T} B=${B} (LOOKBACK_FLEET_FLOOR_DAYS, imported) → T−B=${boundaryEnd}`)
+  } catch (e) {
+    blockers.push(`(v-fixture) could not compile the lane's boundary arithmetic (${e.message}); the filter is unproven on this machine.`)
+  } finally {
+    if (lane) rmSync(lane.out, { recursive: true, force: true })
+  }
+}
+
 if (WITH_DB) {
   const pg = await import('pg')
   loadEnvLocal()
@@ -177,43 +266,74 @@ if (WITH_DB) {
     } else {
       const db = new pg.default.Client({ connectionString: process.env.SUPABASE_DB_URL, ssl: { rejectUnauthorized: false } })
       await db.connect()
-      // ⛔ BOUNDED BY THE INDEX, AND THE FIRST VERSION WAS NOT — it grouped the WHOLE table per alias and had to
-      // be killed. Candidates come from the walk's OWN ledger (one cheap read), and every comparison pins
-      // (client_id, platform, entity_level, date), which is exactly idx_mdp_client_platform_level_date. The
-      // repo has been burned twice by a coverage query that was correct-looking and O(client-rows).
-      const { rows: cand } = await db.query(
-        `select distinct client_id, window_end::date as d from universe_window_log
-          where vendor='google_ads' order by d desc limit 6`)
-      if (!cand.length) {
-        findings.push('(v) universe_window_log holds no walked window, so no alias can be demonstrated. An undemonstrated alias may not be trusted.')
-      }
-      for (const a of ALIASES) {
-        const [walkLevel, walkBt] = a.key.split('|')
-        let shown = false, mismatch = null
-        for (const c of cand) {
-          const { rows } = await db.query(
-            `select
-               (select coalesce(sum(impressions),0) from metrics_daily where client_id=$1 and platform='google'
-                  and entity_level=$2 and breakdown_type=$3 and date=$4) as wi,
-               (select coalesce(sum(clicks),0) from metrics_daily where client_id=$1 and platform='google'
-                  and entity_level=$2 and breakdown_type=$3 and date=$4) as wc,
-               (select coalesce(sum(impressions),0) from metrics_daily where client_id=$1 and platform='google'
-                  and entity_level=$5 and breakdown_type=$6 and date=$4) as di,
-               (select coalesce(sum(clicks),0) from metrics_daily where client_id=$1 and platform='google'
-                  and entity_level=$5 and breakdown_type=$6 and date=$4) as dc`,
-            [c.client_id, walkLevel, walkBt, c.d, a.entityLevel, a.breakdownType])
-          const r = rows[0]
-          if (Number(r.wi) === 0 && Number(r.di) === 0) continue   // neither key present on this day
-          shown = true
-          if (String(r.wi) !== String(r.di) || String(r.wc) !== String(r.dc)) {
-            mismatch = `impressions ${r.wi} vs ${r.di}, clicks ${r.wc} vs ${r.dc} on ${String(c.d).slice(0, 10)}`
-          }
-          break
+      // ── the boundary, per account, IMPORTED from the lane ──
+      let lane = null, cand = []
+      const origResolve = Module._resolveFilename
+      try {
+        lane = compileLane()
+        const resumer = createRequire(import.meta.url)(lane.resumerJs)
+        const { createClient } = createRequire(import.meta.url)('@supabase/supabase-js')
+        if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) throw new Error('NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY missing — boundaryDaysFor reads through supabaseAdmin')
+        if (typeof globalThis.WebSocket === 'undefined') globalThis.WebSocket = class { constructor() { throw new Error('Realtime unused') } }
+        global.__LORAMER_ALIAS_SB__ = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
+        const shim = join(lane.out, '__supabase.js')
+        writeFileSync(shim, 'module.exports = { supabaseAdmin: global.__LORAMER_ALIAS_SB__, supabase: global.__LORAMER_ALIAS_SB__ }')
+        Module._resolveFilename = function (request, ...rest) {
+          if (/@\/lib\/supabase$/.test(request)) return shim
+          if (/universe-resumer$/.test(request)) return lane.resumerJs
+          return origResolve.call(this, request, ...rest)
         }
-        if (!shown) {
-          findings.push(`(v) alias ${a.key} → ${a.entityLevel}/${a.breakdownType}: NO sampled day where either key holds rows. It cannot be demonstrated, so it may not be trusted — an undemonstrated alias is exactly the wrong-alias risk this leg exists to catch.`)
-        } else if (mismatch) {
-          findings.push(`(v) alias ${a.key} → ${a.entityLevel}/${a.breakdownType} DOES NOT HOLD: ${mismatch}. THESE ARE NOT THE SAME FACT — claiming coverage from it would skip real history permanently.`)
+        const { boundaryDaysFor } = createRequire(import.meta.url)(lane.boundaryJs)
+        const T = new Date().toISOString().slice(0, 10)
+        const { rows: walked } = await db.query(
+          `select distinct w.client_id, c.name, pc.account_id
+             from universe_window_log w
+             join clients c on c.id = w.client_id
+             join platform_connections pc on pc.client_id = w.client_id and pc.platform = 'google' and pc.account_id is not null
+            where w.vendor = 'google_ads' order by c.name`)
+        let known = 0
+        for (const w of walked) {
+          const v = await boundaryDaysFor(w.client_id, w.account_id)
+          if (!v.known) { console.log(`  (v) ${w.name}: boundary UNKNOWN — skipped, not defaulted (${v.reason})`); continue }
+          known++
+          const boundaryEnd = resumer.addDaysISO(T, -v.days)
+          const { rows: days } = await db.query(
+            `select distinct window_end::date::text as d from universe_window_log
+              where vendor='google_ads' and client_id=$1 and window_end::date <= $2::date order by d desc limit 6`,
+            [w.client_id, boundaryEnd])
+          console.log(`  (v) ${w.name}: T=${T} B=${v.days} ⇐ ${v.basis} → boundary day T−B=${boundaryEnd}; ${days.length} walked day(s) at or past it${days.length ? ` (newest ${days[0].d})` : ''}`)
+          for (const r of days) cand.push({ client_id: w.client_id, name: w.name, d: r.d, boundaryEnd })
+        }
+        if (walked.length && !known) blockers.push('(v) no walked google account has a KNOWN restatement boundary, so no alias could be compared on past-boundary ground. STILL REFUSING TO PASS.')
+      } catch (e) {
+        blockers.push(`(v) the lane's boundary could not be imported (${e.message}); without it the leg cannot tell a restatement from a wrong alias. STILL REFUSING TO PASS.`)
+      } finally {
+        Module._resolveFilename = origResolve
+        if (lane) rmSync(lane.out, { recursive: true, force: true })
+      }
+      if (!blockers.some((b) => b.startsWith('(v)')) && !cand.length) {
+        findings.push('(v) universe_window_log holds no walked window at or past any account\'s restatement boundary, so no alias can be demonstrated on settled ground. An undemonstrated alias may not be trusted.')
+      }
+      const readRow = async (c) => (await db.query(
+        `select
+           (select coalesce(sum(impressions),0) from metrics_daily where client_id=$1 and platform='google'
+              and entity_level=$2 and breakdown_type=$3 and date=$4) as wi,
+           (select coalesce(sum(clicks),0) from metrics_daily where client_id=$1 and platform='google'
+              and entity_level=$2 and breakdown_type=$3 and date=$4) as wc,
+           (select coalesce(sum(impressions),0) from metrics_daily where client_id=$1 and platform='google'
+              and entity_level=$5 and breakdown_type=$6 and date=$4) as di,
+           (select coalesce(sum(clicks),0) from metrics_daily where client_id=$1 and platform='google'
+              and entity_level=$5 and breakdown_type=$6 and date=$4) as dc`,
+        [c.client_id, c.walkLevel, c.walkBt, c.d, c.entityLevel, c.breakdownType])).rows[0]
+      for (const a of (cand.length ? ALIASES : [])) {
+        const [walkLevel, walkBt] = a.key.split('|')
+        const res = await demonstrateAlias(cand.map((c) => ({ ...c, walkLevel, walkBt, entityLevel: a.entityLevel, breakdownType: a.breakdownType })), readRow)
+        if (!res.compared) {
+          findings.push(`(v) alias ${a.key} → ${a.entityLevel}/${a.breakdownType}: NO past-boundary day where either key holds rows (${cand.length} candidate(s)). It cannot be demonstrated, so it may not be trusted — an undemonstrated alias is exactly a wrong alias with better luck.`)
+        } else if (res.mismatch) {
+          findings.push(`(v) alias ${a.key} → ${a.entityLevel}/${a.breakdownType} DOES NOT HOLD: ${res.mismatch} on ${res.compared.name} ${res.compared.d} (past the boundary T−B=${res.compared.boundaryEnd} — not a restatement). THESE ARE NOT THE SAME FACT — claiming coverage from it would skip real history permanently.`)
+        } else {
+          console.log(`  ✓ (v) alias ${a.key} → ${a.entityLevel}/${a.breakdownType} HOLDS on ${res.compared.name} ${res.compared.d}: impressions ${res.row.wi}=${res.row.di}, clicks ${res.row.wc}=${res.row.dc} (compared past T−B=${res.compared.boundaryEnd})`)
         }
       }
       await db.end()
