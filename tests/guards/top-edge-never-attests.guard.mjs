@@ -62,16 +62,19 @@ const origResolve = Module._resolveFilename
 let C = null
 try {
   const tsc = join(ROOT, 'node_modules', '.bin', 'tsc')
-  const r = spawnSync(tsc, [resolve(ROOT, COVERAGE), resolve(ROOT, SURFACES), '--target', 'es2020',
-    '--module', 'commonjs', '--moduleResolution', 'node', '--skipLibCheck', '--noResolve', '--outDir', out], { encoding: 'utf8' })
+  const r = spawnSync(tsc, [resolve(ROOT, COVERAGE), resolve(ROOT, SURFACES), resolve(ROOT, 'src/lib/concurrency.ts'), '--target', 'es2020',
+    // LORAMER_FANOUT_BOUNDED_GUARD_V1 — `--rootDir ROOT`: a third input outside src/lib/backfill (src/lib/concurrency.ts) moves
+    // tsc's implicit common root and would scatter the outputs; pinning the root keeps every compiled path predictable.
+    '--module', 'commonjs', '--moduleResolution', 'node', '--skipLibCheck', '--noResolve', '--rootDir', resolve(ROOT), '--outDir', out], { encoding: 'utf8' })
   if (r.error) throw new Error(`tsc did not run: ${r.error.message}`)
   const shim = join(out, '__supabase.js')
   writeFileSync(shim, `
 const { createClient } = require(${JSON.stringify(join(ROOT, 'node_modules', '@supabase', 'supabase-js'))})
 module.exports = { supabaseAdmin: createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } }) }
 `)
-  const surfacesJs = join(out, 'universe-surfaces.js')
+  const surfacesJs = join(out, 'src/lib/backfill/universe-surfaces.js')
   Module._resolveFilename = function (req, ...rest) {
+    if (/\/concurrency$/.test(req)) return join(out, 'src/lib/concurrency.js') // LORAMER_FANOUT_BOUNDED_GUARD_V1 — mapBounded's real home
     if (/universe-surfaces$/.test(req)) return surfacesJs
     if (/@\/lib\/supabase$/.test(req)) return shim
     return origResolve.call(this, req, ...rest)
@@ -79,7 +82,7 @@ module.exports = { supabaseAdmin: createClient(process.env.NEXT_PUBLIC_SUPABASE_
   // ⛔ THE COMPILED NAME IS DERIVED FROM THE SUBJECT, NOT HARDCODED — the subject is a PARAMETER (so the
   // pre-fix module can be driven and this guard SEEN RED), and a hardcoded output name silently turns every
   // parameterised run into a CANNOT-RUN. Caught by red-proofing the guard against the state it must fail on.
-  const compiled = COVERAGE.split('/').pop().replace(/\.ts$/, '.js')
+  const compiled = COVERAGE.replace(/\.ts$/, '.js') // repo-relative under --rootDir ROOT, so a parameterised subject still resolves
   C = createRequire(import.meta.url)(join(out, compiled))
 } catch (e) {
   Module._resolveFilename = origResolve

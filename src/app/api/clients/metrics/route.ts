@@ -23,6 +23,13 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { resolveDateWindow } from '@/lib/date-range'
 // LORAMER_LORA_CANONICAL_SETTLE_V1 (Fix #1 B1) — the ONE canonical settle (store>ga>none; NEVER summed).
 import { emptyRevenueAcc, settleRevenue, type RevenueAcc } from '@/lib/next/revenue-settle'
+import { mapBounded } from '@/lib/concurrency' // LORAMER_FANOUT_BOUNDED_GUARD_V1 — the one home of bounded fan-out
+
+// LORAMER_FANOUT_BOUNDED_GUARD_V1 — how many per-client lastActive probes may be in flight at once.
+// ⇐ one indexed LIMIT-1 probe per client (migration 035's partial index; 8–50 ms origin time measured 2026-09-14);
+// 8 in flight covers a 500-client org in ~0.5–3 s inside the route's budget, and today's ≤ 20 clients in ≤ 3 rounds.
+// Value and ordering are unchanged — results land by client id, not by arrival.
+const CLIENTS_METRICS_PROBE_CONCURRENCY = 8
 
 const ADS_PLATFORMS = ['google', 'meta']
 const STORE_PLATFORMS = ['shopify', 'woocommerce']
@@ -128,21 +135,23 @@ export async function GET() {
   // on heavy clients exceeds the 8s live statement_timeout → 57014 → swallowed → a silent null lastActive.
   // Rests on the EMPIRICAL invariant that an account row is written on every day any grain is written
   // (verified 23/23 fleet + per client×platform, 2026-07-15; NOT schema-enforced). Do not delete as redundant.
-  await Promise.all(
-    clientIds.map(async id => {
-      const { data } = await supabaseAdmin
-        .from('metrics_daily')
-        .select('date')
-        .eq('client_id', id)
-        .eq('entity_level', 'account')
-        .eq('breakdown_type', '')
-        .eq('breakdown_value', '')
-        .order('date', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-      if (data?.date) metrics[id].lastActive = data.date as string
-    })
-  )
+  // LORAMER_FANOUT_BOUNDED_GUARD_V1 — this was `Promise.all(clientIds.map(…))`: one PostgREST fetch per client, all in
+  // flight at once, on a live page route. Width = the org's client count — DATA, not a constant; ≤ 20 today, unbounded by
+  // construction (the fire-7621 shape, one page over). Bounded through the one home; value and ordering unchanged.
+  // fan-out: bounded CLIENTS_METRICS_PROBE_CONCURRENCY
+  await mapBounded(clientIds, CLIENTS_METRICS_PROBE_CONCURRENCY, async (id) => {
+    const { data } = await supabaseAdmin
+      .from('metrics_daily')
+      .select('date')
+      .eq('client_id', id)
+      .eq('entity_level', 'account')
+      .eq('breakdown_type', '')
+      .eq('breakdown_value', '')
+      .order('date', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (data?.date) metrics[id].lastActive = data.date as string
+  })
 
   return NextResponse.json({ metrics })
 }

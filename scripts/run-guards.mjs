@@ -483,6 +483,7 @@ const GUARDS = [
   'tests/guards/connections-row-wraps.guard.mjs', // LORAMER_ONE_CLICK_WALK_V1 — .connRow wraps on a phone
   'tests/guards/driver-spend-counted-once.guard.mjs', // LORAMER_ONE_CLICK_WALK_V1 (2/2 A) — the driver's requests land in one lane, once (089 split read)
   'tests/guards/rest-row-cap-readers.guard.mjs', // LORAMER_REST_ROW_CAP_READER_V1 — a raw /rest/v1/ read in scripts/ or tests/guards/ pages (Range / rest-all.mjs), counts (HEAD) or aggregates (rpc/); remove-only allowlist
+  'tests/guards/fan-out-is-bounded.guard.mjs', // LORAMER_FANOUT_BOUNDED_GUARD_V1 — a data-width Promise.all/allSettled/any or unawaited .map(async) outside mapBounded fails the build; cross-line; one home src/lib/concurrency.ts
   'tests/guards/fire-log-witnesses-opened.guard.mjs', // LORAMER_FIRE_LOG_WITNESSES_OPENED_V1 — the fire row's requests_selected is the requests the worker actually OPENED (summed processMessage return), never the planner's sum; driven on the real worker
   'tests/guards/fleet-meter-pinned-window.guard.mjs', // LORAMER_FLEET_METER_PINNED_WINDOW_V1 — the fleet-meter witness pins a closed fire interval, counts discovery ops, imports its ceiling; drift must be 0
   'tests/guards/fire-log-readers-wet-only.guard.mjs', // LORAMER_STATUS_WET_FIRES_ONLY_V1 — every universe_fire_log reader excludes dry fires (query-level or selected+filtered rows); writers ignored; classifier fixture-proven

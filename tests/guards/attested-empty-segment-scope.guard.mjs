@@ -59,7 +59,7 @@ const out = mkdtempSync(join(tmpdir(), 'loramer-attest-scope-'))
 const origResolve = Module._resolveFilename
 try {
   const tsc = join(ROOT, 'node_modules', '.bin', 'tsc')
-  const r = spawnSync(tsc, [resolve(ROOT, COVERAGE), resolve(ROOT, SURFACES),
+  const r = spawnSync(tsc, [resolve(ROOT, COVERAGE), resolve(ROOT, SURFACES), resolve(ROOT, 'src/lib/concurrency.ts'),
     '--target', 'es2020', '--module', 'commonjs', '--moduleResolution', 'node',
     '--skipLibCheck', '--noResolve', '--rootDir', resolve(ROOT), '--outDir', out], { encoding: 'utf8' })
   if (r.error) findings.push(`could not run tsc — ${r.error.message}`)
@@ -92,6 +92,7 @@ module.exports = { supabaseAdmin: { from: (t) => new Q(globalThis.__GUARD_ATTEMP
 `)
   const surfacesJs = join(out, 'src/lib/backfill/universe-surfaces.js')
   Module._resolveFilename = function (request, ...rest) {
+    if (/\/concurrency$/.test(request)) return join(out, 'src/lib/concurrency.js') // LORAMER_FANOUT_BOUNDED_GUARD_V1 — mapBounded's real home, compiled alongside
     if (/universe-surfaces$/.test(request)) return surfacesJs   // REAL — the vocabulary under test
     if (/@\/lib\/supabase$/.test(request)) return stub          // scripted, faithful projection
     if (request.startsWith('@/') || request.startsWith('./') || request.startsWith('../')) {

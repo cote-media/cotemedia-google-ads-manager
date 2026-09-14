@@ -447,6 +447,7 @@ async function bindCoverage(result: any, ctx: { clientId: string; platforms: str
       // floor/connection legs already classify correctly.
       const inScope = (cov[i] || []).filter((c: any) => c.connected).map((c: any) => c.platform)
       const use = plats.filter((p) => inScope.length === 0 || inScope.includes(p))
+      // fan-out: constant PLATFORMS — ≤ 5 platforms (`plats` is ctx.platforms or the five-platform literal above; `use` is a subset)
       const per = await Promise.all(use.map((p) => getDensityForWindow(ctx.clientId, p, w, frontier)))
       densityByWindow[i] = per
       if (per.some((d: any) => d.verdict === 'PARTIAL')) comp.completePerWindow[i] = false

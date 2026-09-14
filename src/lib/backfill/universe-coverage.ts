@@ -25,6 +25,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 // breakdownTypeForSurface — LORAMER_ATTESTED_EMPTY_SEGMENT_SCOPE_V1: the negative-coverage read must
 // scope a zero attestation to its OWN surface, and the segment→breakdown_type mapping is owned there.
 import { drainAliasFor, breakdownTypeForSurface } from '@/lib/backfill/universe-surfaces'
+import { mapBounded } from '@/lib/concurrency' // LORAMER_FANOUT_BOUNDED_GUARD_V1 — the one home of bounded fan-out
 
 export interface CoverageKey {
   clientId: string
@@ -92,37 +93,9 @@ export function coveredDaysStrict(
  */
 export const COVERAGE_PROBE_CONCURRENCY = 64
 
-/**
- * A sliding window over `items`: at most `limit` calls of `fn` in flight, the next launched as each completes
- * (never fixed batches — a batch pays its slowest member's latency and discards its siblings on a throw). Results
- * are placed BY INDEX, so the caller's answer is byte-identical to the unbounded `Promise.all(items.map(fn))`.
- * ⛔ CANCEL-ON-FIRST-FAILURE: the first rejection sets `cancelled`; workers already in flight finish their one
- * call and stop, and NOTHING queued behind the failure is ever launched. That residual — thousands of probes
- * still draining after the throw — is what exhausted the host for the meter read and the next fire.
- * Rejects with the FIRST error, exactly as Promise.all did.
- */
-export async function mapBounded<T, R>(items: T[], limit: number, fn: (item: T, index: number) => Promise<R>): Promise<R[]> {
-  const results: R[] = new Array(items.length)
-  const width = Math.max(1, Math.min(Math.floor(limit), items.length))
-  let next = 0
-  let cancelled = false
-  let firstError: unknown = null
-  const worker = async (): Promise<void> => {
-    while (!cancelled) {
-      const i = next++
-      if (i >= items.length) return
-      try {
-        results[i] = await fn(items[i], i)
-      } catch (e) {
-        if (!cancelled) { cancelled = true; firstError = e }
-        return
-      }
-    }
-  }
-  await Promise.all(Array.from({ length: width }, () => worker()))
-  if (cancelled) throw firstError
-  return results
-}
+// LORAMER_FANOUT_BOUNDED_GUARD_V1 — mapBounded LIVES IN src/lib/concurrency.ts (its one home) and is re-exported here so
+// the round-6 guard's contract (`coverage.mapBounded`) and every existing importer keep working unchanged.
+export { mapBounded }
 
 export interface WindowCoverage {
   /** Days proven captured — rows present AND closed by a later day (or an explicit commit). */
@@ -174,6 +147,7 @@ export async function windowCoverage(k: CoverageKey, windowStart: string, window
   // probe itself is 0.123 ms server-side), this call threw, and the meter's own next fetch failed the same way and
   // read null — 13 of 13 'meter-held' fires since 09-13 20:06Z, Tri-Copy and Influential Drones writing nothing for
   // 19 h. The per-day `limit 1` shape is unchanged (the header above still holds); only the LAUNCH is bounded.
+  // fan-out: bounded COVERAGE_PROBE_CONCURRENCY
   const hits = await mapBounded(days, COVERAGE_PROBE_CONCURRENCY, async (day) => {
     const probe = (entityLevel: string, breakdownType: string) => supabaseAdmin
       .from('metrics_daily')

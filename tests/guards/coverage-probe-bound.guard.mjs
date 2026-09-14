@@ -45,7 +45,11 @@ const SELF = 'tests/guards/coverage-probe-bound.guard.mjs'
   const cov = strip(read(COVERAGE))
   if (/Promise\.all\(\s*days\.map/.test(cov)) findings.push(`(α) ${COVERAGE} still launches \`Promise.all(days.map(...))\` — every day of the span in flight at once; on a 2016 inception that is ~3,700 fetches and the host's resolver exhausts (getaddrinfo EBUSY → "TypeError: fetch failed").`)
   if (!/export const COVERAGE_PROBE_CONCURRENCY\s*=\s*\d+/.test(cov)) findings.push(`(α) ${COVERAGE} does not export COVERAGE_PROBE_CONCURRENCY — the bound must be a named, derived constant, not a literal in the launcher.`)
-  if (!/cancelled/.test(cov)) findings.push(`(α) ${COVERAGE} carries no \`cancelled\` flag — after the first failed probe the queued-but-unlaunched probes must never launch (the residual storm is what breaks the NEXT fetch and the next fire).`)
+  // LORAMER_FANOUT_BOUNDED_GUARD_V1 — the launcher now lives in src/lib/concurrency.ts (one home); the flag is read there,
+  // and universe-coverage.ts must still IMPORT it from that home (a second copy would be the drift the fan-out guard stops).
+  const launcher = strip(read('src/lib/concurrency.ts'))
+  if (!/from '@\/lib\/concurrency'/.test(cov)) findings.push(`(α) ${COVERAGE} does not import mapBounded from src/lib/concurrency.ts — the launcher must come from its one home`)
+  if (!/cancelled/.test(launcher)) findings.push(`(α) src/lib/concurrency.ts carries no \`cancelled\` flag — after the first failed probe the queued-but-unlaunched probes must never launch (the residual storm is what breaks the NEXT fetch and the next fire).`)
 }
 // ── (ε) REGISTERED ────────────────────────────────────────────────────────────────────────────────────────
 if (!read(RUNNER).includes(SELF)) findings.push(`(ε) ${RUNNER} does not register ${SELF}`)
@@ -55,7 +59,7 @@ const out = mkdtempSync(join(tmpdir(), 'loramer-probe-bound-'))
 const origResolve = Module._resolveFilename
 try {
   const tsc = join(ROOT, 'node_modules', '.bin', 'tsc')
-  const r = spawnSync(tsc, [resolve(ROOT, COVERAGE), resolve(ROOT, SURFACES),
+  const r = spawnSync(tsc, [resolve(ROOT, COVERAGE), resolve(ROOT, SURFACES), resolve(ROOT, 'src/lib/concurrency.ts'),
     '--target', 'es2020', '--module', 'commonjs', '--moduleResolution', 'node',
     '--skipLibCheck', '--noResolve', '--rootDir', resolve(ROOT), '--outDir', out], { encoding: 'utf8' })
   if (r.error) findings.push(`could not run tsc — ${r.error.message}`)
@@ -94,6 +98,7 @@ module.exports = { supabaseAdmin: { from: (t) => new Q(t) } }
 `)
   const surfacesJs = join(out, 'src/lib/backfill/universe-surfaces.js')
   Module._resolveFilename = function (request, ...rest) {
+    if (/\/concurrency$/.test(request)) return join(out, 'src/lib/concurrency.js') // LORAMER_FANOUT_BOUNDED_GUARD_V1 — mapBounded's real home, compiled alongside
     if (/universe-surfaces$/.test(request)) return surfacesJs
     if (/@\/lib\/supabase$/.test(request)) return stub
     if (request.startsWith('@/') || request.startsWith('./') || request.startsWith('../')) {

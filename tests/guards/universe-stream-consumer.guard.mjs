@@ -360,6 +360,7 @@ try {
     // map + segment mapping instead of a no-op stub (a stubbed mapping filters the zero row out and the
     // leg measures its own stub — the exact failure the resolver comment below documents).
     resolve(ROOT, 'src/lib/backfill/universe-surfaces.ts'),
+    resolve(ROOT, 'src/lib/concurrency.ts'), // LORAMER_FANOUT_BOUNDED_GUARD_V1 — mapBounded's home; windowCoverage imports it
     '--target', 'es2020', '--module', 'commonjs', '--moduleResolution', 'node',
     '--skipLibCheck', '--noResolve', '--rootDir', resolve(ROOT), '--outDir', out,
   ], { encoding: 'utf8' })
@@ -378,6 +379,7 @@ try {
     // and flagged a perfectly ordered stream as a violation. The guard was measuring its own stub — a broken
     // instrument that looks like evidence (plan §24), caught by a leg that had no business failing.
     if (/capture-adapter$/.test(request)) return contractJs
+    if (/\/concurrency$/.test(request)) return join(out, 'src/lib/concurrency.js')
     if (/google-ads-universe-writer/.test(request)) return writerJs
     if (request.startsWith('@/') || request.startsWith('./') || request.startsWith('../')) return stub
     return origResolve.call(this, request, ...rest)
@@ -443,6 +445,7 @@ try {
       const prevResolve = Module._resolveFilename
       Module._resolveFilename = function (request, ...rest) {
         if (/lib\/supabase$/.test(request)) return stub2
+        if (/\/concurrency$/.test(request)) return join(out, 'src/lib/concurrency.js') // LORAMER_FANOUT_BOUNDED_GUARD_V1 — the launcher's home, real not stubbed
         if (/universe-surfaces$/.test(request)) return surfacesJs
         if (request.startsWith('@/') || request.startsWith('./') || request.startsWith('../')) return stub
         return origResolve.call(this, request, ...rest)

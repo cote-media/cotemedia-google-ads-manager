@@ -108,6 +108,7 @@ export async function capturedThroughByPlatform(
   clientId: string,
   platforms: string[],
 ): Promise<Record<string, string | null>> {
+  // fan-out: constant PLATFORMS — ≤ 5 platforms (the caller passes the client's connected platform list, bounded by the platform registry)
   const entries = await Promise.all(
     platforms.map(async (p) => {
       try {
