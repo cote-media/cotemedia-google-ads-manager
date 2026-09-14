@@ -58,21 +58,68 @@ export function decideFleetMeterVisibility(a) {
         `Ledger terms: attempt_started=${attemptStarted}, window_log=${windowLog}. The classic cause is a reader summing universe_attempt_log without \`phase = 'attempt_started'\`, which counts every request twice. An over-counting governor STARVES the lanes it exists to protect.`,
     }
   }
-  // ⛔ TOLERANCE, STATED RATHER THAN FUDGED. A fire selects, then attempts, so a fire IN FLIGHT at read time
-  // shows selected > attempt_started for its lifetime (~90s). One full fire is 40 requests; anything beyond
-  // that is drift, not timing.
-  const IN_FLIGHT_TOLERANCE = 40
+  // ⛔ LORAMER_FLEET_METER_PINNED_WINDOW_V1 — NO TOLERANCE. The witness and the meter are read over the SAME closed
+  // fire interval (pinFleetWindow below: the straddling fire dropped, the in-flight fire subtracted, discovery ops
+  // counted), so the EXPECTED drift is exactly 0 and one lost fire of ANY size is visible. The old
+  // `IN_FLIGHT_TOLERANCE = 40` was a hand-typed copy of the OLD per-fire ceiling: a turn is 48–50 today, so a read
+  // landing mid-fire (~40% of reads) showed one healthy fire as DRIFT, and a lost 2-request fire hid under the blanket.
+  // `ceiling` is the per-fire maximum READ from universe-resumer.ts (readPerFireCeiling) — used to express drift in
+  // fires, never as an allowance.
   const drift = selected - meterBackfill
-  if (Math.abs(drift) > IN_FLIGHT_TOLERANCE) {
+  const ceiling = Number.isFinite(Number(a.ceiling)) && Number(a.ceiling) > 0 ? Number(a.ceiling) : null
+  const inFires = ceiling ? ` (≈ ${(Math.abs(drift) / ceiling).toFixed(2)} fire(s) at the ${ceiling}-request per-fire ceiling)` : ''
+  if (drift !== 0) {
     return {
       ok: false, state: 'DRIFT',
-      reason: `FLEET METER DISAGREES WITH THE FIRE LOG BY ${drift} request(s) — fires selected ${selected}, the backfill lane reports ${meterBackfill} (attempt_started ${attemptStarted} + window_log ${windowLog}). Beyond the ${IN_FLIGHT_TOLERANCE}-request in-flight allowance this is a real divergence: a day-boundary mismatch between the two aggregates, or a third ledger nobody is summing.`,
+      reason: `FLEET METER DISAGREES WITH THE FIRE LOG BY ${drift} request(s)${inFires} — fires selected ${selected} (discovery ops included), the backfill lane reports ${meterBackfill} over the SAME pinned interval (attempt_started ${attemptStarted} + window_log ${windowLog}). Both sides are read over one closed fire interval, so this is a real divergence: a fire that spent without a row (or a row without spend), a deferred unit, or a third ledger nobody is summing.`,
     }
   }
   return {
     ok: true, state: 'VISIBLE',
-    reason: `fleet meter sees the walk — ${fires} fire(s) selected ${selected} request(s) in the trailing ${WINDOW_HOURS}h and the backfill lane reports ${meterBackfill} (attempt_started ${attemptStarted} + window_log ${windowLog}), within the ${IN_FLIGHT_TOLERANCE}-request in-flight allowance.`,
+    reason: `fleet meter sees the walk — ${fires} fire(s) selected ${selected} request(s) (discovery ops included) over the pinned interval and the backfill lane reports ${meterBackfill} (attempt_started ${attemptStarted} + window_log ${windowLog}): drift 0.`,
   }
+}
+
+/**
+ * ⛔ THE PER-FIRE CEILING IS READ, NEVER TYPED (single-owner-vendor-facts). The three constants live in
+ * src/lib/backfill/universe-resumer.ts; a .mjs check cannot import TS, so it parses the export lines. A parse miss
+ * returns NaN and the caller refuses to run — a check that cannot find its denominator is a broken instrument.
+ */
+export function readPerFireCeiling(root = ROOT) {
+  let src = ''
+  try { src = readFileSync(path.resolve(root, 'src/lib/backfill/universe-resumer.ts'), 'utf8') } catch { return NaN }
+  const c = (name) => { const m = src.match(new RegExp(`export const ${name}\\s*=\\s*([0-9_]+)`)); return m ? Number(m[1].replace(/_/g, '')) : NaN }
+  return c('MAX_REQUESTS_PER_RUN') + c('LOOKBACK_REQUESTS_PER_RUN') + c('MISSED_REQUESTS_PER_RUN')
+}
+
+/**
+ * ⛔ THE PINNED WINDOW — LORAMER_FLEET_METER_PINNED_WINDOW_V1. PURE. Given the wet fire rows of the trailing window
+ * (fired_at = completion, elapsed_ms, requests_selected), the window's opening instant, the attempt_started rows
+ * recorded AFTER the newest fire row (the in-flight fire), and the discovery ops (resource '__account_inception'):
+ *   · a fire whose START (fired_at − elapsed_ms) precedes `sinceIso` STRADDLES the edge — its attempts sit before the
+ *     edge while its row sits inside; it is DROPPED and the interval opens at the first kept fire's start (minus a
+ *     1 s pad for heartbeat-insert latency; fires never overlap — the lane lease — so no dropped fire's attempts can
+ *     fall inside the pad);
+ *   · the interval closes at the newest kept fire's fired_at; attempts recorded after it belong to a fire with no row
+ *     yet and are returned as `inFlight` for the caller to subtract from the meter;
+ *   · discovery ops inside [from, to] are metered vendor requests no fire selects — they JOIN the witness.
+ * Returns { fromIso, toIso, fires, dropped, selectedFires, discovery, selected, inFlight }.
+ */
+export function pinFleetWindow({ fires, sinceIso, attemptsAfterNewest = [], discoveryOps = [] }) {
+  const since = Date.parse(sinceIso)
+  const rows = (fires ?? []).filter((f) => !f.dry_run).map((f) => {
+    const end = Date.parse(f.fired_at)
+    return { end, start: end - Number(f.elapsed_ms ?? 0), sel: Number(f.requests_selected ?? 0) }
+  })
+  const kept = rows.filter((r) => r.start >= since)
+  const dropped = rows.length - kept.length
+  if (kept.length === 0) return { fromIso: sinceIso, toIso: sinceIso, fires: 0, dropped, selectedFires: 0, discovery: 0, selected: 0, inFlight: 0 }
+  const from = Math.min(...kept.map((r) => r.start)) - 1000
+  const to = Math.max(...kept.map((r) => r.end))
+  const selectedFires = kept.reduce((s, r) => s + r.sel, 0)
+  const discovery = discoveryOps.filter((d) => { const t = Date.parse(d.recorded_at); return t >= from && t <= to }).reduce((s, d) => s + Number(d.requests_spent ?? 0), 0)
+  const inFlight = attemptsAfterNewest.filter((x) => Date.parse(x.recorded_at) > to).reduce((s, x) => s + Number(x.requests_spent ?? 0), 0)
+  return { fromIso: new Date(from).toISOString(), toIso: new Date(to).toISOString(), fires: kept.length, dropped, selectedFires, discovery, selected: selectedFires + discovery, inFlight }
 }
 
 // ── LIVE READ ────────────────────────────────────────────────────────────────────────────────────────
@@ -103,8 +150,13 @@ async function main() {
   const sinceIso = new Date(Date.now() - WINDOW_HOURS * 3600 * 1000).toISOString()
   const enc = encodeURIComponent(sinceIso)
 
+  // ⛔ THE CEILING IS READ FROM THE CODE — a parse miss is a broken instrument, never a pass.
+  const ceiling = readPerFireCeiling(ROOT)
+  if (!Number.isFinite(ceiling) || ceiling <= 0) { console.error('✗ fleet-meter-visibility CANNOT RUN — could not read MAX_REQUESTS_PER_RUN + LOOKBACK_REQUESTS_PER_RUN + MISSED_REQUESTS_PER_RUN from src/lib/backfill/universe-resumer.ts.'); process.exitCode = 2; return }
+
   // ⛔ THE WITNESS. Neither spend aggregate reads universe_fire_log; that independence is the entire value.
-  const fires = await get(`universe_fire_log?select=fired_at,dry_run,requests_selected&fired_at=gte.${enc}&order=fired_at.desc&limit=500`)
+  // elapsed_ms rides along so each fire's START is known — the pinned interval opens at a fire's start, never at a clock.
+  const fires = await get(`universe_fire_log?select=fired_at,dry_run,requests_selected,elapsed_ms&fired_at=gte.${enc}&order=fired_at.desc&limit=500`)
   if (fires.status !== 200 || !Array.isArray(fires.body)) {
     console.error(`✗ fleet-meter-visibility CANNOT RUN — fire-log read failed (HTTP ${fires.status}): ${JSON.stringify(fires.body).slice(0, 200)}`)
     process.exitCode = 2; return
@@ -113,32 +165,52 @@ async function main() {
   // ⛔ THE WITNESS IS SUMMED IN NODE OVER REAL ROWS, DELIBERATELY. It is the one number this check cannot
   // afford to have arrive as a silent zero, and a PostgREST aggregate would do exactly that here
   // (PGRST123 — aggregates are disabled on this project; see the DOUBLE-COUNTED comment above).
-  // The row cap is not a risk at this grain: the walk fires hourly, so 24h is ~24 rows against a 500 limit.
+  // The row cap is not a risk at this grain: the walk fires every 5 min, so 24h is ~288 rows against a 500 limit.
   if (wet.length >= 500) {
     console.error('✗ fleet-meter-visibility CANNOT RUN — the fire-log read hit its 500-row limit, so `selected` is truncated and the comparison below would understate the witness. Raise the limit rather than trusting a capped sum.')
     process.exitCode = 2; return
   }
-  const selected = wet.reduce((s, f) => s + Number(f.requests_selected ?? 0), 0)
+  // ⛔ LORAMER_FLEET_METER_PINNED_WINDOW_V1 — the interval is pinned to the FIRES, and both sides are read over it.
+  // (1) newest wet fired_at closes it; the attempts recorded after that instant are the in-flight fire (no row yet) —
+  //     a plain bounded row read (never an aggregate), subtracted from the meter.
+  const newestWet = wet.reduce((m, f) => (m === null || f.fired_at > m ? f.fired_at : m), null)
+  const afterNewest = newestWet
+    ? await get(`universe_attempt_log?select=recorded_at,requests_spent&vendor=eq.google&phase=eq.attempt_started&recorded_at=gt.${encodeURIComponent(newestWet)}&limit=500`)
+    : { status: 200, body: [] }
+  if (afterNewest.status !== 200 || !Array.isArray(afterNewest.body)) {
+    console.error(`✗ fleet-meter-visibility CANNOT RUN — in-flight attempt read failed (HTTP ${afterNewest.status}): ${JSON.stringify(afterNewest.body).slice(0, 200)}`)
+    process.exitCode = 2; return
+  }
+  if (afterNewest.body.length >= 500) { console.error('✗ fleet-meter-visibility CANNOT RUN — more than 500 attempt rows after the newest fire row; that is not one in-flight fire, it is a ledger the fire log has stopped witnessing.'); process.exitCode = 2; return }
+  // (2) discovery ops — the first-touch inception op is metered (requests_spent 1) and selected by no fire; it joins
+  //     the witness. Bounded row read over the trailing window; pinFleetWindow keeps only those inside the interval.
+  const discovery = await get(`universe_attempt_log?select=recorded_at,requests_spent&vendor=eq.google&phase=eq.attempt_started&resource=eq.__account_inception&recorded_at=gte.${enc}&limit=500`)
+  if (discovery.status !== 200 || !Array.isArray(discovery.body)) {
+    console.error(`✗ fleet-meter-visibility CANNOT RUN — discovery-op read failed (HTTP ${discovery.status}): ${JSON.stringify(discovery.body).slice(0, 200)}`)
+    process.exitCode = 2; return
+  }
+  const win = pinFleetWindow({ fires: wet, sinceIso, attemptsAfterNewest: afterNewest.body, discoveryOps: discovery.body })
+  const selected = win.selected
 
   // The two ledger terms, read through the SAME server-side aggregates the fleet reader calls — so this
-  // measures the reader's inputs, not a re-implementation of them.
-  const v2 = await rpc('universe_attempt_lane_spend_today', { p_vendor: 'google', p_since: sinceIso })
-  const v1 = await rpc('universe_lane_spend_today', { p_vendor: 'google_ads', p_since: sinceIso })
+  // measures the reader's inputs, not a re-implementation of them — from the PINNED opening instant.
+  const v2 = await rpc('universe_attempt_lane_spend_today', { p_vendor: 'google', p_since: win.fromIso })
+  const v1 = await rpc('universe_lane_spend_today', { p_vendor: 'google_ads', p_since: win.fromIso })
   for (const [name, r] of [['universe_attempt_lane_spend_today', v2], ['universe_lane_spend_today', v1]]) {
     if (r.status !== 200 || typeof Number(r.body) !== 'number' || !Number.isFinite(Number(r.body))) {
       console.error(`✗ fleet-meter-visibility CANNOT RUN — ${name} unreadable (HTTP ${r.status}): ${JSON.stringify(r.body).slice(0, 160)}. An unreadable spend aggregate is a broken instrument, never a pass.`)
       process.exitCode = 2; return
     }
   }
-  const attemptStarted = Number(v2.body)
+  const attemptStarted = Number(v2.body) - win.inFlight
   const windowLog = Number(v1.body)
   const meterBackfill = attemptStarted + windowLog
 
   const verdict = decideFleetMeterVisibility({
-    selected, meterBackfill, attemptStarted, windowLog, fires: wet.length,
+    selected, meterBackfill, attemptStarted, windowLog, fires: win.fires, ceiling,
   })
 
-  console.log(`[fleet-meter-visibility] ${WINDOW_HOURS}h: fires=${wet.length} selected=${selected} · meter backfill=${meterBackfill} (attempt_started ${attemptStarted} + window_log ${windowLog}) · state=${verdict.state}`)
+  console.log(`[fleet-meter-visibility] pinned ${win.fromIso} → ${win.toIso} (trailing ${WINDOW_HOURS}h; ${win.dropped} straddling fire(s) dropped; in-flight ${win.inFlight} subtracted; discovery ops +${win.discovery}; per-fire ceiling ${ceiling}): fires=${win.fires} selected=${selected} (fires ${win.selectedFires} + discovery ${win.discovery}) · meter backfill=${meterBackfill} (attempt_started ${attemptStarted} + window_log ${windowLog}) · drift=${selected - meterBackfill} · state=${verdict.state}`)
   // ⛔ EMPTY CARRIES ITS DENOMINATOR. When window_log reads 0 that is now EXPECTED — the v1 consumer retired —
   // and saying so out loud is what stops the next reader from treating a quiet ledger as a broken one.
   if (windowLog === 0) {
@@ -196,10 +268,31 @@ export function decideForwardLedgerVisibility(a) {
 // requests only while the meter counted both slots. With both slots summed in the witness the same fires read
 // VISIBLE; with the second slot omitted they read DRIFT. Runs on every invocation before the live read.
 {
-  const summed = decideFleetMeterVisibility({ selected: 190, meterBackfill: 190, attemptStarted: 190, windowLog: 0, fires: 288 })
-  const omitted = decideFleetMeterVisibility({ selected: 0, meterBackfill: 190, attemptStarted: 190, windowLog: 0, fires: 288 })
+  const summed = decideFleetMeterVisibility({ selected: 190, meterBackfill: 190, attemptStarted: 190, windowLog: 0, fires: 288, ceiling: 50 })
+  const omitted = decideFleetMeterVisibility({ selected: 0, meterBackfill: 190, attemptStarted: 190, windowLog: 0, fires: 288, ceiling: 50 })
   if (summed.state !== 'VISIBLE' || omitted.state !== 'DRIFT') {
     console.error(`✗ fleet-meter-visibility SELF-TEST FAILED — summed witness reads ${summed.state} (want VISIBLE), omitted second slot reads ${omitted.state} (want DRIFT).`)
+    process.exit(2)
+  }
+  // LORAMER_FLEET_METER_PINNED_WINDOW_V1 — the pinned window on the three shapes that flickered: a straddling fire is
+  // dropped, a mid-fire read's attempts are returned as in-flight, a discovery op joins the witness; a lost 2-request
+  // fire is DRIFT. tests/guards/fleet-meter-pinned-window.guard.mjs drives the full fixtures; this is the in-script floor.
+  const T = Date.parse('2026-09-14T01:00:00Z')
+  const at = (s) => new Date(T + s * 1000).toISOString()
+  const w = pinFleetWindow({
+    sinceIso: at(0),
+    fires: [
+      { fired_at: at(30), elapsed_ms: 120000, requests_selected: 48, dry_run: false },   // straddles the edge → dropped
+      { fired_at: at(420), elapsed_ms: 120000, requests_selected: 48, dry_run: false },
+      { fired_at: at(720), elapsed_ms: 120000, requests_selected: 2, dry_run: false },
+      { fired_at: at(900), elapsed_ms: 100000, requests_selected: 40, dry_run: true },   // dry → ignored
+    ],
+    attemptsAfterNewest: [{ recorded_at: at(1000), requests_spent: 48 }],               // the in-flight fire
+    discoveryOps: [{ recorded_at: at(500), requests_spent: 1 }, { recorded_at: at(-100), requests_spent: 1 }], // one inside, one outside
+  })
+  const lost = decideFleetMeterVisibility({ selected: 50, meterBackfill: 48, attemptStarted: 48, windowLog: 0, fires: 2, ceiling: 50 })
+  if (w.dropped !== 1 || w.fires !== 2 || w.selectedFires !== 50 || w.discovery !== 1 || w.selected !== 51 || w.inFlight !== 48 || w.fromIso !== at(299) || w.toIso !== at(720) || lost.state !== 'DRIFT') {
+    console.error(`✗ fleet-meter-visibility SELF-TEST FAILED — pinned window ${JSON.stringify(w)} (want dropped 1 · fires 2 · selectedFires 50 · discovery 1 · selected 51 · inFlight 48 · from ${at(299)} · to ${at(720)}); lost 2-request fire reads ${lost.state} (want DRIFT).`)
     process.exit(2)
   }
 }
