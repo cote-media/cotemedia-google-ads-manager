@@ -90,6 +90,7 @@ const EXPECTED_ROSTER = [
   'scripts/check-doc-ownership-data.mjs',
   'scripts/check-drain-throttle.mjs --guard',
   'scripts/check-parent-analyze.mjs --gate',
+  'scripts/check-rotation-buffers.mjs --gate', // LORAMER_ROTATION_SKIP_SCAN_V1 — pin moved in the same commit as the addition
   'scripts/check-rpc-grant-posture.mjs',
   'tests/guards/google-op-budget.guard.mjs --db',
   'tests/guards/universe-failure-is-durable.guard.mjs --db',

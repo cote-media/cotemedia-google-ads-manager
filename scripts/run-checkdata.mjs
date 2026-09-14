@@ -70,6 +70,8 @@ const CHECKS = [
   { name: 'check-doc-ownership-data', cmd: ['scripts/check-doc-ownership-data.mjs'] },
   { name: 'check-drain-throttle', cmd: ['scripts/check-drain-throttle.mjs', '--guard'] },
   { name: 'check-parent-analyze', cmd: ['scripts/check-parent-analyze.mjs', '--gate'] },
+  // LORAMER_ROTATION_SKIP_SCAN_V1 — the rotation read's PLAN stays in the skip-scan cost class (buffers on the deepest ledger).
+  { name: 'check-rotation-buffers', cmd: ['scripts/check-rotation-buffers.mjs', '--gate'] },
   // LORAMER_RPC_GRANT_POSTURE_V1 — the LIVE-ACL half. The build guard reads migration source and runs on
   // Vercel with no database; this reads pg_proc and is the only half that can see a GRANT typed by hand
   // straight into the SQL editor, which leaves no trace in migrations/.
