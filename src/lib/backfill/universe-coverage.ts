@@ -76,6 +76,50 @@ export function coveredDaysStrict(
   return rows.filter((d) => d !== newest || committed.has(d))
 }
 
+/**
+ * ⛔ LORAMER_COVERAGE_PROBE_BOUND_V1 — how many per-day probes may be IN FLIGHT at once.
+ * DERIVED FORWARD from the requirement, not backward from the break: the missed lane's page allowance is
+ * MISSED_ALLOWANCE_MS 20,000 over MISSED_SURFACES_PER_RUN 16 entries = 1,250 ms per surface; the worst surface
+ * (Tri-Copy, inception 2016-04-20, wall-less) is 3,710 days ⇒ up to 7,420 probes with the alias re-probe, at ~8 ms
+ * RTT ⇒ N ≥ 48 to fit the allowance. Ceiling: the host's fd pool (~1,024 on Lambda-class hosts) — the unbounded
+ * launcher broke at ~3,000 in flight and was flaky at 2,200–2,400. 200 carries 4× throughput headroom and 5× fd
+ * headroom. The RTT input is re-measured on a real fire in the ship's Gate-A. The constant is exported so the guard
+ * (tests/guards/coverage-probe-bound.guard.mjs) judges the launcher against the real value, never a copy.
+ */
+export const COVERAGE_PROBE_CONCURRENCY = 200
+
+/**
+ * A sliding window over `items`: at most `limit` calls of `fn` in flight, the next launched as each completes
+ * (never fixed batches — a batch pays its slowest member's latency and discards its siblings on a throw). Results
+ * are placed BY INDEX, so the caller's answer is byte-identical to the unbounded `Promise.all(items.map(fn))`.
+ * ⛔ CANCEL-ON-FIRST-FAILURE: the first rejection sets `cancelled`; workers already in flight finish their one
+ * call and stop, and NOTHING queued behind the failure is ever launched. That residual — thousands of probes
+ * still draining after the throw — is what exhausted the host for the meter read and the next fire.
+ * Rejects with the FIRST error, exactly as Promise.all did.
+ */
+export async function mapBounded<T, R>(items: T[], limit: number, fn: (item: T, index: number) => Promise<R>): Promise<R[]> {
+  const results: R[] = new Array(items.length)
+  const width = Math.max(1, Math.min(Math.floor(limit), items.length))
+  let next = 0
+  let cancelled = false
+  let firstError: unknown = null
+  const worker = async (): Promise<void> => {
+    while (!cancelled) {
+      const i = next++
+      if (i >= items.length) return
+      try {
+        results[i] = await fn(items[i], i)
+      } catch (e) {
+        if (!cancelled) { cancelled = true; firstError = e }
+        return
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: width }, () => worker()))
+  if (cancelled) throw firstError
+  return results
+}
+
 export interface WindowCoverage {
   /** Days proven captured — rows present AND closed by a later day (or an explicit commit). */
   covered: string[]
@@ -119,7 +163,14 @@ export async function windowCoverage(k: CoverageKey, windowStart: string, window
   // is the catastrophic direction named at the top of this file.
   const alias = drainAliasFor(k.entityLevel, k.breakdownType)
 
-  const hits = await Promise.all(days.map(async (day) => {
+  // ⛔ LORAMER_COVERAGE_PROBE_BOUND_V1 — THE PROBES RIDE A SLIDING WINDOW, NEVER `Promise.all(days.map(...))`.
+  // Measured 2026-09-14 (fire-7621 class): the missed lane enumerates inception→T−B, so on a 2016–2018 inception a
+  // wall-less surface launched 3,000–3,700 fetches AT ONCE from one Vercel host; the host's resolver/fd pool exhausted
+  // ("getaddrinfo EBUSY rumpndvubxlcajkrnbvb.supabase.co" → undici "TypeError: fetch failed" — no Postgres error, the
+  // probe itself is 0.123 ms server-side), this call threw, and the meter's own next fetch failed the same way and
+  // read null — 13 of 13 'meter-held' fires since 09-13 20:06Z, Tri-Copy and Influential Drones writing nothing for
+  // 19 h. The per-day `limit 1` shape is unchanged (the header above still holds); only the LAUNCH is bounded.
+  const hits = await mapBounded(days, COVERAGE_PROBE_CONCURRENCY, async (day) => {
     const probe = (entityLevel: string, breakdownType: string) => supabaseAdmin
       .from('metrics_daily')
       .select('date')
@@ -144,7 +195,7 @@ export async function windowCoverage(k: CoverageKey, windowStart: string, window
       `${alias.entityLevel}/${alias.breakdownType} on ${day}: ${aErr.message}. ` +
       `⛔ A COVERAGE ANSWER MUST NOT BE SYNTHESISED FROM A FAILED READ.`)
     return { day, has: (aData?.length ?? 0) > 0 }
-  }))
+  })
 
   // ⛔ LORAMER_COMMITTED_DAY_CLOSES_V1 — RULE (b) IS NOW WIRED, AND IT WAS ALWAYS THE MISSING HALF.
   // The header above documents TWO closure rules. Rule (a) — "a later day has rows" — was the only one this
