@@ -104,13 +104,13 @@ const addDays = (iso: string, n: number) => {
 async function publishGoverned(
   adapter: ReturnType<typeof googleAdsCaptureAdapter>, next: UniverseMessageV2, days: number, idempotencyKey: string,
   opts: DeadlineOpts = {},
-): Promise<{ published: boolean; reason: string }> {
+): Promise<{ published: boolean; reason: string; requestsOpened: number }> {
   // ⛔ THE METER IS THE ADAPTER'S, IN THE ADAPTER'S OWN UNIT, AND AN UNREADABLE ONE HOLDS. There is no
   // shared constant on this path: `cap` and `costOf(days)` both come from the adapter, so nothing here can
   // be tuned into meaning "operations" — which is exactly what would break on GA4 tokens or Meta's BUC
   // percentage across three simultaneous meters.
   const gate = await mayFetch(adapter, days)
-  if (!gate.ok) return { published: false, reason: gate.reason }
+  if (!gate.ok) return { published: false, reason: gate.reason, requestsOpened: 0 }
   // ⛔ DIRECT CONTINUATION, NOT A PUBLISH — LORAMER_QUEUE_REMOVED_INLINE_WALK_V1 (seam (b) of the
   // removal's step-0). The queue is gone; the narrowed halves run NOW, in this invocation, through the
   // full normal path (processMessage → terminal row per unit, same key mint). THE NAME IS KEPT so every
@@ -123,8 +123,10 @@ async function publishGoverned(
   // depth ≤ ~log2(span/min), then BROKEN terminates; (2) THE DEADLINE — opts.deadlineAt rides into the
   // continuation's own range admission, so a cascade cannot outrun the fire's ceiling; (3) THE METER —
   // the mayFetch gate above, refused exactly as a publish was.
-  await processMessage({ ...next, messageKey: idempotencyKey } satisfies UniverseMessageV2, opts)
-  return { published: true, reason: gate.reason }
+  // LORAMER_FIRE_LOG_WITNESSES_OPENED_V1 — the continuation's opened requests ride back to the parent, so a fire's
+  // heartbeat can sum what was actually OPENED across every unit and every narrowed half.
+  const child = await processMessage({ ...next, messageKey: idempotencyKey } satisfies UniverseMessageV2, opts)
+  return { published: true, reason: gate.reason, requestsOpened: child.requestsOpened }
 }
 
 // ⛔ THE CAST IS TYPE-ONLY AND IT IS NOT COSMETIC — READ THE REASON BEFORE REMOVING IT.
@@ -151,7 +153,11 @@ async function publishGoverned(
 // WALK_BUDGET_MS applies, exactly as before the cutover.
 export interface DeadlineOpts { deadlineAt?: number }
 
-async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance, opts: DeadlineOpts = {}): Promise<void> {
+// LORAMER_FIRE_LOG_WITNESSES_OPENED_V1 — RETURNS THE NUMBER OF REQUESTS THIS INVOCATION OPENED: one per
+// appendAttemptStarted(…, 1, …) in the range loop, plus whatever a mis-size continuation or an advance opened. Every
+// exit that opened nothing returns 0; a budget stop returns what it opened BEFORE the stop. This is the fire row's
+// witness (universe_fire_log.requests_selected) — the meter's own unit, counted where the work happens.
+async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance, opts: DeadlineOpts = {}): Promise<number> {
   const started = Date.now() // LORAMER_V2_WALK_BUDGET_RESERVATION_V1 — the per-invocation clock the reservation reads
   const { clientId, userEmail, customerId, entry, startDate, endDate } = msg
   // ⛔ ABSENT MEANS 'descend' — LORAMER_TOP_EDGE_LANE_V1. Every message published before the field existed,
@@ -182,7 +188,7 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance, opts
         : `google quota paused until ${qp.until}`) +
       ' · no vendor call, no publish. Owed-ness is derived, so this window is re-found when the window elapses.'
     )
-    return
+    return 0
   }
   // ⛔ THE ADAPTER IS CONSTRUCTED PER INVOCATION with the vendor stream it needs. Nothing about Google is
   // reachable from the core; the core only ever sees `adapter.*`.
@@ -293,23 +299,23 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance, opts
     // not need a chain and must not have one.
     if (lane === 'top-edge') {
       console.log(`[universe-v2] TOP-EDGE ${clientId} ${label}: window ${startDate}..${endDate} already covered — NOT advancing (a top-edge message never self-chains).`)
-      return
+      return 0
     }
     // LORAMER_LOOKBACK_LANE_V1 — the same refusal for the third lane: a lookback window is re-derived from the
     // lane's own frontier every fire (deriveBoundaryStrip); a chained successor would start a second descent.
     if (lane === 'lookback') {
       console.log(`[universe-v2] LOOKBACK ${clientId} ${label}: window ${startDate}..${endDate} already covered — NOT advancing (a lookback message never self-chains).`)
-      return
+      return 0
     }
     // LORAMER_MISSED_DAY_WALK_V1 — the fourth lane never self-chains either: its windows are re-enumerated from the
     // hole map every fire; a chained successor would be a second descent.
     if (lane === 'missed') {
       console.log(`[universe-v2] MISSED ${clientId} ${label}: window ${startDate}..${endDate} already covered — NOT advancing (a missed message never self-chains).`)
-      return
+      return 0
     }
     const adv = await advance(msg, adapter, { stopDate: floorDate, inceptionKnown: walkStop.inceptionKnown }, 'already covered — nothing owed in this window')
     console.log(`[universe-v2] ADVANCE ${clientId} ${label}: ${JSON.stringify(adv)}`)
-    return
+    return adv.requestsOpened
   }
 
   // ══ 2 · THE DISK FLOOR, BEFORE ANY REQUEST IS SPENT ═══════════════════════════════════════════════════
@@ -319,7 +325,7 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance, opts
       { rowsWritten: 0, requestsSpent: 0, diskFreeBytes: floor.freeBytes, error: floor.reason }, prov)
     console.error(`[universe-v2] FLOOR STOP ${clientId} ${label}: ${floor.reason}`)
     // ⛔ NO RE-PUBLISH. The lane goes quiet rather than hammering a full volume.
-    return
+    return 0
   }
 
   // ══ 3 · THE BOUND — READ BEFORE CHARGING, AND EVALUATED AT THE SPAN ═══════════════════════════════════
@@ -335,7 +341,7 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance, opts
       error: `BROKEN: ${attemptsHere} attempt(s) at the ${MIN_WINDOW_DAYS}-day minimum span. Not mis-sized — there is nothing left to narrow.`,
     }, prov)
     console.error(`[universe-v2] BROKEN ${clientId} ${label} ${startDate}..${endDate} — ${attemptsHere} attempt(s) at the ${MIN_WINDOW_DAYS}-day minimum. Escalate.`)
-    return
+    return 0
   }
   if (spanDays > MIN_WINDOW_DAYS && attemptsHere >= NARROW_AFTER_ATTEMPTS) {
     // ⛔ **MIS-SIZED**, which is a completely different verdict and gets a completely different remedy:
@@ -375,7 +381,7 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance, opts
           `${clientId}|${entry.resource}|${entry.segment ?? ''}|${upperStart}|${endDate}|narrow-upper`,
           opts,
         )
-      : { published: true, reason: 'no upper half — the narrow consumed the whole window' }
+      : { published: true, reason: 'no upper half — the narrow consumed the whole window', requestsOpened: 0 }
     if (!upper.published) {
       // ⛔ HOLD THE WHOLE WINDOW RATHER THAN SPLIT IT. Nothing is published and nothing is spent, so the
       // newest ASKED row for this surface stays the FULL window, the anchor holds at its top, and the resumer
@@ -386,7 +392,7 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance, opts
           `Publishing only the older half would drop the upper half permanently — LORAMER_MISSIZE_REOWES_THE_UPPER_HALF_V1. The whole window stays owed and is re-derived next fire.`,
       }, prov)
       console.warn(`[universe-v2] MIS-SIZE HELD ${clientId} ${label}: upper half ${upperStart}..${endDate} refused (${upper.reason}) — window NOT split, nothing dropped.`)
-      return
+      return 0
     }
     const pub = await publishGoverned(adapter,
       { ...msg, startDate, endDate: narrowedEnd }, half,
@@ -400,7 +406,8 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance, opts
     }, prov)
     console.log(`[universe-v2] MIS-SIZED ${clientId} ${label}: ${spanDays}d → ${half}d, published=${pub.published} (${pub.reason})` +
       (hasUpper ? ` · upper ${upperStart}..${endDate} re-owed (${upper.reason})` : ''))
-    return
+    // LORAMER_FIRE_LOG_WITNESSES_OPENED_V1 — this invocation opened nothing itself; its two halves did.
+    return upper.requestsOpened + pub.requestsOpened
   }
 
   // ══ 4 · WALK THE OWED RANGES, STREAMING, COMMITTING A DAY AT A TIME ═══════════════════════════════════
@@ -548,7 +555,7 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance, opts
     console.warn(`[universe-v2] BUDGET STOP ${clientId} ${label}: deferred ${deferredForBudget}/${owed.ranges.length} range(s) — NOT advancing; the resumer re-derives what is still owed.`)
     // ⛔ NO ADVANCE ON A BUDGET STOP. Advancing to an older window while this one still owes ground would leave
     // a hole behind the walk that only a re-scan could find. THE DRIVER OWNS THE LOOP (June, BackfillControl.tsx:64-86).
-    return
+    return requests // what was opened BEFORE the stop; the deferred ranges opened nothing and count nothing
   }
 
   // ══ 4c · EMPTY-STRETCH VISIBILITY — LORAMER_EMPTY_STRETCH_VISIBILITY_V1 ═══════════════════════════════
@@ -575,22 +582,22 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance, opts
   // pass that matters. `universe-stream-consumer.guard.mjs` leg (f) drives BOTH and was seen red on each.
   if (lane === 'top-edge') {
     console.log(`[universe-v2] TOP-EDGE ${clientId} ${label}: walked ${owed.ranges.length} range(s), ${totalRows} rows, ${daysCommitted.length} day(s) committed — NOT advancing (a top-edge message never self-chains).`)
-    return
+    return requests
   }
   // LORAMER_LOOKBACK_LANE_V1 — both advance() exits carry the refusal for the lookback lane too.
   if (lane === 'lookback') {
     console.log(`[universe-v2] LOOKBACK ${clientId} ${label}: walked ${owed.ranges.length} range(s), ${totalRows} rows, ${daysCommitted.length} day(s) committed — NOT advancing (a lookback message never self-chains).`)
-    return
+    return requests
   }
   // LORAMER_MISSED_DAY_WALK_V1 — both advance() exits carry the refusal for the missed lane too.
   if (lane === 'missed') {
     console.log(`[universe-v2] MISSED ${clientId} ${label}: walked ${owed.ranges.length} range(s), ${totalRows} rows, ${daysCommitted.length} day(s) committed — NOT advancing (a missed message never self-chains).`)
-    return
+    return requests
   }
   const adv = await advance({ ...msg, emptyStretch }, adapter, { stopDate: effectiveFloor, inceptionKnown: walkStop.inceptionKnown },
     `walked ${owed.ranges.length} owed range(s): ${totalRows} rows, ${daysCommitted.length} day(s) committed`)
   console.log(`[universe-v2] ADVANCE ${clientId} ${label}: ${JSON.stringify(adv)}`)
-  return
+  return requests + adv.requestsOpened
 }
 
 // ⛔ LORAMER_POLL_MODE_EXTRACT_V1 — THE MESSAGE BODY, LIFTED OUT OF THE PUSH HANDLER AND NOT OTHERWISE
@@ -602,7 +609,7 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance, opts
 // extra named export here is a build risk in a step whose whole contract is "nothing changes". The poll
 // lane will need it, and the correct home is then a lib module — that relocation belongs to step 2,
 // not to this one.
-export async function processMessage(msg: UniverseMessageV2, opts: DeadlineOpts = {}): Promise<void> {
+export async function processMessage(msg: UniverseMessageV2, opts: DeadlineOpts = {}): Promise<{ requestsOpened: number }> {
   // ⛔ THE PROVENANCE IS MINTED BEFORE ANYTHING CAN FAIL. `messageKey` is the PUBLISHER's idempotency key,
   // riding on the message — the fact we already had and threw away. `invocationId` is THIS DELIVERY's, and it
   // is a second fact rather than a duplicate: a redelivery carries the SAME message key, so nothing keyed on
@@ -626,8 +633,10 @@ export async function processMessage(msg: UniverseMessageV2, opts: DeadlineOpts 
     windowStart: msg.startDate, windowEnd: msg.endDate,
   }
   let ended = 'returned'
+  // LORAMER_FIRE_LOG_WITNESSES_OPENED_V1 — the count the fire's heartbeat sums; 0 until the body says otherwise.
+  let requestsOpened = 0
   try {
-    await runOneMessage(msg, prov, opts)
+    requestsOpened = await runOneMessage(msg, prov, opts)
   } catch (e: any) {
     // ⛔ RECORD AND RETHROW. Swallowing here would convert a crash into a silent success and hand the queue a
     // 2xx for work that did not happen — the exact inversion of what this row exists to prevent.
@@ -646,6 +655,7 @@ export async function processMessage(msg: UniverseMessageV2, opts: DeadlineOpts 
         `observer — it did not fail, it became unreadable. NOT rethrown: a throw from finally would replace the real error.`)
     }
   }
+  return { requestsOpened }
 }
 
 /**
@@ -660,7 +670,7 @@ async function advance(msg: UniverseMessageV2, adapter: ReturnType<typeof google
   const floorDate = stop.stopDate
   const remaining = msg.windowsRemaining
   if (remaining !== undefined && remaining <= 1) {
-    return { ok: true, advanced: false, reason: `bounded run exhausted (windowsRemaining=${remaining})`, why }
+    return { ok: true, advanced: false, reason: `bounded run exhausted (windowsRemaining=${remaining})`, why, requestsOpened: 0 }
   }
   // ⛔ UNKNOWN REFUSES AN UNBOUNDED WALK — LORAMER_INCEPTION_STOP_V1. With no inception discovered and no
   // bound on the chain, "keep walking" means walking empty 30-day windows toward the year 2000, ~316 windows
@@ -672,7 +682,7 @@ async function advance(msg: UniverseMessageV2, adapter: ReturnType<typeof google
       reason: `REFUSED-UNBOUNDED: account inception is UNKNOWN for ${clientId} and this chain has no windowsRemaining bound. ` +
         `Discovery (${'INCEPTION_DISCOVERY_GAQL'}) either failed or has not run — store a row in universe_account_inception, ` +
         `or re-publish with walkToEpoch:true as an explicit operator choice. Nothing is defaulted.`,
-      why,
+      why, requestsOpened: 0,
     }
   }
   // ⛔ THE DISCOVERED WALL — LORAMER_UNIVERSE_DISCOVERED_FLOOR_V1. `floorDate` is the date the VENDOR
@@ -685,7 +695,7 @@ async function advance(msg: UniverseMessageV2, adapter: ReturnType<typeof google
   // LORAMER_ZERO_ROWS_IS_NOT_EXHAUSTION_V1 forbids and which sealed 214 cursors once already.
   const nextEnd = addDays(startDate, -1)
   if (floorDate !== null && nextEnd < floorDate) {
-    return { ok: true, advanced: false, reason: `wall reached — next window would end ${nextEnd}, below the DISCOVERED vendor refusal at ${floorDate}`, why }
+    return { ok: true, advanced: false, reason: `wall reached — next window would end ${nextEnd}, below the DISCOVERED vendor refusal at ${floorDate}`, why, requestsOpened: 0 }
   }
   // ⛔ SIZE ON MAX, REPORT PREV. Under-prediction is the direction that costs a request; over-prediction
   // costs a window that finishes early. See universe-sizing.ts for the measurement that ranked them.
@@ -708,6 +718,7 @@ async function advance(msg: UniverseMessageV2, adapter: ReturnType<typeof google
     next: { startDate: nextStart, endDate: nextEnd, days: sizing.days },
     sizing: { basis: sizing.basis, sizedOnRowsPerDay: sizing.sizedOnRowsPerDay, estimateRowsPerDay: sizing.estimateRowsPerDay, reason: sizing.reason },
     governor: pub.reason,
+    requestsOpened: pub.requestsOpened, // LORAMER_FIRE_LOG_WITNESSES_OPENED_V1 — a chained window's opened requests ride back
   }
 }
 

@@ -45,7 +45,10 @@ else {
     if (/published:\s*published\.length\s*\+/.test(call)) findings.push("(a) the completion heartbeat's `published` adds a second term to `published.length` — every executed unit (both lanes) is already pushed into `published` at :805, so a second addend counts each lookback unit twice (fire 6688: 4 vs publishedOf 2).")
     if (!/published:\s*published\.length\s*,/.test(call)) findings.push("(a) the completion heartbeat's `published` is not `published.length` — the witness must equal the FIRE line's publishedOf (the executed set, both lanes).")
     if (!/published\.push\(\{\s*lane/.test(src)) findings.push("(a) the executed set no longer pushes `{ lane, … }` into `published` — if lookback units stop entering `published`, the single-addend witness under-counts them (the −190 shape)")
-    if (!/requestsSelected:\s*sel\.requests\s*\+\s*lookbackRequestsToSend/.test(call)) findings.push("(a) the completion heartbeat's `requestsSelected` does not sum both slots (expected `sel.requests + lookbackRequestsToSend`) — the 2026-09-09 −190 shape returns on the first publish fire.")
+    // LORAMER_FIRE_LOG_WITNESSES_OPENED_V1 (2026-09-14) — the pin MOVED, in the same commit as the change it pins: the witness
+    // is now the summed worker return (requests OPENED across every lane's units), never the planner's per-slot sum.
+    // fire-log-witnesses-opened.guard.mjs drives the worker for the count; this leg keeps the heartbeat on that variable.
+    if (!/requestsSelected:\s*requestsOpened\b/.test(call)) findings.push("(a) the completion heartbeat's `requestsSelected` does not sum both slots (expected `sel.requests + lookbackRequestsToSend`) — the 2026-09-09 −190 shape returns on the first publish fire.")
   }
   if (!/const lookbackRequestsToSend\s*=\s*LOOKBACK_SLOT_MODE === 'publish'\s*\?\s*selLook\.requests\s*:\s*0/.test(src)) findings.push("(b) `lookbackRequestsToSend` is not derived from the same LOOKBACK_SLOT_MODE switch as `lookbackToSend` — the two halves of the second slot could disagree.")
 }

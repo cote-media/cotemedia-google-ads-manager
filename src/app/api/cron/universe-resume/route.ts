@@ -884,6 +884,12 @@ export async function GET(request: Request) {
   const executed: Array<{ label: string; lane: string; window: string; ms: number }> = []
   const unitErrors: Array<{ label: string; error: string }> = []
   let deferredUnits = 0
+  // LORAMER_FIRE_LOG_WITNESSES_OPENED_V1 — the requests this fire actually OPENED (one per appendAttemptStarted(…, 1, …)
+  // inside the worker, continuations included), summed from processMessage's return. This is what the completion
+  // heartbeat witnesses as requests_selected: the meter's own unit, counted where the work happens. A unit deferred at
+  // the fire deadline (below), a range deferred inside a unit, or a window re-derived to 0 owed at execute time all open
+  // nothing and therefore count nothing — the three classes that made fire 7847 read selected 47 / opened 46.
+  let requestsOpened = 0
   let maxUnitMs = 0
   const captureStartedAt = Date.now()
   // ⛔ THE DEADLINE IS ABSOLUTE AND SHARED: capture start + CAPTURE_BUDGET_MS. Unit admission here, range
@@ -956,7 +962,8 @@ export async function GET(request: Request) {
       // so the fire RECORDS AND CONTINUES — one broken surface must not cost the other 41 their pass.
       const unitStartedAt = Date.now()
       try {
-        await processMessage({ ...msg, messageKey: idempotencyKey } satisfies UniverseMessageV2, unitOpts)
+        const unitResult = await processMessage({ ...msg, messageKey: idempotencyKey } satisfies UniverseMessageV2, unitOpts)
+        requestsOpened += unitResult.requestsOpened
         executed.push({ label: c.label, lane, window: `${c.windowStart}..${c.windowEnd}`, ms: Date.now() - unitStartedAt })
       } catch (e: any) {
         unitErrors.push({ label: c.label, error: String(e?.message ?? e).slice(0, 300) })
@@ -1021,7 +1028,12 @@ export async function GET(request: Request) {
     // pushed at `published.push(…)` with its lane — so the f75d8aa sum `published.length + lookbackToSend.length` counted
     // each lookback unit twice (fire 6688: published 4 vs publishedOf 2; the 24 h witness 68 vs 34 attempts → a FALSE
     // EXECUTION-DARK in check-walk-liveness). ONE addend: the witness equals publishedOf by construction.
-    candidates: candidates.length, published: published.length, requestsSelected: sel.requests + lookbackRequestsToSend + selMissed.requests,
+    // ⛔ LORAMER_FIRE_LOG_WITNESSES_OPENED_V1 — `requests_selected` NOW CARRIES REQUESTS **OPENED** BY THIS FIRE (the meter's own
+    // unit), not the planner's sum. The sum `sel.requests + lookbackRequestsToSend + selMissed.requests` that stood here
+    // counted units the fire never started: fire 7847 (2026-09-14) selected 47, opened 46 — one unit deferred at the
+    // deadline — and the pinned fleet meter read a true DRIFT +1 for a day. SELECTION is still reported, as
+    // `bound.requestsSelected` in the JSON body below; the durable row witnesses ACTION.
+    candidates: candidates.length, published: published.length, requestsSelected: requestsOpened,
     advanced: advancedCovered, refusals, elapsedMs,
     // LORAMER_MISSED_FIRE_DURABILITY_V1 — the same three values the FIRE line prints (missedCursorFrom / missedNextEntry /
     // missedWrapped), durable on the row; null when the lane did not enumerate (refused or errored).
