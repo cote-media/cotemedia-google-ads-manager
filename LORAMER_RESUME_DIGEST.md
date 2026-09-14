@@ -7,8 +7,8 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-09-13T20:48:18.839Z
-- built_from HEAD: 38e264e5134781e86cf32b86cd2b3c0ce8b02954  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-09-14T00:05:59.862Z
+- built_from HEAD: e970a37aff4ec0e8356c6de2f88a6ae59a829131  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
@@ -16,7 +16,7 @@
   Source-doc content_hash at build time:
     - LORAMER_ESSENCE.md: f5047b1702afe312eea1e36ba12179e72e3072584fbb23a46300e22a6f17bc5a
     - LORAMER_HANDOFF.md: 9f349d7d232366b1bb0b29f797f7225540b3ff6c8b43fbbea32eb0db4e761680
-    - CONTINUE_HERE.md: dddd977f3285440c222df703da2c1cff07d488a614eb1346cdaccfc9c1ca3ab6
+    - CONTINUE_HERE.md: 9f47121bb8ff9f723520df69b885b00afc03d6677260a8fabafeec175a69943e
     - LORAMER_DECISIONS.md: 8506da31b3dffd00130c2def55c6197fc96ad79ec273d94812a2831a9e9a4401
     - LORAMER_QUEUE_OF_RECORD.md: 41a5fc1db6fbebb2e896809efddb0e0bd25e2bea459cd37ddcbc3759c7b74a6e
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: f4bef31497a46984a3a54acc5be044d48000688ba74ed59689e7c4bfafca21a1
@@ -551,7 +551,7 @@ Recompute days-to-2026-09-30 at resume from the clock; never read it off this bl
 · The fleet's descent state is the attempt ledger; universe_run_state is the Escential/Foam-OH-era table.
 
 ── ▶▶ NEXT STEP, IN ORDER ──
-(1) MORNING READ (read-only, universe_fire_log + cron_runs + pg_stat): meter-held onset vs the ~08:30Z 09-14 forecast and % of turns served since (fire_outcome by hour) · Bath Fitter's 09-14 driver window (11:00Z; 273/273 in ≤ 2 partials, `deferred N` in the ran-in line) · check-parent-analyze cleared at 03:30Z or not (pg_stat last_analyze) · fire-7621 recurrence scan (any meter-held row with a NULL missed triple: quote elapsed_ms) · the 8 zero-row accounts after ~10 more turns each (attempt_finished rows_written by client, descend lane).
+(1) MORNING READ (read-only, universe_fire_log + cron_runs + pg_stat): meter-held onset vs the ~08:30Z 09-14 forecast and % of turns served since (fire_outcome by hour) · Bath Fitter's 09-14 driver window (11:00Z; 273/273 in ≤ 2 partials, `deferred N` in the ran-in line) · THE 03:30Z ANALYZE RUN (LORAMER_ANALYZE_MAINTENANCE_REAL_V1, migration 093 — the first night the job has ever had more than 120 s): cron.job_run_details newest = succeeded with a plausible duration (≥ 158 s-class, expect minutes), maintenance_analyze_log newest = ok tonight, `node scripts/check-parent-analyze.mjs --gate` green end-to-end; if it failed again, QUOTE return_message — do not re-raise the timeout without reading it · fire-7621 recurrence scan (any meter-held row with a NULL missed triple: quote elapsed_ms) · the 8 zero-row accounts after ~10 more turns each (attempt_finished rows_written by client, descend lane).
 (2) SECOND COLD PROOF — the fleet's descents ARE cold connects now: when the first non-Escential floor seals (fire_log refusals floor-sealed = 349 on a client, or sealedHeld 349 in its FIRE line), run the six-condition read + Russ's reconcile on THAT account. No entry repoint exists any more; nothing to point.
 (3) HONEST-INSTRUMENT FIXES from the queue, smallest blast first: ★METER-UNREADABLE-HOLD-7621 (watch) · ★ANALYZE-LEDGER-STALE · ★DRIVER-ALLOCATION-LITERAL-18TH-CONNECTION · ★FLEET-METER-DRIFT-FLICKERS · ★BACKFILL-STATUS-READS-DRY-FIRES · ★ROTATION-INDEX-HEAP-FETCH (migration) · the fire_log advanced=0 counter · ★FORWARD-18-ERRORS-DAILY (read-only, legacy frozen) · ★CONNECT-DROPS-CURRENCY-TIMEZONE · ★CONNECT-KICK-FIRES-LEGACY-DRAIN (with ★LEGACY-RETIREMENT).
 (4) OWNER-GATED, unchanged: ★LEGACY-RETIREMENT (four gates) · Google Standard Access pending (DO-NOT-REAPPLY).
