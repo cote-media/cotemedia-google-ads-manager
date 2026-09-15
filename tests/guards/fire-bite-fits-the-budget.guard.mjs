@@ -113,8 +113,12 @@ if (bite !== null && ceilingS !== null && scanMs !== null && floorMs !== null &&
   if (!/shouldStartAnotherLap\(\s*Date\.now\(\) - captureStartedAt,\s*maxUnitMs,\s*CAPTURE_BUDGET_MS,\s*UNIT_RESERVATION_FLOOR_MS\s*\)/.test(route)) {
     findings.push('(c) the execution loop no longer admits units through shouldStartAnotherLap against the capture budget. Raising the bite is only safe BECAUSE that gate exists; without it the bite becomes an unbounded promise.')
   }
-  if (!/deferredUnits\s*=\s*toSend\.length - unitIdx/.test(route)) {
-    findings.push('(c) the loop no longer records how many units it deferred. A fire that quietly drops work is indistinguishable from one that had none — the denominator law applied to the bite.')
+  // ⛔ RE-CUT 2026-09-15 — LORAMER_FIRE_UNITS_CONCURRENT_V1. The loop is now per-surface queues run
+  // concurrently, so "what did this fire not reach" is a SUM across queues rather than one subtraction from a
+  // single index. The property is unchanged and is the same denominator law: a fire that quietly drops work is
+  // indistinguishable from one that had none.
+  if (!/deferredUnits\s*\+=\s*queue\.length - qi/.test(route)) {
+    findings.push('(c) the loop no longer accumulates deferredUnits per surface queue. With concurrent queues a single subtraction cannot express what was not reached, and an unrecorded drop is a silent one.')
   }
   if (!/deadlineAt:\s*captureStartedAt \+ CAPTURE_BUDGET_MS/.test(route)) {
     findings.push('(c) the per-unit deadline is no longer derived from the same capture budget. Two clocks for one fire is how a unit outlives the loop that admitted it.')

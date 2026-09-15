@@ -62,7 +62,7 @@ import { appendAttemptStarted, appendAttemptFinished, readAttemptsAtSpan, type A
 import { sizeNextWindow, dayDiff } from '@/lib/backfill/universe-sizing'
 import {
   MAX_ATTEMPTS_AT_MIN_SPAN, LEASE_TTL_S, CONSUMER_MAX_DURATION_S,
-  SCAN_ALLOWANCE_MS, CAPTURE_BUDGET_MS, UNIT_RESERVATION_FLOOR_MS,
+  SCAN_ALLOWANCE_MS, CAPTURE_BUDGET_MS, UNIT_RESERVATION_FLOOR_MS, UNIT_CONCURRENCY,
   type UniverseMessageV2,
 } from '@/lib/backfill/universe-v2-contract'
 // ⛔ LORAMER_QUEUE_REMOVED_INLINE_WALK_V1 — THE FIRE EXECUTES ITS OWN SELECTION. `processMessage` is the
@@ -72,6 +72,8 @@ import {
 // ban continues to pin.
 import { processMessage, type DeadlineOpts } from '@/lib/backfill/universe-v2-worker'
 import { acquireFireLease, releaseFireLease } from '@/lib/backfill/universe-fire-lease'
+// fan-out: bounded UNIT_CONCURRENCY
+import { mapBounded } from '@/lib/concurrency' // LORAMER_FIRE_UNITS_CONCURRENT_V1 — the one home (src/lib/concurrency.ts)
 import { shouldStartAnotherLap } from '@/lib/backfill/lap-budget'
 // ⛔ 2/2 B — THE ONE EXCLUSION LIST, imported, never copied (DECISIONS:2461, the RMF-frozen demo twin). This is a
 // constant-only import: driver-caller-is-cron-only.guard leg (b) admits it precisely because nothing here calls
@@ -912,66 +914,105 @@ export async function GET(request: Request) {
     ...lookbackToSend.map((c) => ({ c, lane: 'lookback' as const })),
     ...selMissed.taken.map((c) => ({ c, lane: 'missed' as const })), // LORAMER_MISSED_DAY_WALK_V1 — after the two lanes that hold the clock
   ]
-  for (let unitIdx = 0; unitIdx < toSend.length; unitIdx++) {
-    const { c, lane } = toSend[unitIdx]
-    // ⛔ ADMISSION BEFORE EVERY UNIT — lap-budget's reservation rule at the fire grain. The first unit is
-    // always admitted (elapsed 0 + max(0, FLOOR) ≤ budget); a deferred unit costs NOTHING and is re-derived
-    // next fire — it opened no attempt and the anchor has not moved for it.
-    if (!dryRun && !shouldStartAnotherLap(Date.now() - captureStartedAt, maxUnitMs, CAPTURE_BUDGET_MS, UNIT_RESERVATION_FLOOR_MS)) {
-      deferredUnits = toSend.length - unitIdx
-      console.warn(`[universe-resume] FIRE BUDGET STOP: deferred ${deferredUnits}/${toSend.length} unit(s) — ` +
-        `${Date.now() - captureStartedAt}ms of ${CAPTURE_BUDGET_MS}ms capture budget, worst unit ${maxUnitMs}ms. ` +
-        `Nothing lost: deferred units opened no attempt and are re-derived next fire.`)
-      break
+  // ⛔ CONCURRENT UNITS, SERIAL PER SURFACE — LORAMER_FIRE_UNITS_CONCURRENT_V1, 2026-09-15.
+  // Units ran one at a time for no reason but how the loop was written: measured 0 of 1,025 attempts
+  // overlapped, while Google served 32 concurrent reads against ONE account with zero refusals and a FASTER
+  // median (439 ms at 32-wide vs 814 ms alone), and the production writer peaked at 7,521 rows/s at width 12
+  // against 946 rows/s on one stream. The vendor and the database both had multiples of headroom; the loop had
+  // no lock, no lease and no write conflict forcing it.
+  //
+  // ⛔ THE PARTITION IS THE SAFETY PROPERTY, NOT THE WIDTH. Units are grouped by SURFACE (resource|segment) and
+  // each surface's units run STRICTLY IN ORDER inside its own queue; the queues run concurrently. Two units of
+  // the same surface can therefore never be in flight together, which is what protects the no-progress bound:
+  // `readAttemptsAtSpan` + MAX_ATTEMPTS_AT_MIN_SPAN counts attempts at a span, so two concurrent attempts on one
+  // surface at the same span could trip "BROKEN: 3 attempts at the 1-day minimum" and ABANDON REAL GROUND. The
+  // descend lane offers one window per surface, but the missed lane enumerates from the hole map and can land on
+  // a surface the descent also selected — so the collision is reachable and the partition is what removes it.
+  //
+  // ⛔ THE ADMISSION RULE IS UNCHANGED AND STILL CORRECT, and that is a result rather than an omission. The
+  // deadline is ABSOLUTE (`captureStartedAt + CAPTURE_BUDGET_MS`) and units are independent, so a unit admitted
+  // when `elapsed + worstUnit <= budget` still lands before the budget whether or not others run beside it —
+  // parallel units cost wall time ~worst, not N × worst. `maxUnitMs` is measured LIVE and under the same
+  // concurrency, so contention (a unit is ~1.5× slower at width 12 by the probe) feeds back into the reservation
+  // automatically. Nothing here can be killed mid-work: a refused unit is DEFERRED, opened no attempt, and is
+  // re-derived next fire.
+  //
+  // ⛔ THE WORKER MUST NEVER THROW, because `mapBounded` CANCELS ON FIRST FAILURE and that would cost every
+  // other surface its pass — the opposite of the per-unit isolation this loop has always had. The per-unit
+  // try/catch below is therefore load-bearing: `processMessage` writes its own terminal row on every exit
+  // including a throw, the error is recorded in `unitErrors`, and the queue continues.
+  const surfaceQueues: Array<typeof toSend> = (() => {
+    const bySurface = new Map<string, typeof toSend>()
+    for (const u of toSend) {
+      const key = `${u.c.entry.resource}|${u.c.entry.segment ?? ''}`
+      const q = bySurface.get(key)
+      if (q) q.push(u); else bySurface.set(key, [u])
     }
-    const msg: UniverseMessageV2 = {
-      clientId, userEmail, customerId, entry: c.entry,
-      startDate: c.windowStart, endDate: c.windowEnd,
-      // ⛔ THE LANE RIDES THE MESSAGE — LORAMER_TOP_EDGE_LANE_V1. It decides the lane stamped on
-      // `attempt_started` (which the rotation filters on, so a strip cannot drag the descending anchor to
-      // the top of the calendar) AND whether the consumer calls `advance()` at all. A top-edge message must
-      // never self-chain: `advance` derives its successor as `startDate − 1`, which would start a SECOND
-      // descent through ground the walk has already covered.
-      lane,
-      // ⛔ ONE WINDOW, NO SELF-REPUBLISH. June's driver shape: the loop belongs to the driver, not the work.
-      windowsRemaining: WINDOWS_PER_PUBLISHED_MESSAGE,
-      // ⛔ NO `floorDate` ON THE MESSAGE — REMOVED 2026-08-13, AND IT WAS ALREADY DEAD. The consumer is
-      // FORBIDDEN to read it (`universe-floor-execute-time.guard.mjs` leg (a): "THE FLOOR MAY NOT RIDE THE
-      // MESSAGE"), so this field was a publisher's opinion nothing consumed — and it carried the globalised
-      // VENDOR_FLOOR_DATE this flight removed. A dead field holding a wrong value is how the wrong value
-      // comes back: someone reads the message, sees a floor, and wires it.
-    }
-    // ⛔ IDEMPOTENCY, AND THE MECHANISM STATED RATHER THAN ASSUMED. Two overlapping resumer runs compute the
-    // SAME key for the same owed window — it is a pure function of (client, resource, segment, window) with
-    // no timestamp and no run id in it — so Vercel Queues' idempotency dedupe drops the second for the
-    // message TTL. **AND THE DEEPER GUARANTEE DOES NOT DEPEND ON THAT AT ALL:** owed-ness is DERIVED, so a
-    // second run that somehow did publish would land on a consumer that recomputes coverage and finds the
-    // days already covered — one indexed read, no vendor request. Dedupe is the optimisation; derived
-    // coverage is the correctness.
-    // ⛔ THE LANE IS IN THE KEY. Without it a strip and a descending window that happened to share bounds
-    // would dedupe against each other — different work, different lane stamp, one of them silently dropped.
-    const idempotencyKey = `resume|${lane}|${clientId}|${c.entry.resource}|${c.entry.segment ?? ''}|${c.windowStart}|${c.windowEnd}`
-  // ⛔ THE KEY RIDES ON THE UNIT — LORAMER_COMPLETION_SIGNAL_V1, unchanged by the cutover: it is the
-  // producer-assigned identifier the terminal row persists, minted here exactly as it was for the queue's
-  // dedupe. A durable row that cannot name its publisher is what let a scheduled fire's requests be
-  // counted as a drive's.
-    published.push({ lane, label: c.label, window: `${c.windowStart}..${c.windowEnd}`, ranges: c.ranges, owedDays: c.owedDays, sizing: c.sizingBasis, receded: c.receded, anchor: c.anchorBasis, stop: c.stopBasis, idempotencyKey })
-    if (!dryRun) {
-      // ⛔ PER-UNIT EXECUTION, PER-UNIT ISOLATION. processMessage writes the unit's terminal row on EVERY
-      // exit including a throw (its own try/finally); a unit that throws here has already recorded itself,
-      // so the fire RECORDS AND CONTINUES — one broken surface must not cost the other 41 their pass.
-      const unitStartedAt = Date.now()
-      try {
-        const unitResult = await processMessage({ ...msg, messageKey: idempotencyKey } satisfies UniverseMessageV2, unitOpts)
-        requestsOpened += unitResult.requestsOpened
-        executed.push({ label: c.label, lane, window: `${c.windowStart}..${c.windowEnd}`, ms: Date.now() - unitStartedAt })
-      } catch (e: any) {
-        unitErrors.push({ label: c.label, error: String(e?.message ?? e).slice(0, 300) })
-        console.error(`[universe-resume] UNIT THREW ${c.label} ${c.windowStart}..${c.windowEnd}: ${String(e?.message ?? e)} — terminal row already written by processMessage; continuing to the next unit.`)
+    return [...bySurface.values()]
+  })()
+  // fan-out: bounded UNIT_CONCURRENCY
+  await mapBounded(surfaceQueues, UNIT_CONCURRENCY, async (queue) => {
+    for (let qi = 0; qi < queue.length; qi++) {
+      const { c, lane } = queue[qi]
+      // ⛔ ADMISSION BEFORE EVERY UNIT, per queue — the reservation rule at the fire grain, unchanged. A queue
+      // that is refused stops and reports the units it did not reach; the other queues keep going, because a
+      // slow surface must not spend another surface's budget.
+      if (!dryRun && !shouldStartAnotherLap(Date.now() - captureStartedAt, maxUnitMs, CAPTURE_BUDGET_MS, UNIT_RESERVATION_FLOOR_MS)) {
+        deferredUnits += queue.length - qi
+        console.warn(`[universe-resume] FIRE BUDGET STOP: deferred ${queue.length - qi} unit(s) on ${c.entry.resource}${c.entry.segment ? '/' + c.entry.segment : ''} — ` +
+          `${Date.now() - captureStartedAt}ms of ${CAPTURE_BUDGET_MS}ms capture budget, worst unit ${maxUnitMs}ms, width ${UNIT_CONCURRENCY}. ` +
+          `Nothing lost: deferred units opened no attempt and are re-derived next fire.`)
+        return
       }
-      maxUnitMs = Math.max(maxUnitMs, Date.now() - unitStartedAt)
+      const msg: UniverseMessageV2 = {
+        clientId, userEmail, customerId, entry: c.entry,
+        startDate: c.windowStart, endDate: c.windowEnd,
+        // ⛔ THE LANE RIDES THE MESSAGE — LORAMER_TOP_EDGE_LANE_V1. It decides the lane stamped on
+        // `attempt_started` (which the rotation filters on, so a strip cannot drag the descending anchor to
+        // the top of the calendar) AND whether the consumer calls `advance()` at all. A top-edge message must
+        // never self-chain: `advance` derives its successor as `startDate − 1`, which would start a SECOND
+        // descent through ground the walk has already covered.
+        lane,
+        // ⛔ ONE WINDOW, NO SELF-REPUBLISH. June's driver shape: the loop belongs to the driver, not the work.
+        windowsRemaining: WINDOWS_PER_PUBLISHED_MESSAGE,
+        // ⛔ NO `floorDate` ON THE MESSAGE — REMOVED 2026-08-13, AND IT WAS ALREADY DEAD. The consumer is
+        // FORBIDDEN to read it (`universe-floor-execute-time.guard.mjs` leg (a): "THE FLOOR MAY NOT RIDE THE
+        // MESSAGE"), so this field was a publisher's opinion nothing consumed — and it carried the globalised
+        // VENDOR_FLOOR_DATE this flight removed. A dead field holding a wrong value is how the wrong value
+        // comes back: someone reads the message, sees a floor, and wires it.
+      }
+      // ⛔ IDEMPOTENCY, AND THE MECHANISM STATED RATHER THAN ASSUMED. Two overlapping resumer runs compute the
+      // SAME key for the same owed window — it is a pure function of (client, resource, segment, window) with
+      // no timestamp and no run id in it — so Vercel Queues' idempotency dedupe drops the second for the
+      // message TTL. **AND THE DEEPER GUARANTEE DOES NOT DEPEND ON THAT AT ALL:** owed-ness is DERIVED, so a
+      // second run that somehow did publish would land on a consumer that recomputes coverage and finds the
+      // days already covered — one indexed read, no vendor request. Dedupe is the optimisation; derived
+      // coverage is the correctness.
+      // ⛔ THE LANE IS IN THE KEY. Without it a strip and a descending window that happened to share bounds
+      // would dedupe against each other — different work, different lane stamp, one of them silently dropped.
+      const idempotencyKey = `resume|${lane}|${clientId}|${c.entry.resource}|${c.entry.segment ?? ''}|${c.windowStart}|${c.windowEnd}`
+    // ⛔ THE KEY RIDES ON THE UNIT — LORAMER_COMPLETION_SIGNAL_V1, unchanged by the cutover: it is the
+    // producer-assigned identifier the terminal row persists, minted here exactly as it was for the queue's
+    // dedupe. A durable row that cannot name its publisher is what let a scheduled fire's requests be
+    // counted as a drive's.
+      published.push({ lane, label: c.label, window: `${c.windowStart}..${c.windowEnd}`, ranges: c.ranges, owedDays: c.owedDays, sizing: c.sizingBasis, receded: c.receded, anchor: c.anchorBasis, stop: c.stopBasis, idempotencyKey })
+      if (!dryRun) {
+        // ⛔ PER-UNIT EXECUTION, PER-UNIT ISOLATION. processMessage writes the unit's terminal row on EVERY
+        // exit including a throw (its own try/finally); a unit that throws here has already recorded itself,
+        // so the fire RECORDS AND CONTINUES — one broken surface must not cost the other 41 their pass.
+        const unitStartedAt = Date.now()
+        try {
+          const unitResult = await processMessage({ ...msg, messageKey: idempotencyKey } satisfies UniverseMessageV2, unitOpts)
+          requestsOpened += unitResult.requestsOpened
+          executed.push({ label: c.label, lane, window: `${c.windowStart}..${c.windowEnd}`, ms: Date.now() - unitStartedAt })
+        } catch (e: any) {
+          unitErrors.push({ label: c.label, error: String(e?.message ?? e).slice(0, 300) })
+          console.error(`[universe-resume] UNIT THREW ${c.label} ${c.windowStart}..${c.windowEnd}: ${String(e?.message ?? e)} — terminal row already written by processMessage; continuing to the next unit.`)
+        }
+        maxUnitMs = Math.max(maxUnitMs, Date.now() - unitStartedAt)
+      }
     }
-  }
+  })
 
   // ── THE FIRE INSTRUMENT — LORAMER_RESUMER_FIRE_INSTRUMENT_V1 ─────────────────────────────────────────
   // ⛔ THE HOLE IT CLOSES, NAMED: a resumer that DIES MID-SCAN publishes a truncated prefix that reads in the

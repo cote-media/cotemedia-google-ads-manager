@@ -98,6 +98,28 @@ export const SCAN_ALLOWANCE_MS = 55_000
 export const UNIT_RESERVATION_FLOOR_MS = 10_000
 export const CAPTURE_BUDGET_MS = (CONSUMER_MAX_DURATION_S * 1000) - SCAN_ALLOWANCE_MS - UNIT_RESERVATION_FLOOR_MS
 
+/**
+ * ⛔ HOW MANY UNITS A FIRE RUNS AT ONCE — LORAMER_FIRE_UNITS_CONCURRENT_V1, 2026-09-15. DERIVED FROM A LOAD
+ * MEASUREMENT OF THE PRODUCTION WRITER, NOT CHOSEN, and the measurement is the reason the number is 12.
+ *
+ * MEASURED 2026-09-15 22:33Z through `upsertMetricsChunked` itself (the real writer against the live conflict
+ * key, chunked as production chunks it), 2,000 rows per stream, widths 1→16, probe rows deleted and the
+ * deletion verified at 0 remaining:
+ *     width  1 →   946 rows/s        width  8 → 5,950 rows/s
+ *     width  2 → 2,477 rows/s        width 12 → 7,521 rows/s   ← PEAK
+ *     width  4 → 3,820 rows/s        width 16 → 6,657 rows/s   ← KNEE: throughput FELL
+ * 12 is the peak and the last width before throughput turns over: 7.95× a single stream. 16 is measurably
+ * WORSE than 12, so this is not a conservative shading of a bigger number — past 12 the database gives less.
+ *
+ * ⛔ IT IS NOT A CONNECTION COUNT, and round 16 had that wrong. The app reaches Postgres through PostgREST,
+ * which multiplexes over its OWN pool — measured 31 of 41 live connections were idle PostgREST, with
+ * max_connections 90. Our request width does not consume a Postgres connection each, so the pool is not the
+ * ceiling and this width answers to PostgREST's queue and the write path instead.
+ * ⚠ AND THE BUSY CRON BAND DOES NOT MOVE IT: per-attempt p50 measured flat across 2026-09-15 — 674/674/668/717 ms
+ * in the 08–11Z cron band against 691/692/691 ms in the quiet evening. p90 tracks ROW VOLUME, not the band.
+ */
+export const UNIT_CONCURRENCY = 12
+
 
 export interface UniverseMessageV2 {
   clientId: string
