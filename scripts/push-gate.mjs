@@ -29,9 +29,12 @@
 // ⛔ TIMEOUTS, AND WHY THE GATE CARRIES ITS OWN: the vendor cancels a hook that reaches its `timeout` and
 // "discarding the hook's output, so on most events a timed-out hook renders no decision" — a timed-out gate would
 // FAIL OPEN. So the guard run is bounded HERE, below the hook's timeout, and a run that does not finish inside
-// the budget is a BLOCK. INNER_BUDGET_MS ⇐ 2 × the suite's measured wall-clock (209 s on the MacBook Air,
-// 2026-09-09, 163 guards) — a run twice its healthy length is not a healthy run. The hook's own `timeout` in
-// .claude/settings.json is the vendor default (600 s) so it can never fire before this one.
+// the budget is a BLOCK. INNER_BUDGET_MS ⇐ 2 × the suite's measured wall-clock (540 s on the MacBook Air,
+// 2026-09-15, 190 guards) — a run twice its healthy length is not a healthy run. ⛔ THE ORDERING IS THE WHOLE
+// DESIGN AND IT NOW COSTS AN EXPLICIT SETTING: at 190 guards 2× measured (1080 s) EXCEEDS the vendor's 600 s
+// hook default, so `.claude/settings.json` states `timeout: 1200` explicitly. If that outer number is ever left
+// at the default again while the suite is this size, the hook is cancelled mid-run and renders NO decision —
+// fail-open — which is why `tests/guards/push-gate.guard.mjs` asserts outer > inner rather than trusting either.
 //
 // HONEST LIMIT: it enforces the chain at the Bash tool. A push typed in a terminal outside Claude Code bypasses
 // it — by DECISIONS:2086's own reasoning the executor is Claude Code, and a git-hook form would need that
@@ -49,7 +52,10 @@ const LOG_REL = 'docs/LORAMER_PUSH_GATE_LOG.jsonl'
 // anywhere: the first cut matched inside quoted strings and heredoc bodies, and blocked two commit commands whose
 // MESSAGE mentioned pushing (2026-09-10, logged). A commit message is not a push.
 export const PUSH_RE = /(^|[;&|(]\s*)(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+)*git\s+push\b/m
-export const MEASURED_SUITE_MS = 209_000 // ⇐ measured 2026-09-09, `npm run guard`, 163 guards, MacBook Air
+export const MEASURED_SUITE_MS = 540_000 // ⇐ RE-MEASURED 2026-09-15, `npm run guard`, 190 guards, MacBook Air (was
+// 209_000 at 163 guards, 2026-09-09 — the suite grew and the constant did not, so the gate refused a run that had
+// just printed ALL GREEN 190/190 locally. A budget whose provenance is stale blocks good pushes and teaches the
+// executor to route around the gate, which is worse than no gate.)
 export const INNER_BUDGET_MS = 2 * MEASURED_SUITE_MS
 const GREEN_RE = /^\[run-guards\] ALL GREEN — (\d+)\/(\d+) guards ran and passed\.\s*$/m
 const RED_RE = /^\[run-guards\] EXIT (\d+) — .*$/m
