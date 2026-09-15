@@ -103,7 +103,37 @@ export type ResumeVerdict =
  * loud. The resumer has no human, publishes single-window work rather than chains, and needs a bound
  * expressed in the unit that actually gets spent.
  */
-export const MAX_REQUESTS_PER_RUN = 40
+// ⛔ RE-DERIVED 2026-09-15 — LORAMER_FIRE_BITE_FITS_THE_BUDGET_V1. THE 40 WAS SIZED FOR A QUEUE THAT NO
+// LONGER EXISTS, and that is the whole reason this number moved. Its derivation above was the queue-drain
+// identity — bite × WALK_BUDGET_MS ÷ maxConcurrency ≤ the fire interval, 40 × 180s ÷ 24 = 300s — and
+// LORAMER_QUEUE_REMOVED_INLINE_WALK_V1 retired both the queue and the guard that executed that identity
+// (run-guards.mjs:205 records the retirement). The fire now runs `processMessage` INLINE, so the binding
+// constraint is the fire's own capture budget, not a queue's drain.
+//
+// THE DERIVATION, from durations measured on this fleet on 2026-09-15 between 17:02:53Z and 20:08:33Z, the
+// first three hours after the daily operations cap was removed:
+//   · CAPTURE_BUDGET_MS = 235,000 — the contract's own figure: 300,000 ceiling − 55,000 scan − 10,000 unit reservation.
+//   · a request's WORST measured cycle = 3,277 ms = 2,735 ms (descend attempt_started→attempt_finished p90,
+//     N=1,429, which covers the vendor call AND the row write) + 542 ms (p50 gap between one attempt
+//     finishing and the next starting, N=1,025 — the per-attempt coverage derivation between vendor calls).
+//   · 235,000 ÷ 3,277 = 71.7 ⇒ 71. THE BITE IS WHAT THE BUDGET AFFORDS WHEN EVERY REQUEST RUNS AT THE p90
+//     PACE. At the p50 pace (1,242 ms) the same 71 requests take ~88 s and the fire stops on work, not clock.
+// ⛔ 71 × 288 fires/day = 20448/day, up from 11,520. It is no longer a share of anything: Standard access
+// removed the daily operations cap (LORAMER_CAP_FOLLOWS_GRANT_V1), so this bound answers to the fire's clock
+// and to Postgres, never to a vendor quota.
+//
+// ⛔ WHY RAISING IT CANNOT OVERRUN THE CEILING, and this is the property that made the change small: the
+// execution loop ALREADY sizes itself against its own remaining time. Before every unit it asks
+// `shouldStartAnotherLap(elapsed, maxUnitMs, CAPTURE_BUDGET_MS, UNIT_RESERVATION_FLOOR_MS)`, which admits a
+// unit only if the WORST unit observed this fire still fits — so a bite larger than the clock can afford is
+// deferred, not truncated, and a deferred unit opened no attempt and is re-derived next fire. The bite
+// decides how much is OFFERED to that loop; the loop decides how much runs. This change stops the COUNT
+// binding before the CLOCK does; it does not remove a stop, and it adds no new way to be cut off mid-work.
+// ⚠ AND THE NEXT CONSTRAINT IS NAMED RATHER THAN DISCOVERED: with the bite at 71 the scan cap
+// (MAX_ENTRIES_SCANNED_PER_RUN = 60) becomes the binding bound on most fires — measured 2026-09-15,
+// scan_completed on 35 of 35 bounded fires. Raising THAT costs scan time against a 55 s allowance already
+// measured at ~57 s, so it is a different flight with a different trade.
+export const MAX_REQUESTS_PER_RUN = 71
 
 /**
  * ⛔ AND A SECOND, INDEPENDENT BOUND ON HOW MUCH THE RUN MAY *LOOK* AT. Coverage costs ~30 indexed reads per

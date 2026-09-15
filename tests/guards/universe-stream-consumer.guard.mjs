@@ -233,17 +233,23 @@ if (route) {
   {
     const resumerSrc = read('src/lib/backfill/universe-resumer.ts') || ''
     const m = resumerSrc.match(/export const MAX_REQUESTS_PER_RUN\s*=\s*(\d+)/)
-    const DECIDED_BITE = 40
+    // ⛔ RE-DECIDED 2026-09-15 — LORAMER_FIRE_BITE_FITS_THE_BUDGET_V1, and the REASON the number moved is
+    // that its old derivation died: 40 was the largest bite whose worst case could not back up the CONSUMER
+    // QUEUE (40 × WALK_BUDGET_MS 180s ÷ maxConcurrency 24 = 300s = the fire interval), and
+    // LORAMER_QUEUE_REMOVED_INLINE_WALK_V1 retired the queue AND the guard that executed that identity
+    // (run-guards.mjs:205). The fire runs inline now, so the bite is sized against the fire's own capture
+    // budget: 235,000 ms ÷ a 3,277 ms p90 request cycle measured 2026-09-15 = 71.
+    const DECIDED_BITE = 71
     // ⛔ DEPLOY 3, 2026-08-19 — the cadence moved */5, so the fires-per-day multiplier moves WITH it:
     // 24 → 96 → 288. The BITE did not change, and did not need to: the scan cap was measured binding on
     // 96 of 96 fires, so a bigger bite would have had nothing to bite. This factor is the cadence expressed
     // as arithmetic, and it must track the schedule pinned below or the two halves of the same decision
     // drift apart — the exact failure this leg exists to prevent.
-    const DERIVED_DAILY = DECIDED_BITE * 288 // 11520
+    const DERIVED_DAILY = DECIDED_BITE * 288 // 20448
     if (!m) {
       findings.push('(e) MAX_REQUESTS_PER_RUN not found in universe-resumer.ts — the bite bound this whole schedule is sized on has moved or vanished; re-derive the pin.')
     } else if (Number(m[1]) !== DECIDED_BITE) {
-      findings.push(`(e) MAX_REQUESTS_PER_RUN is ${m[1]}, decided ${DECIDED_BITE} (LORAMER_WALK_BITE_40_V1). The bite is the unattended spend rate — ${m[1]}×24=${Number(m[1]) * 24}/day vs the decided ${DERIVED_DAILY}/day. Changing it is a scheduling decision with its own derivation (lane share + queue-drain worst case), not an edit.`)
+      findings.push(`(e) MAX_REQUESTS_PER_RUN is ${m[1]}, decided ${DECIDED_BITE} (LORAMER_FIRE_BITE_FITS_THE_BUDGET_V1). The bite is the unattended spend rate — ${m[1]}×288=${Number(m[1]) * 288}/day vs the decided ${DERIVED_DAILY}/day. Changing it is a scheduling decision with its own derivation (lane share + queue-drain worst case), not an edit.`)
     } else if (!resumerSrc.includes(String(DERIVED_DAILY) + '/day')) {
       findings.push(`(e) universe-resumer.ts carries bite ${DECIDED_BITE} but its header no longer derives ${DERIVED_DAILY}/day beside it — the constant and its arithmetic have moved apart, which is how the header cited a retired allowance for three days.`)
     }
