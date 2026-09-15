@@ -117,6 +117,7 @@ const meter: Meter = {
   // files away, which is exactly what single-owner-vendor-facts.guard.mjs exists to stop and what it froze as
   // a baseline violation on the day it was written. The value is unchanged by the re-allocation; the
   // DEPENDENCY is the fix (LORAMER_GOOGLE_LANE_ALLOCATION_V1).
+  // null since LORAMER_CAP_FOLLOWS_GRANT_V1 (Standard access, 2026-09-15) — imported, never typed here.
   cap: LANE_ALLOCATIONS.backfill,
   costDirection: 'flat-per-request',
   costOf: () => 1,

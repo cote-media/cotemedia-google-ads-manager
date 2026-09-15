@@ -148,7 +148,23 @@ try {
 // ── (b) THE GOVERNOR — cannot publish past the budget, cannot eat the reserve ─────────────────────────────
 {
   const cap = G.GOOGLE_DAILY_OP_CAP, fwd = G.RESERVED_FOR_FORWARD_OPS, drn = G.RESERVED_FOR_DRAIN_OPS, allow = G.BACKFILL_OP_ALLOWANCE
-  if (allow >= cap) findings.push(`(b) the backfill allowance (${allow}) is not less than the daily cap (${cap}) — nothing is reserved and the forward sync can be starved.`)
+  // ⛔ RE-CUT 2026-09-15 — LORAMER_CAP_FOLLOWS_GRANT_V1. Standard access on project 928420234811 removed the
+  // daily operations cap, so `cap`, `fwd` and `allow` are null (no daily-ops limit) rather than numbers. Every
+  // leg below that compares them is a statement about a FINITE regime and is skipped when there is none; the
+  // NO-DAILY-GATE property is asserted instead. ⛔ THE FINITE LEGS ARE KEPT, NOT DELETED: they are what proves
+  // the arithmetic still holds if a cap ever returns, and deleting them would mean re-deriving it from scratch.
+  const CAPPED = cap !== null
+  if (!CAPPED) {
+    if (allow !== null) findings.push(`(b) the cap is null (Standard access) but BACKFILL_OP_ALLOWANCE is ${allow} — a finite walk allowance with no pool to take it from is a self-imposed ceiling nobody derived.`)
+    const free = G.decidePublish({ spentRequestsToday: 10_000_000, want: 7 })
+    if (!free.mayPublish || free.allowance !== 7) {
+      findings.push(`(b) with NO daily cap the governor still refused after a huge spend (mayPublish=${free.mayPublish}, allowance=${free.allowance} of 7 wanted). The gate must be gone, not merely larger.`)
+    }
+    if (free.denominator?.spentOpsToday !== 10_000_000) {
+      findings.push(`(b) with no cap the governor stopped COUNTING (spentOpsToday=${free.denominator?.spentOpsToday}). This flight removes a GATE, never the instrument — a lane that spends without counting is the adjacent-number defect in its purest form.`)
+    }
+  }
+  if (CAPPED && allow >= cap) findings.push(`(b) the backfill allowance (${allow}) is not less than the daily cap (${cap}) — nothing is reserved and the forward sync can be starved.`)
   // ⛔ REWRITTEN 2026-08-11 (LORAMER_WALK_TAKES_THE_LANE_V1) — AND THIS IS THE SECOND TIME THIS LEG HAS
   // ENCODED A SUPERSEDED MODEL, which is worth saying out loud. It first asserted an identity that was true
   // only while catchup did not exist; it then asserted that EVERY product reserve is POSITIVE, which is true
@@ -164,13 +180,14 @@ try {
       findings.push('(b) LANE_ALLOCATIONS is not readable from the governor — the reserves cannot be derived from the one table, which is how a second model gets invented.')
     } else {
       for (const lane of ['forward', 'drain', 'catchup', 'backfill']) {
-        if (!Number.isFinite(Number(alloc[lane]))) {
+        // null is a DECLARED answer (no daily-ops limit) since LORAMER_CAP_FOLLOWS_GRANT_V1; absent is not.
+        if (!Object.prototype.hasOwnProperty.call(alloc, lane)) {
           findings.push(`(b) lane '${lane}' has no NUMERIC allocation in LANE_ALLOCATIONS (got ${JSON.stringify(alloc[lane])}). A lane that is absent rather than declared is a lane nobody sized, and the last one of those quietly held 10,500.`)
         }
       }
       // ⛔ AND THE ONE POSITIVITY THAT IS STILL NON-NEGOTIABLE: a lane may be zeroed by decision, but the
       // ALLOWANCE the walk spends from may not be zero or negative, or the engine cannot run at all.
-      if (!(allow > 0)) findings.push(`(b) the backfill allowance is ${allow} — the walk cannot run. A reallocation that starves the walk itself is not the policy; it is a typo.`)
+      if (CAPPED && !(allow > 0)) findings.push(`(b) the backfill allowance is ${allow} — the walk cannot run. A reallocation that starves the walk itself is not the policy; it is a typo.`)
       if (Number(alloc.forward) < 0 || Number(alloc.drain) < 0 || Number(alloc.catchup) < 0) {
         findings.push(`(b) a lane carries a NEGATIVE allocation (forward ${alloc.forward}, drain ${alloc.drain}, catchup ${alloc.catchup}). Zero is a decision; negative is arithmetic nobody intended.`)
       }
@@ -181,24 +198,24 @@ try {
   // model — and catchup is the DOMINANT spender (~82% of mean fleet volume), so the old identity quietly
   // handed catchup's share to the backfill. Under LORAMER_GOOGLE_LANE_ALLOCATION_V1 all four lanes are named
   // and sum to the cap, which is a STRICTER statement: nothing is left implicit for one lane to inherit.
-  const ctu = cap - fwd - drn - allow
-  if (fwd + drn + ctu + allow !== cap) findings.push(`(b) the four lane allocations do not sum to the cap (${fwd} + ${drn} + ${ctu} + ${allow} != ${cap}).`)
+  const ctu = CAPPED ? cap - fwd - drn - allow : 0
+  if (CAPPED && fwd + drn + ctu + allow !== cap) findings.push(`(b) the four lane allocations do not sum to the cap (${fwd} + ${drn} + ${ctu} + ${allow} != ${cap}).`)
   // ⛔ THE IMPLIED-CATCHUP CHECK IS GONE AND THE REASON IS THAT DERIVING IT WAS ALWAYS THE WEAKER TEST.
   // 2026-08-11 (LORAMER_WALK_TAKES_THE_LANE_V1): catchup is now DECLARED at 0, so `cap − fwd − drn − allow`
   // resolves to 0 and a `<= 0` check would fail the build for the policy in force. More importantly, the thing
   // it was inferring — "catchup has been named" — is now read DIRECTLY off LANE_ALLOCATIONS in the block above,
   // which is stronger: an implied value cannot distinguish "declared 0" from "omitted entirely", and that
   // distinction is the whole defect this leg descends from.
-  if (ctu < 0) findings.push(`(b) the implied catchup share is NEGATIVE (${ctu}) — the other three lanes over-subscribe the cap between them, which is a promise the vendor will not keep.`)
+  if (CAPPED && ctu < 0) findings.push(`(b) the implied catchup share is NEGATIVE (${ctu}) — the other three lanes over-subscribe the cap between them, which is a promise the vendor will not keep.`)
 
   const perReq = G.ASSUMED_OPS_PER_REQUEST
-  const atLimit = Math.floor(allow / perReq)
+  const atLimit = CAPPED ? Math.floor(allow / perReq) : 0
   const spent0 = G.decidePublish({ spentRequestsToday: 0, want: 1_000_000 })
-  if (spent0.allowance > atLimit) findings.push(`(b) from a cold start the governor allowed ${spent0.allowance} messages, which is more than the allowance affords (${atLimit}) — it would overrun the budget it exists to hold.`)
+  if (CAPPED && spent0.allowance > atLimit) findings.push(`(b) from a cold start the governor allowed ${spent0.allowance} messages, which is more than the allowance affords (${atLimit}) — it would overrun the budget it exists to hold.`)
   const spentAll = G.decidePublish({ spentRequestsToday: atLimit, want: 5 })
-  if (spentAll.mayPublish) findings.push(`(b) with the whole backfill allowance already spent the governor STILL authorised a publish (${spentAll.allowance}) — it discovers the cap instead of stopping before it.`)
+  if (CAPPED && spentAll.mayPublish) findings.push(`(b) with the whole backfill allowance already spent the governor STILL authorised a publish (${spentAll.allowance}) — it discovers the cap instead of stopping before it.`)
   const spentOver = G.decidePublish({ spentRequestsToday: atLimit * 5, want: 1 })
-  if (spentOver.mayPublish || spentOver.allowance !== 0) findings.push(`(b) past the allowance the governor did not return zero (mayPublish=${spentOver.mayPublish}, allowance=${spentOver.allowance}).`)
+  if (CAPPED && (spentOver.mayPublish || spentOver.allowance !== 0)) findings.push(`(b) past the allowance the governor did not return zero (mayPublish=${spentOver.mayPublish}, allowance=${spentOver.allowance}).`)
   if (!spentAll.denominator || spentAll.denominator.cap !== cap) findings.push(`(b) the decision carries no auditable denominator — a governor whose reason cannot be checked is a governor nobody will trust.`)
 }
 

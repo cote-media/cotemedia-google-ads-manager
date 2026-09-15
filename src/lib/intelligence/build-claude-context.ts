@@ -574,7 +574,9 @@ export function buildGoogleQuotaLines(
  * already records.
  */
 export function buildPausedLaneLines(
-  allocations: Record<string, number>,
+  // ⛔ `number | null` since LORAMER_CAP_FOLLOWS_GRANT_V1: null = no daily-ops limit, 0 = stopped by decision.
+  // The `?? -1` below already separates them correctly — an unlimited lane is NOT paused and renders nothing.
+  allocations: Record<string, number | null>,
   name = 'Google',
 ): string[] {
   const paused = (['drain', 'catchup'] as const).filter((l) => Number(allocations?.[l] ?? -1) === 0)
@@ -585,8 +587,8 @@ export function buildPausedLaneLines(
   return [
     `\n⛔ ${name.toUpperCase()} HISTORICAL CAPTURE IS DELIBERATELY PAUSED BY AN OPERATOR DECISION — this is NOT a ` +
     `platform outage, NOT a quota exhaustion, NOT a broken connection, and NOT a fact about this client's account.`,
-    `  • WHAT IS PAUSED: ${what.join(' and ')}. The whole ${name} daily allowance is being spent on completing the ` +
-    `capture engine itself, and these lanes were set to zero on purpose while that happens.`,
+    `  • WHAT IS PAUSED: ${what.join(' and ')}. These lanes were set to zero ON PURPOSE while the capture engine ` +
+    `itself is completed, so that the walk has the whole ${name} lane to itself.`,
     `  • WHAT IS NOT AFFECTED: FORWARD capture still runs every day, so recent daily figures are current. Do not ` +
     `describe today's or yesterday's numbers as stale because of this.`,
     `  • SAY IT OUT LOUD, and attribute it correctly: if a question reaches a period with missing days, or asks how ` +

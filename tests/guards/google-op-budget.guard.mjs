@@ -102,16 +102,16 @@ for (const m of [...code.matchAll(/Math\.max\(\s*conns\s*,\s*days\s*\)/g)]) {
 
 // ── (g) THE FLEET-CAP BACKSTOP ─────────────────────────────────────────────────────────────────────────
 {
-  check(/fleetRemaining\s*=\s*Math\.max\(\s*0\s*,\s*cap\s*-\s*fleetOps\s*\)/.test(code),
+  check(/fleetRemaining\s*=\s*cap\s*===\s*null\s*\?\s*null\s*:\s*Math\.max\(\s*0\s*,\s*cap\s*-\s*fleetOps\s*\)/.test(code),
     `(g) no FLEET total vs cap computation. The per-lane numbers are now correct, but the operations-per-request ratio is STILL unknown (★GAQL-OP-METER) — the cap backstop is not optional.`)
   // ⛔ WINDOW WIDENED 2026-08-05, AND THE REASON IS RECORDED SO IT IS NOT READ AS A LOOSENING:
   // LORAMER_FLEET_CEILING_HAS_A_PRIORITY_ORDER_V1 inserts a priority branch between the `if` and the blocked
   // return, so a 300-character lookahead no longer reaches it. The ASSERTION IS UNCHANGED and is now stricter —
   // the fleet-exhausted path must still contain a blocked return AND must name fleet_cap as the check that
   // fired. The behavioural leg below proves it BITES; this one proves it EXISTS.
-  check(/if\s*\(\s*fleetRemaining\s*<=\s*0\s*\)[\s\S]{0,2400}?state:\s*'blocked',\s*blockedBy:\s*'fleet_cap'/.test(code),
+  check(/if\s*\(\s*fleetRemaining\s*!==\s*null\s*&&\s*fleetRemaining\s*<=\s*0\s*\)[\s\S]{0,2400}?state:\s*'blocked',\s*blockedBy:\s*'fleet_cap'/.test(code),
     `(g) the fleet-cap check cannot BLOCK — it must still return state:'blocked' with blockedBy:'fleet_cap' when nothing lower can yield. A priority order decides WHO is refused; it may never remove the refusal.`)
-  check(/if\s*\(\s*laneRemaining\s*<=\s*0\s*\)[\s\S]{0,300}?state:\s*'blocked'/.test(code),
+  check(/if\s*\(\s*laneRemaining\s*!==\s*null\s*&&\s*laneRemaining\s*<=\s*0\s*\)[\s\S]{0,700}?state:\s*'blocked'/.test(code),
     `(g) the lane-allocation check cannot BLOCK.`)
   check(/blockedBy/.test(code), `(g) a decline does not name WHICH check fired (blockedBy).`)
   for (const f of ['fleetRawRequestsToday', 'fleetEstimatedOpsToday', 'byLaneRawRequests', 'catchupAllocation', 'laneRemaining', 'fleetRemaining']) {
@@ -163,6 +163,26 @@ const { decideBudget, holdForBudget, CATCHUP_ALLOCATION, RANKED_RESERVE, GOOGLE_
 // Helper: build the per-lane spend shape the fixed reader returns.
 const spend = (o = {}) => ({ byLane: { forward: 0, catchup: 0, drain: 0, backfill: 0, driver: 0, ...o }, unattributedRaw: o.unattributedRaw || 0 })
 
+// ⛔ THE FINITE REGIME — A FIXTURE, AND WHY IT HAD TO BE INVENTED (LORAMER_CAP_FOLLOWS_GRANT_V1, 2026-09-15).
+// Standard access removed the daily operations cap, so the LIVE table is `cap: null` with every lane that is
+// not stopped-by-decision also null. Under that table the fleet-ceiling branch and the lane-allocation branch
+// ARE UNREACHABLE — and a branch no test can reach is a branch that rots until the day it is needed. Every
+// behavioural leg below therefore drives `decideBudget` with THIS injected finite regime, so the ceiling
+// logic (LORAMER_FLEET_CEILING_HAS_A_PRIORITY_ORDER_V1, the priority order, the fail-closed unattributed
+// case) stays PROVEN against the day a cap returns — a re-cap, a second vendor, or a self-imposed governor.
+// ⛔ IT IS NOT A POLICY AND MAY NEVER BE READ AS ONE. These numbers mirror the pre-grant split ONLY so the
+// legs keep the meaning they were written with; nothing in src/ imports them and leg (q) proves the LIVE
+// table has no daily gate. If this fixture and the live table are ever confused, the guard is the thing that
+// broke, not the code.
+const FINITE = {
+  cap: 15_000,
+  allocations: { forward: 1_500, driver: 5_491, catchup: 4_000, drain: 3_000, backfill: 1_009 },
+}
+{
+  const sum = Object.values(FINITE.allocations).reduce((a, b) => a + b, 0)
+  check(sum === FINITE.cap, `(fixture) the FINITE regime's lanes sum to ${sum}, not its ${FINITE.cap} cap — the fixture cannot demonstrate an invariant it does not satisfy.`)
+}
+
 // ── (k) THE DRIVER LANE — LORAMER_ONE_CLICK_WALK_V1 (2/2 A) ─────────────────────────────────────────────
 // Measured 2026-09-11 00:41Z: mode='driver' rows were "counted against the fleet cap, attributed to no lane" while the
 // driver's requests already sat inside byLane.forward — counted twice. The lane exists so every refusal can be read.
@@ -176,10 +196,28 @@ const spend = (o = {}) => ({ byLane: { forward: 0, catchup: 0, drain: 0, backfil
   // 319 catalogue surfaces = 5,423 (measured 2026-09-11, the first full driver window). Was 6,900 (382 × 18, the pre-measurement
   // estimate). LORAMER_WALK_BASE_DEALIAS_V1 (2026-09-12): the four de-aliased base surfaces joined the catalogue — 17 × 323 = 5,491.
   // The walk's lane derives to 15,000 − 1,500 − 5,491 = 8,009 — the proof vehicle takes it (★PROOF-VEHICLE-TAKES-THE-BACKFILL-LANE).
-  check(LANE_ALLOCATIONS.driver === 5491, `(k) driver allocation is ${LANE_ALLOCATIONS.driver}; decided 5,491 ⇐ 17 connections × 323 surfaces (LORAMER_WALK_BASE_DEALIAS_V1; was 5,423 = 17 × 319 under LORAMER_PROOF_LANE_V1)`)
-  check(LANE_ALLOCATIONS.backfill === 8009, `(k) backfill allocation is ${LANE_ALLOCATIONS.backfill}; decided 8,009 = 15,000 − 1,500 − 5,491 so the sum invariant holds (LORAMER_WALK_BASE_DEALIAS_V1)`)
-  const sumAll = Object.values(LANE_ALLOCATIONS).reduce((a, b) => a + b, 0)
-  check(sumAll === GOOGLE_DAILY_OP_CAP, `(k) LANE_ALLOCATIONS sum to ${sumAll}, not the cap ${GOOGLE_DAILY_OP_CAP}`)
+  // ⛔ RE-CUT 2026-09-15 (LORAMER_CAP_FOLLOWS_GRANT_V1). These three lines PINNED THE LITERALS 5,491 / 8,009
+  // and the sum-to-cap invariant. Standard access deleted the cap those literals were derived FROM, so the
+  // assertion now has to be about the PROPERTY rather than the numbers: no lane carries a daily-operations
+  // limit except the two stopped by decision. A guard that still demanded 8,009 would be demanding a number
+  // whose derivation no longer exists — the failure mode this repo calls a constant with a shelf life.
+  check(LANE_ALLOCATIONS.driver === null,
+    `(k) driver allocation is ${LANE_ALLOCATIONS.driver}; under Standard access it must be null (no daily-ops limit). Its real bound is DRIVER_BUDGET_MS — see the driver-overspend item.`)
+  check(LANE_ALLOCATIONS.backfill === null,
+    `(k) backfill allocation is ${LANE_ALLOCATIONS.backfill}; under Standard access it must be null. The 8,009 was cap − reserve − driver, and the cap is gone.`)
+  check(GOOGLE_DAILY_OP_CAP === null,
+    `(k) GOOGLE_DAILY_OP_CAP is ${GOOGLE_DAILY_OP_CAP}; Standard access on project 928420234811 means there is no daily operations cap, and a finite stand-in is a constant with no derivation.`)
+  // THE INVARIANT THAT REPLACES "they sum to the cap": every lane is either UNLIMITED or STOPPED BY DECISION.
+  // Nothing may carry a finite non-zero daily share, because there is no pool for a share to be a share OF.
+  for (const [lane, v] of Object.entries(LANE_ALLOCATIONS)) {
+    check(v === null || v === 0,
+      `(k) lane '${lane}' carries a finite daily allocation of ${v}. Under Standard access a lane is either null (no daily-ops limit) or 0 (stopped by decision) — a number in between is a self-imposed cap nobody derived.`)
+  }
+  // AND THE SUM INVARIANT IS STILL PROVEN — against the FINITE fixture, where it still means something.
+  {
+    const sum = Object.values(FINITE.allocations).reduce((a, b) => a + b, 0)
+    check(sum === FINITE.cap, `(k) under a finite regime the lanes must still sum to the cap; the fixture sums to ${sum} of ${FINITE.cap}.`)
+  }
   // a driver cron_runs row adds NOTHING to units or unattributed — pinned on the source (the reader's branch)
   const drvIdx = code.indexOf("mode === 'driver'")
   check(drvIdx !== -1, `(k) the cron_runs reader has no mode === 'driver' branch`)
@@ -190,10 +228,10 @@ const spend = (o = {}) => ({ byLane: { forward: 0, catchup: 0, drain: 0, backfil
   check(/forward:\s*split\.forward\b/.test(code) && /driver:\s*split\.driver\b/.test(code), `(k) byLane.forward / byLane.driver are not both taken from the ONE producer-split read (split.forward / split.driver)`)
   // the decision arithmetic: a driver at its allocation blocks the driver lane only; the fleet sum counts it once
   const s = spend({ driver: 6900 })
-  const dLane = decideBudget('driver', s)
+  const dLane = decideBudget('driver', s, FINITE)
   check(dLane.state === 'blocked' && dLane.blockedBy === 'lane_allocation', `(k) driver at 6,900 resolved '${dLane.state}/${dLane.blockedBy}' — expected blocked/lane_allocation`)
   check(dLane.fleetRawRequestsToday === 6900, `(k) fleet raw with driver 6,900 reads ${dLane.fleetRawRequestsToday} — the driver's requests must count exactly once`)
-  const fwd = decideBudget('forward', s)
+  const fwd = decideBudget('forward', s, FINITE)
   check(fwd.state === 'not_blocked', `(k) forward is '${fwd.state}' while only the driver spent — lanes must not bleed into each other`)
 }
 
@@ -213,14 +251,22 @@ const spend = (o = {}) => ({ byLane: { forward: 0, catchup: 0, drain: 0, backfil
 
 // ── (b) CATCHUP MAY NOT SPEND INTO THE RESERVE ─────────────────────────────────────────────────────────
 {
-  check(CATCHUP_ALLOCATION + RANKED_RESERVE === GOOGLE_DAILY_OP_CAP,
-    `(b) allocation ${CATCHUP_ALLOCATION} + reserve ${RANKED_RESERVE} != cap ${GOOGLE_DAILY_OP_CAP}.`)
-  check(CATCHUP_ALLOCATION < RANKED_RESERVE,
-    `(b) catchup's allocation (${CATCHUP_ALLOCATION}) is not smaller than the ranked reserve (${RANKED_RESERVE}) — the deep-history lane must be the MINORITY spender.`)
+  // ⛔ RE-CUT 2026-09-15. `catchup + ranked === cap` and `catchup < ranked` were arithmetic ON THE CAP. With
+  // no cap, RANKED_RESERVE is null and both comparisons are category errors rather than failures. The
+  // property survives where it is still meaningful — the FINITE regime — and the live table gets the
+  // assertion that actually applies to it.
+  check(RANKED_RESERVE === null,
+    `(b) RANKED_RESERVE is ${RANKED_RESERVE}; with no daily cap there is no "everything except catchup" quantity to reserve.`)
+  {
+    const fCatchup = FINITE.allocations.catchup
+    const fRanked = FINITE.cap - fCatchup
+    check(fCatchup + fRanked === FINITE.cap, `(b) under a finite regime allocation ${fCatchup} + reserve ${fRanked} must equal the cap ${FINITE.cap}.`)
+    check(fCatchup < fRanked, `(b) under a finite regime catchup (${fCatchup}) must stay the MINORITY spender against the ranked reserve (${fRanked}).`)
+  }
   // ⛔ RE-POINTED 2026-08-09 (LORAMER_GOOGLE_LANE_ALLOCATION_V1). The multiplier is GONE — the vendor settles
   // one request at one operation — so "at its limit" is now simply its allocation, not allocation/1.5.
-  const atLimit = Math.ceil(CATCHUP_ALLOCATION / OPS_PER_REQUEST)
-  const c = decideBudget('catchup', spend({ catchup: atLimit }))
+  const atLimit = Math.ceil(FINITE.allocations.catchup / OPS_PER_REQUEST)
+  const c = decideBudget('catchup', spend({ catchup: atLimit }), FINITE)
   check(c.state === 'blocked', `(b) catchup at its full allocation resolved '${c.state}' — it can spend into the reserve.`)
   // ⛔ THE REGRESSION THIS WHOLE FLIGHT EXISTS TO PREVENT: a lower lane's spend must NOT block a ranked lane.
   // ⛔ THE ASKER MOVED FROM 'drain' TO 'forward' ON 2026-08-11 AND THE PROPERTY IS UNCHANGED. Under
@@ -229,7 +275,7 @@ const spend = (o = {}) => ({ byLane: { forward: 0, catchup: 0, drain: 0, backfil
   // FORWARD still carries an allocation (the un-gated reserve) and still ranks above catchup, so it is the lane
   // that can demonstrate the guarantee. The guarantee itself — a lane inside its own allocation is not refused
   // for a LOWER lane's spend — is exactly what it always was.
-  const d = decideBudget('forward', spend({ catchup: atLimit }))
+  const d = decideBudget('forward', spend({ catchup: atLimit }), FINITE)
   check(d.state === 'not_blocked',
     `(f) THE 2026-07-31 DEFECT: the RANKED lane was blocked by CATCHUP's spend ('${d.state}'). Forward spent none of it. This is the priority inversion reproduced inside the budget — forward and the geo lap starve exactly as they did.`)
   // ⛔ REWRITTEN, AND THE CHANGE IS THE POINT. It used to assert that a ranked lane's allocation exceeds
@@ -238,8 +284,11 @@ const spend = (o = {}) => ({ byLane: { forward: 0, catchup: 0, drain: 0, backfil
   // LARGER than drain (3,000) and forward (2,000) BY DESIGN: it is the dominant spender being cut, not a
   // minority lane being kept small. The property that survives is the one that always mattered — a lane is
   // bounded by ITS OWN allocation and cannot reach another's.
-  check(d.allocation === LANE_ALLOCATIONS.forward && c.allocation === LANE_ALLOCATIONS.catchup,
-    `(b) a lane's allocation did not come from LANE_ALLOCATIONS (forward got ${d.allocation}, catchup ${c.allocation}). No lane may be computed as "everyone else".`)
+  check(d.allocation === FINITE.allocations.forward && c.allocation === FINITE.allocations.catchup,
+    `(b) a lane's allocation did not come from the allocation TABLE (forward got ${d.allocation}, catchup ${c.allocation}). No lane may be computed as "everyone else".`)
+  // AND THE LIVE TABLE IS STILL THE SOURCE when nothing is injected — the injection must not become the path.
+  check(decideBudget('backfill', spend()).allocation === LANE_ALLOCATIONS.backfill,
+    `(b) with no override, a lane's allocation did not come from the LIVE LANE_ALLOCATIONS table — the guard's fixture has become the production path.`)
   check(allocationFor('mystery-lane') === 0,
     `(b) an UNKNOWN lane received ${allocationFor('mystery-lane')} rather than 0. Fail-closed: a lane nobody sized may never inherit a remainder.`)
 }
@@ -257,11 +306,11 @@ const spend = (o = {}) => ({ byLane: { forward: 0, catchup: 0, drain: 0, backfil
   // catchup's allocation is now ZERO, so check (a) fires first and the leg would read 'lane_allocation' while
   // claiming to test the FLEET backstop — it would have gone green for the wrong reason, which is worse than red.
   // 'backfill' has 13,500 of room and ranks LAST, so no lower lane can hold spend and the ceiling must refuse it.
-  const perLane = Math.ceil(GOOGLE_DAILY_OP_CAP * 0.6)
-  const b = decideBudget('backfill', spend({ forward: perLane, drain: perLane }))
+  const perLane = Math.ceil(FINITE.cap * 0.6)
+  const b = decideBudget('backfill', spend({ forward: perLane, drain: perLane }), FINITE)
   check(b.state === 'blocked' && b.blockedBy === 'fleet_cap',
-    `(g) the FLEET total exceeded the ${GOOGLE_DAILY_OP_CAP} cap and the lane was still allowed ('${b.state}'/'${b.blockedBy}'). The ops-per-request ratio is unknown, so the cap backstop must bite independently of any lane's allocation.`)
-  const lane = decideBudget('catchup', spend({ catchup: Math.ceil(CATCHUP_ALLOCATION / OPS_PER_REQUEST) }))
+    `(g) the FLEET total exceeded the ${FINITE.cap} cap and the lane was still allowed ('${b.state}'/'${b.blockedBy}'). The ops-per-request ratio is unknown, so the cap backstop must bite independently of any lane's allocation.`)
+  const lane = decideBudget('catchup', spend({ catchup: Math.ceil(FINITE.allocations.catchup / OPS_PER_REQUEST) }), FINITE)
   check(lane.blockedBy === 'lane_allocation',
     `(g) a lane over its OWN allocation did not report blockedBy='lane_allocation' (got '${lane.blockedBy}') — a decline must name which check fired.`)
 }
@@ -350,7 +399,7 @@ for (const [f] of LANES) {
   // (a) FORWARD IS NEVER REFUSED WHILE A LOWER LANE HOLDS SPEND. Fleet ceiling blown by catchup + drain.
   {
     const s = spend({ forward: 100, catchup: 7500, drain: 7500 })
-    const b = decideBudget('forward', s)
+    const b = decideBudget('forward', s, FINITE)
     check(b.state === 'not_blocked' && !holdForBudget(b),
       `(i.a) FORWARD was refused (${b.state}/${b.blockedBy}) with the ceiling exhausted by catchup and drain while forward sat at ${b.estimatedOpsSpentToday}/${b.allocation} of its own allocation. Forward carries TODAY's customer data and is refused LAST — the lanes below it yield first.`)
   }
@@ -381,7 +430,7 @@ for (const [f] of LANES) {
   // bites — green for the wrong reason. 'backfill' has 13,500 of room and ranks LAST, so nothing below it can
   // yield and the ceiling must refuse it. Same guarantee, a lane that can still demonstrate it.
   {
-    const b = decideBudget('backfill', spend({ forward: 14900, backfill: 100 }))
+    const b = decideBudget('backfill', spend({ forward: 14900, backfill: 100 }), FINITE)
     check(b.state === 'blocked' && b.blockedBy === 'fleet_cap',
       `(i.b2) the BOTTOM lane was ADMITTED (${b.state}) on an exhausted ceiling with no lower-priority lane holding spend. Nothing below it can yield, so it must yield itself — otherwise the ordering admits everyone and protects nobody.`)
   }
@@ -393,13 +442,13 @@ for (const [f] of LANES) {
     const pMystery = hasOrder ? priorityOf('mystery-lane') : 'ABSENT'
     check(hasOrder && pMystery === LANE_PRIORITY.length && pMystery > priorityOf('forward'),
       `(i.c) an UNKNOWN lane resolved to priority ${pMystery} — it must sort LAST. A typo or a future lane inheriting top priority is the fail-open this ordering exists to prevent, and it hands an unaudited spender the seat that belongs to today's data.`)
-    const b = decideBudget('mystery-lane', spend({ forward: 14900, catchup: 100 }))
+    const b = decideBudget('mystery-lane', spend({ forward: 14900, catchup: 100 }), FINITE)
     check(b.state === 'blocked',
       `(i.c) an UNKNOWN lane was ADMITTED on an exhausted ceiling. Unknown identity fails CLOSED.`)
   }
   // (d) UNATTRIBUTED SPEND IS NOT A LANE AND CANNOT BE BLAMED — fail closed when nothing below can yield.
   {
-    const b = decideBudget('forward', spend({ forward: 100, unattributedRaw: 15000 }))
+    const b = decideBudget('forward', spend({ forward: 100, unattributedRaw: 15000 }), FINITE)
     check(b.state === 'blocked' && b.blockedBy === 'fleet_cap',
       `(i.d) the ceiling was consumed by UNATTRIBUTED spend and forward was still admitted. Unattributed belongs to no lane, so there is nobody below to refuse first — that is the fail-closed branch.`)
   }
@@ -409,7 +458,7 @@ for (const [f] of LANES) {
       `(i.e) 'backfill' is not a BudgetLane. The universe walk spends Google operations; a spender that is not a lane cannot be ordered, counted, or refused.`)
     const s = spend()
     check(Object.prototype.hasOwnProperty.call(s.byLane, 'backfill') || true, 'shape')
-    check(decideBudget('backfill', spend({ forward: 14900, catchup: 100 })).state === 'blocked',
+    check(decideBudget('backfill', spend({ forward: 14900, catchup: 100 }), FINITE).state === 'blocked',
       `(i.e) the BACKFILL lane was admitted on an exhausted ceiling. It is the lowest priority there is — it yields to everything.`)
     // ⛔ AND THE WALK'S SPEND MUST REACH THE OTHER LANES' DENOMINATOR. Flight 1 shipped the ordering with the
     // number missing, so the walk could exhaust the fleet ceiling while every lane read the fleet as empty.
@@ -653,11 +702,20 @@ if (WITH_DB) {
   if (!alloc || typeof alloc !== 'object') {
     findings.push(`(n) google-op-budget.ts exports no LANE_ALLOCATIONS table. The allocation must be ONE readable object, not a derivation spread across two files (LORAMER_GOOGLE_LANE_ALLOCATION_V1).`)
   } else {
+    // ⛔ RE-CUT 2026-09-15 (LORAMER_CAP_FOLLOWS_GRANT_V1). "Every prioritised lane has a FINITE share and the
+    // shares sum to the cap" was the right invariant while a cap existed to be divided. Under Standard access
+    // the honest invariant is that every prioritised lane is NAMED — present in the table with an explicit
+    // value — because the original defect was a lane that could be REFUSED without ever having been SIZED,
+    // and an absent key is still exactly that. null is a decision; undefined is an omission.
     for (const lane of mod.LANE_PRIORITY) {
-      if (!Number.isFinite(alloc[lane])) findings.push(`(n) lane '${lane}' appears in LANE_PRIORITY but has NO allocation. It can be refused and was never given a share.`)
+      if (!Object.prototype.hasOwnProperty.call(alloc, lane)) {
+        findings.push(`(n) lane '${lane}' appears in LANE_PRIORITY but is ABSENT from LANE_ALLOCATIONS. It can be refused and was never named. null (no daily-ops limit) and 0 (stopped by decision) are both answers; missing is not.`)
+      } else if (!(alloc[lane] === null || Number.isFinite(alloc[lane]))) {
+        findings.push(`(n) lane '${lane}' has allocation ${JSON.stringify(alloc[lane])} — neither null nor a finite number.`)
+      }
     }
     const sum = Object.values(alloc).reduce((a, b) => a + Number(b || 0), 0)
-    if (sum !== mod.GOOGLE_DAILY_OP_CAP) {
+    if (mod.GOOGLE_DAILY_OP_CAP !== null && sum !== mod.GOOGLE_DAILY_OP_CAP) {
       findings.push(`(n) the allocations sum to ${sum}, not the ${mod.GOOGLE_DAILY_OP_CAP} cap. Under-summing leaves quota nobody may spend; over-summing is a promise the vendor will not keep.`)
     }
 
@@ -672,8 +730,19 @@ if (WITH_DB) {
     if (Number(alloc.drain) !== 0 || Number(alloc.catchup) !== 0) {
       findings.push(`(p) drain=${alloc.drain} catchup=${alloc.catchup} — LORAMER_WALK_TAKES_THE_LANE_V1 sets BOTH to 0. If the engine is now complete and Russ has called the reversal, delete this leg in the same commit; if not, a lane was restored without a decision.`)
     }
-    // LORAMER_ONE_CLICK_WALK_V1 (2/2 A): the driver lane (DRIVER_ALLOCATION, 6,900) is the second subtrahend since 2026-09-10.
-    if (Number(alloc.backfill) !== mod.GOOGLE_DAILY_OP_CAP - Number(mod.FORWARD_UNGATED_RESERVE) - Number(mod.DRIVER_ALLOCATION)) {
+    // ⛔ RE-CUT 2026-09-15 (LORAMER_CAP_FOLLOWS_GRANT_V1). The derivation `backfill = cap − reserve − driver`
+    // was worth pinning while a cap existed; it is not a weaker rule now, it is an ABSENT one — there is
+    // nothing left to subtract from. What replaces it is the NO-DAILY-GATE property, plus the promise that
+    // the derivation returns intact the day a cap does: if the cap is ever finite again the walk's share must
+    // once more be the remainder and must never be a typed number.
+    if (mod.GOOGLE_DAILY_OP_CAP === null) {
+      if (alloc.backfill !== null) {
+        findings.push(`(p) the cap is null (Standard access) but backfill=${alloc.backfill}. With no pool to take a share of, the walk's lane must be null — a finite number here is a self-imposed ceiling nobody derived, re-creating holds at a new arbitrary boundary.`)
+      }
+      if (mod.FORWARD_UNGATED_RESERVE !== null || mod.DRIVER_ALLOCATION !== null) {
+        findings.push(`(p) the cap is null but the reserve (${mod.FORWARD_UNGATED_RESERVE}) / driver (${mod.DRIVER_ALLOCATION}) still carry numbers. They were subtrahends of a cap that no longer exists; a number kept past its derivation is the constant-with-a-shelf-life defect.`)
+      }
+    } else if (Number(alloc.backfill) !== mod.GOOGLE_DAILY_OP_CAP - Number(mod.FORWARD_UNGATED_RESERVE) - Number(mod.DRIVER_ALLOCATION)) {
       findings.push(`(p) backfill=${alloc.backfill}, expected cap ${mod.GOOGLE_DAILY_OP_CAP} − forward reserve ${mod.FORWARD_UNGATED_RESERVE} − driver ${mod.DRIVER_ALLOCATION}. The walk takes everything that is ACTUALLY available; the reserve and the driver lane are the only subtrahends.`)
     }
     // ⛔ THE RESERVE MAY NOT BE ZEROED WHILE cron/sync IS UNGATED, AND THIS IS THE LEG THAT MATTERS MOST.
@@ -683,10 +752,13 @@ if (WITH_DB) {
     {
       const sync = read('src/app/api/cron/sync/route.ts')
       const syncIsGated = /getGoogleOpBudget|holdForBudget|holdGoogleWork/.test(nocomment(sync))
-      if (Number(mod.FORWARD_UNGATED_RESERVE) === 0 && !syncIsGated) {
+      // ⛔ null (no daily-ops limit) IS NOT 0 (holding nothing back), and the difference is the whole leg. The
+      // danger guarded here was "the reserve was zeroed while forward still spends un-metered, designing in an
+      // overrun". With NO CAP there is no overrun to design in. The leg applies only while a cap exists.
+      if (mod.GOOGLE_DAILY_OP_CAP !== null && Number(mod.FORWARD_UNGATED_RESERVE) === 0 && !syncIsGated) {
         findings.push(`(p) FORWARD_UNGATED_RESERVE is 0 while cron/sync consults NO budget and NO quota gate — so forward still spends (measured 2026-08-11: 18 connection-days/day ⇒ ~1,206 requests at the repo's ×67) and the walk's meter cannot see it. That authorises ~16,206 against a hard 15,000. Gate cron/sync first, or keep the reserve.`)
       }
-      if (Number(mod.FORWARD_UNGATED_RESERVE) !== 0 && syncIsGated) {
+      if (mod.GOOGLE_DAILY_OP_CAP !== null && Number(mod.FORWARD_UNGATED_RESERVE) !== 0 && syncIsGated) {
         findings.push(`(p) cron/sync now consults a budget/quota gate, so FORWARD_UNGATED_RESERVE (${mod.FORWARD_UNGATED_RESERVE}) is holding back quota nothing needs — the walk should take the literal 15,000 the decision asked for. Set the reserve to 0 in the same commit that gated forward.`)
       }
     }

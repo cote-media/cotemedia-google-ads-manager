@@ -115,8 +115,14 @@ export function readDrainLane(root = ROOT) {
     drain = readNumericConst(src, term[1])
     if (drain === null) throw new Error(`LANE_ALLOCATIONS.drain = ${term[1]} but no numeric export const ${term[1]} in ${OP_BUDGET_PATH}`)
   }
-  const cap = readNumericConst(src, 'GOOGLE_DAILY_OP_CAP')
-  if (cap === null || !(cap > 0)) throw new Error(`GOOGLE_DAILY_OP_CAP unreadable in ${OP_BUDGET_PATH}`)
+  // ⛔ THREE OUTCOMES, NOT TWO — LORAMER_CAP_FOLLOWS_GRANT_V1, 2026-09-15. `export const GOOGLE_DAILY_OP_CAP:
+  // number | null = null` is Standard access: the vendor imposes NO daily operations cap. That is an ANSWER
+  // and must read as `cap = null`, distinct from UNREADABLE (the file changed shape and this instrument can no
+  // longer find the fact), which still throws. Collapsing the two would make a broken parse look like a grant.
+  // The cap is a DENOMINATOR here, never a gate: this check asserts the drain LANE is 0, which is unchanged.
+  const capIsNull = /export const GOOGLE_DAILY_OP_CAP\s*(?::[^=]+)?=\s*null\b/.test(src)
+  const cap = capIsNull ? null : readNumericConst(src, 'GOOGLE_DAILY_OP_CAP')
+  if (!capIsNull && (cap === null || !(cap > 0))) throw new Error(`GOOGLE_DAILY_OP_CAP unreadable in ${OP_BUDGET_PATH}`)
   return { drain, cap, source: `${OP_BUDGET_PATH} LANE_ALLOCATIONS.drain = ${term[1]}` }
 }
 

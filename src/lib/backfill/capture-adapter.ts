@@ -114,8 +114,14 @@ export interface RetentionFloor {
 export interface Meter {
   /** Human-readable, e.g. 'operations/day', 'core tokens/property/day', 'BUC utilisation %'. */
   unit: string
-  /** The cap in `unit`. */
-  cap: number
+  /**
+   * The cap in `unit`. ⛔ `null` MEANS THE VENDOR IMPOSES NO CAP IN THIS UNIT — it is a real answer, not a
+   * missing one, and it is DIFFERENT FROM `spentSoFar()` returning null, which means UNREADABLE and HOLDS.
+   * One is "there is no limit", the other is "I cannot see the limit"; collapsing them would turn a broken
+   * instrument into unlimited permission. Google's daily-operations cap became null under Standard access
+   * (LORAMER_CAP_FOLLOWS_GRANT_V1, 2026-09-15); a vendor that still publishes a daily number keeps one.
+   */
+  cap: number | null
   /** ⛔ Whether a LONGER window costs more. See `SizingPolicy`. */
   costDirection: CostDirection
   /**
@@ -418,8 +424,14 @@ export async function mayFetchProgram(a: CaptureAdapter, spans: number[]): Promi
   // nothing to publish should not be refused for it.
   const want = spans.reduce((sum, days) => sum + a.meter.costOf(days), 0)
   const fetches = spans.length === 1 ? '' : ` (${spans.length} fetches)`
-  if (spent + want > a.meter.cap) {
+  // ⛔ NO CAP MEANS NO REFUSAL HERE — AND THE SPEND IS STILL COUNTED AND STILL REPORTED. This removes a GATE,
+  // never the instrument: `spentSoFar()` is read above on every call (so an unreadable meter still HOLDS),
+  // and the reason string below still carries the running total into the fire log. A lane with no cap that
+  // stopped counting would be the adjacent-number defect in its purest form — green because nothing is
+  // measured. Cap null ⇒ we say what was spent and let it through.
+  if (a.meter.cap !== null && spent + want > a.meter.cap) {
     return { ok: false, reason: `${a.platform}: ${spent} + ${want}${fetches} would exceed ${a.meter.cap} ${a.meter.unit}` }
   }
-  return { ok: true, reason: `${a.platform}: ${spent} + ${want}${fetches} of ${a.meter.cap} ${a.meter.unit}` }
+  const of = a.meter.cap === null ? 'no daily cap (Standard access)' : `${a.meter.cap} ${a.meter.unit}`
+  return { ok: true, reason: `${a.platform}: ${spent} + ${want}${fetches} of ${of}` }
 }

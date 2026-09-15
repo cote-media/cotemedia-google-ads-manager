@@ -65,6 +65,28 @@ if (G) {
 
   if (typeof G.decidePublishFleetAware !== 'function') {
     findings.push('(a) decidePublishFleetAware() is gone — the governor is back to reading only its own lane, which is the defect itself.')
+  } else if (CAP === null) {
+    // ⛔ LORAMER_CAP_FOLLOWS_GRANT_V1, 2026-09-15 — THE PREMISE OF EVERY LEG BELOW IS GONE, AND SAYING SO IS
+    // THE HONEST MOVE RATHER THAN QUIETLY PASSING. "The walk yields to the product" was arithmetic ON A SHARED
+    // CAP: the walk stood down at the point where publishing would breach 15,000 given the reserve in force.
+    // Standard access removes the cap, so there is no breach to stand down from and no reserve to protect —
+    // a governor refusing here would be enforcing a ceiling nobody derived. The legs are NOT deleted: they
+    // run verbatim the moment a finite cap returns (the `else` below), which is what keeps the arithmetic
+    // proven rather than merely present.
+    // ⛔ WHAT MUST STILL HOLD WITH NO CAP, because neither property was ever about quota:
+    //   · an UNREADABLE fleet still fails CLOSED — "I do not know" is not "go ahead", at any cap;
+    //   · the fleet is still READ and still REPORTED — this flight removes a gate, never an instrument.
+    const free = G.decidePublishFleetAware({ spentRequestsToday: 0, fleet: fleet(9_000_000, 0, 0), want: 346 })
+    if (!free.mayPublish || free.allowance !== 346) {
+      findings.push(`(a/no-cap) with NO daily cap the governor still refused a publish against a huge fleet spend (mayPublish=${free.mayPublish}, allowance=${free.allowance} of 346). The gate must be gone, not merely larger — a finite stand-in re-creates holds at a new arbitrary boundary.`)
+    }
+    if (!/product/.test(String(free.reason || '')) || !/9000000/.test(String(free.reason || '').replace(/[^0-9]/g, ''))) {
+      findings.push(`(a/no-cap) the decision no longer REPORTS the fleet it read (reason: ${String(free.reason || '').slice(0, 160)}). Removing the gate must not remove the instrument; a lane that spends without counting is the adjacent-number defect in its purest form.`)
+    }
+    const blindNoCap = G.decidePublishFleetAware({ spentRequestsToday: 0, fleet: null, want: 10 })
+    if (blindNoCap.mayPublish) {
+      findings.push('(a/no-cap) an UNREADABLE fleet reading was treated as headroom. That rule never depended on a cap: "I do not know" is not "go ahead", and a governor that fails open is worse than none because it looks like one.')
+    }
   } else {
     // ── (a) IT MUST NOT PUBLISH WHEN THE FLEET WOULD BREACH THE CAP ──────────────────────────────
     // ⛔ MADE RESERVE-RELATIVE 2026-08-11 (LORAMER_WALK_TAKES_THE_LANE_V1), AND THE REASON IS THE WHOLE

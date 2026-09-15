@@ -85,7 +85,12 @@ export const BACKFILL_OP_ALLOWANCE = LANE_ALLOCATIONS.backfill
 // held back from the walk for FORWARD, which this table cannot gate (cron/sync consults no budget) and whose
 // spend the walk's own meter cannot see. So the "product reserve" is now precisely the un-gated-forward
 // reserve — a smaller claim, and the only one still true.
-export const PRODUCT_RESERVE_OPS = CAP - LANE_ALLOCATIONS.backfill
+// ⛔ null SINCE LORAMER_CAP_FOLLOWS_GRANT_V1: "the share the backfill may never touch" was cap − backfill.
+// With no cap there is no share to withhold and nothing to withhold it from. The PRIORITY this expressed —
+// the walk yields, the product does not — is preserved where it is now actually enforced: drain and catchup
+// remain 0 by decision, and the walk's own per-fire bounds are untouched by this flight.
+export const PRODUCT_RESERVE_OPS: number | null =
+  CAP === null || LANE_ALLOCATIONS.backfill === null ? null : CAP - LANE_ALLOCATIONS.backfill
 
 /** Shape of google-op-budget's reading, restated structurally so this module stays drivable with no DB. */
 export interface FleetReading {
@@ -100,10 +105,12 @@ export interface GovernorDecision {
   reason: string
   /** Everything the decision was made from, so the reason can be audited rather than believed. */
   denominator: {
-    cap: number
-    reservedForward: number
-    reservedDrain: number
-    backfillAllowanceOps: number
+    // ⛔ null = NO DAILY-OPERATIONS LIMIT (LORAMER_CAP_FOLLOWS_GRANT_V1), not "unknown" and not zero.
+    // `spentOpsToday` stays a plain number: what was SPENT is always known, whether or not a cap bounds it.
+    cap: number | null
+    reservedForward: number | null
+    reservedDrain: number | null
+    backfillAllowanceOps: number | null
     spentOpsToday: number
     assumedOpsPerRequest: number
     requestsPerMessage: number
@@ -127,7 +134,10 @@ export function decidePublish(args: {
 }): GovernorDecision {
   const requestsPerMessage = Math.max(1, args.requestsPerMessage ?? 1)
   const spentOps = Math.max(0, args.spentRequestsToday) * ASSUMED_OPS_PER_REQUEST
-  const denominator = {
+  const denominator: {
+    cap: number | null; reservedForward: number | null; reservedDrain: number | null
+    backfillAllowanceOps: number | null; spentOpsToday: number; assumedOpsPerRequest: number; requestsPerMessage: number
+  } = {
     cap: CAP,
     reservedForward: RESERVED_FOR_FORWARD_OPS,
     reservedDrain: RESERVED_FOR_DRAIN_OPS,
@@ -135,6 +145,17 @@ export function decidePublish(args: {
     spentOpsToday: spentOps,
     assumedOpsPerRequest: ASSUMED_OPS_PER_REQUEST,
     requestsPerMessage,
+  }
+  // ⛔ NO DAILY ALLOWANCE ⇒ NO DAILY EXHAUSTION. The walk publishes what it wants and the spend is still
+  // counted into `denominator.spentOpsToday`, which is what the audit line reports. Bounds that DO still
+  // apply are elsewhere and were not touched by LORAMER_CAP_FOLLOWS_GRANT_V1: MAX_REQUESTS_PER_RUN per fire,
+  // the rotation cadence, COVERAGE_PROBE_CONCURRENCY, and every maxDuration.
+  if (BACKFILL_OP_ALLOWANCE === null) {
+    const allowance = Math.max(0, args.want)
+    return {
+      mayPublish: allowance > 0, allowance, denominator,
+      reason: `may publish ${allowance} of ${args.want} requested — NO DAILY OPERATIONS LIMIT (Standard access, LORAMER_CAP_FOLLOWS_GRANT_V1). ${spentOps} ops spent today, counted and reported, gating nothing.`,
+    }
   }
   const remainingOps = BACKFILL_OP_ALLOWANCE - spentOps
   if (remainingOps <= 0) {
@@ -204,8 +225,17 @@ export function decidePublishFleetAware(args: {
   //     generous answer, which is the exact overrun this fix exists to prevent.
   // Holding the full reserve makes the walk's ceiling shrink monotonically as the product gets busier,
   // which is the only shape consistent with "the walk yields; the product does not".
-  const publishable = CAP - PRODUCT_RESERVE_OPS - productSpent - backfillSpent
   const opsPerMessage = Math.max(1, args.requestsPerMessage ?? 1) * ASSUMED_OPS_PER_REQUEST
+  // ⛔ NO CAP ⇒ NO FLEET CEILING TO STAND DOWN FROM, and the fleet is still MEASURED and still printed.
+  // `own` (the backfill's own allowance) has already been consulted above and returned unlimited, so the
+  // walk publishes what it asked for. The audit keeps both totals so the decision stays auditable.
+  if (CAP === null || PRODUCT_RESERVE_OPS === null) {
+    return {
+      ...own,
+      reason: `fleet ${productSpent} product + ${backfillSpent} backfill · NO DAILY OPERATIONS CAP (Standard access) — nothing to reserve and nothing to yield. ${own.reason}`,
+    }
+  }
+  const publishable = CAP - PRODUCT_RESERVE_OPS - productSpent - backfillSpent
   const audit = `fleet ${productSpent} product + ${backfillSpent} backfill of ${CAP} cap · ${PRODUCT_RESERVE_OPS} held for forward+drain+catchup · publishable ${publishable}`
 
   if (publishable < opsPerMessage) {

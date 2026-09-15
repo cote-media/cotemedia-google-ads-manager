@@ -561,14 +561,30 @@ let boundMod = null   // set by leg (f)'s compile; leg (h) drives shouldRepublis
     // to the live allowance, the leg demonstrates the same page-cap defect under any allocation policy. The
     // real numbers stay in the message so the incident that produced this leg is still legible.
     const ALLOW = gov.BACKFILL_OP_ALLOWANCE
+    // ⛔ LORAMER_CAP_FOLLOWS_GRANT_V1, 2026-09-15. With Standard access the allowance is null — no daily-ops
+    // limit — so NO spend figure binds and the "true spend binds, the truncated one would not" demonstration
+    // has no bindable side left. THE DEFECT THIS LEG DESCENDS FROM DID NOT GO AWAY AND IS NOT BEING WAIVED:
+    // a truncated page read still under-reports the walk's spend, and the meter, the fleet-meter witness and
+    // every accounting figure still consume it. What changed is only that the GOVERNOR no longer turns that
+    // number into a publish decision, so the governor can no longer be the instrument that reveals it.
+    // The leg therefore asserts the accounting property that survives, and the full demonstration returns
+    // automatically if a finite allowance ever does.
+    const CAPPED_ALLOW = ALLOW !== null
     const truncated = 997                 // what the real path actually returned on 2026-08-05
-    const honestSpend = ALLOW + 1         // a TRUE spend that must bind, whatever the allowance is today
+    const honestSpend = CAPPED_ALLOW ? ALLOW + 1 : 10_789   // a TRUE spend that must bind, whatever the allowance is today
     const blind = gov.decidePublish({ spentRequestsToday: truncated, want: 1 })
     const honest = gov.decidePublish({ spentRequestsToday: honestSpend, want: 1 })
-    if (!blind.mayPublish) {
+    if (!CAPPED_ALLOW) {
+      // The two readings must still be DISTINGUISHABLE in the denominator — that is what makes a truncation
+      // visible to a human or an instrument even when nothing refuses on it.
+      if (blind.denominator?.spentOpsToday === honest.denominator?.spentOpsToday) {
+        findings.push(`(k3) with no daily cap the governor reports the SAME spend (${blind.denominator?.spentOpsToday}) for a truncated 997 and a true ${honestSpend}. The gate is gone by decision; the ACCOUNTING must still tell the two apart, or a page-cap truncation becomes invisible everywhere at once.`)
+      }
+    }
+    if (CAPPED_ALLOW && !blind.mayPublish) {
       findings.push('(k3) the governor now HOLDS on the truncated figure too, so this leg can no longer demonstrate the defect — re-derive the fixture before trusting it.')
     }
-    if (honest.mayPublish) {
+    if (CAPPED_ALLOW && honest.mayPublish) {
       findings.push(`(k3) handed a TRUE spend of ${honestSpend} against the ${ALLOW} allowance, the governor still authorised a publish. On 2026-08-05 the real pair was truncated 997 vs true ${TRUE_SPEND}, and ~10,800 consecutive publishes were authorised off the truncated figure. The walk must yield; the product never does (LORAMER_BACKFILL_YIELDS_TO_PRODUCT_V1).`)
     }
   } catch (e) {

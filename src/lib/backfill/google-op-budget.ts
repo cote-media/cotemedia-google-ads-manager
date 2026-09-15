@@ -81,11 +81,29 @@ import { rollingWindowStart } from './google-quota-window'
 // fleet-meter-sees-the-walk.guard.mjs leg (e) reads BOTH files and fails if the two ever disagree.
 export const WALK_ATTEMPT_LOG_VENDOR = 'google'
 
-// Basic Access, developer-scope, shared across ALL google clients on ONE dev token.
-// ⛔ VERIFIED AT GOOGLE 2026-08-09: 15,000 operations/day is enforced PER DEVELOPER TOKEN, across every
-// customer that token manages — so ONE fleet-wide pool is the right shape, and both prior models were right
-// about that much. developers.google.com/google-ads/api/docs/api-policy/access-levels
-export const GOOGLE_DAILY_OP_CAP = 15_000
+// ⛔ STANDARD ACCESS — THERE IS NO DAILY OPERATIONS CAP. `null` IS THE VALUE, AND IT IS NOT A PLACEHOLDER.
+// LORAMER_CAP_FOLLOWS_GRANT_V1, 2026-09-15. Google granted Standard access to Cloud project 928420234811;
+// the console for that project reads "Current access level: Standard — unlimited daily operations". The
+// grant was tied to the FLEET's own credential by three closed links: the approval email names the project,
+// the production OAuth client's numeric prefix IS 928420234811, and the console for that number reads
+// Standard. Basic's 15,000/day (verified 2026-08-09, enforced per developer token) no longer applies.
+//
+// ⛔ WHY `null` AND NOT A LARGE NUMBER. A finite stand-in for "unlimited" is a constant with no derivation —
+// the exact class this file refuses everywhere else — and it silently re-creates holds at a new arbitrary
+// boundary the day the fleet grows past it. There is no number to pick because the vendor publishes none.
+// ⛔ AND WHY `null` AND NOT `Infinity`. `JSON.stringify(Infinity)` is `null` (RFC 8259 admits neither
+// Infinity nor NaN), so an Infinity cap would arrive at every JSON reader — the drain route's decline body,
+// the fire log, every console line — as `null` ANYWAY, having passed silently through arithmetic on the way.
+// `Infinity - Infinity` is NaN, and NaN compares false against every bound, which is a gate that has quietly
+// stopped gating. `null` cannot be added, subtracted or compared by accident: under `strict` TypeScript every
+// reader must BRANCH on it, so the compiler enumerates them. That is the enforcement (A LAW IS NOT BANKED
+// UNTIL IT CAN FAIL A BUILD) — not a comment asking the next author to remember.
+//
+// ⛔ WHAT THIS DOES NOT REMOVE, because it was never the daily cap: Google's per-minute QPS token bucket
+// (RESOURCE_TEMPORARILY_EXHAUSTED) survives Standard untouched, and every per-fire and concurrency bound in
+// this repo is ours and stays exactly where it is. The binding constraint moves to Postgres.
+// developers.google.com/google-ads/api/docs/api-policy/access-levels
+export const GOOGLE_DAILY_OP_CAP: number | null = null
 // Requests per client-connection per DAY of google fan-out. Counted from code above, not recalled.
 // ⚠ AND NEVER LIVE-MEASURED — ★LANE-VOLUME-IS-ESTIMATED-FROM-AN-UNMEASURED-CONSTANT. Three of the four lanes
 // convert their work units through this number, so their spend figures inherit its error in an unknown
@@ -163,23 +181,41 @@ export const OPS_PER_REQUEST = 1
 // de-aliased base surfaces joined the driver catalogue (forward-driver-slices.ts: 50 HEAVY + 273 REST). The walk's lane
 // derives to 15,000 − 1,500 − 5,491 = 8,009 — the proof vehicle (Escential, ★PROOF-VEHICLE-TAKES-THE-BACKFILL-LANE)
 // takes it. Re-measure when a google connection is added or removed.
-export const FORWARD_UNGATED_RESERVE = 1_500
-export const DRIVER_ALLOCATION = 5_491 // ⇐ 17 connections × 323 catalogue surfaces (LORAMER_WALK_BASE_DEALIAS_V1, 2026-09-12); was 5,423 (17 × 319, LORAMER_PROOF_LANE_V1), was 6,900 (382 × 18 estimate)
-export const LANE_ALLOCATIONS: Record<BudgetLane, number> = {
-  // ⛔ NOT A LANE FORWARD SPENDS FROM — a slice HELD BACK FROM THE WALK for a spender this table cannot gate.
-  // ⛔ SET THIS TO 0 ONLY IN THE SAME COMMIT THAT GENUINELY GATES cron/sync. Then, and only then, is
-  // `backfill: 15_000` the literal truth the decision asked for.
-  forward: FORWARD_UNGATED_RESERVE,
-  drain: 0,         // ZERO BY DECISION — was 3,000. Declines cleanly at cron/drain/route.ts:139-160, HTTP 200.
-  catchup: 0,       // ZERO BY DECISION — was 4,000. Declines cleanly at cron/catchup/route.ts:281-286.
-  driver: DRIVER_ALLOCATION, // 5,491 — the catalogue driver's ask, 17 connections × 323 surfaces (LORAMER_WALK_BASE_DEALIAS_V1, 2026-09-12); was 5,423 (× 319), was 6,900
-  backfill: GOOGLE_DAILY_OP_CAP - FORWARD_UNGATED_RESERVE - DRIVER_ALLOCATION, // 8,009 — was 8,077 (proof lane), was 6,600 (2/2 A), was 13,500, was 6,000
+// ⛔ RETIRED AS A GATE INPUT, 2026-09-15 (LORAMER_CAP_FOLLOWS_GRANT_V1). It was 1,500: a slice HELD BACK
+// FROM THE WALK so an ungated forward could not push the fleet past 15,000. With no daily cap there is no
+// shared pool to hold anything back FROM, so the reserve has nothing to mean. `null` = no daily-ops limit.
+// ⚠ THIS IS NOT A STATEMENT THAT FORWARD IS GATED. cron/sync still consults no budget; that was true before
+// this change and is unchanged by it. What ends is the arithmetic that pretended to protect it.
+export const FORWARD_UNGATED_RESERVE: number | null = null
+// ⛔ RETIRED AS A GATE INPUT, 2026-09-15 (LORAMER_CAP_FOLLOWS_GRANT_V1). It was 5,491 = 17 connections × 323
+// catalogue surfaces — ACCOUNTING, so the walk's meter would see spend the driver had already made out of a
+// shared 15,000. With no shared pool there is nothing to subtract it from. ⚠ THE DRIVER'S OWN OVERSPEND IS A
+// SEPARATE, STILL-OPEN PROBLEM and is NOT closed by this line: measured 6,549 against 5,491 in the 24h to
+// 2026-09-15, because forward-driver.ts consults no budget at all (its only bound is DRIVER_BUDGET_MS).
+// See ★DRIVER-SPENDS-UNGATED — this change removes the fiction that the number was governing it.
+export const DRIVER_ALLOCATION: number | null = null
+// ⛔ TWO DIFFERENT KINDS OF ZERO-SHAPED ANSWER LIVE IN THIS TABLE AND CONFUSING THEM WOULD REVERSE A RULING:
+//   `null` = NO DAILY-OPERATIONS LIMIT. The vendor caps nothing; this lane is not gated on daily ops.
+//   `0`    = STOPPED BY DECISION. Not a quota at all — a priority ruling, and it still binds.
+// LORAMER_CAP_FOLLOWS_GRANT_V1 removes the QUOTA gate. It does NOT touch LORAMER_WALK_TAKES_THE_LANE_V1,
+// whose drain/catchup zeros are Russ's CONDITION-GATED decision (restored when the backfill engine is
+// complete and proven correct, and RUSS CALLS WHEN THAT BAR IS MET — it is not a date and it is not a cap).
+// Standard access says nothing about whether the engine is proven, so those two lanes stay stopped and keep
+// declining exactly as they did: cron/drain/route.ts:139-160 and cron/catchup/route.ts:281-286, HTTP 200.
+export const LANE_ALLOCATIONS: Record<BudgetLane, number | null> = {
+  forward: FORWARD_UNGATED_RESERVE,  // null — no daily-ops limit (cron/sync consults no budget either way)
+  drain: 0,         // ZERO BY DECISION — was 3,000. NOT a quota. Declines cleanly at cron/drain/route.ts:139-160, HTTP 200.
+  catchup: 0,       // ZERO BY DECISION — was 4,000. NOT a quota. Declines cleanly at cron/catchup/route.ts:281-286.
+  driver: DRIVER_ALLOCATION,         // null — no daily-ops limit; its real bound is DRIVER_BUDGET_MS (★DRIVER-SPENDS-UNGATED)
+  backfill: GOOGLE_DAILY_OP_CAP,     // null — the walk's 8,009 was cap − reserve − driver; with no cap the whole derivation is gone
 }
 
 // ⛔ KEPT AS DERIVED ALIASES so existing readers and guard legs keep their meaning; they are no longer the
 // source of the split. CATCHUP_SHARE is GONE — a percentage cannot express a four-lane table.
 export const CATCHUP_ALLOCATION = LANE_ALLOCATIONS.catchup
-export const RANKED_RESERVE = GOOGLE_DAILY_OP_CAP - CATCHUP_ALLOCATION
+// ⛔ RETIRED 2026-09-15 — "everything the ranked lanes may spend" was cap − catchup. With no cap it is not a
+// quantity. null = unbounded, and the guard that used to assert `catchup + ranked === cap` now asserts that.
+export const RANKED_RESERVE: number | null = GOOGLE_DAILY_OP_CAP
 
 // ✅ 'backfill' IS NOW COUNTED — FLIGHT 2 OF 2, LORAMER_GOOGLE_OP_BUDGET_BACKFILL_LANE_COUNTED_V3, 2026-08-06.
 // The universe walk spends Google operations and writes NO cron_runs row, so for the whole of flight 1 this
@@ -267,19 +303,19 @@ export type GoogleOpBudget = {
   // ── THIS LANE. Both names kept from v1; their MEANING is now lane-scoped rather than fleet-wide. ──
   rawRequestsToday: number        // this lane's raw requests, BEFORE the multiplier
   estimatedOpsSpentToday: number  // this lane's estimate, AFTER it
-  allocation: number              // what THIS lane may spend
-  remaining: number               // the BINDING headroom = min(lane headroom, fleet headroom), floored at 0
-  laneRemaining: number
+  allocation: number | null       // what THIS lane may spend. null = no daily-ops limit; 0 = stopped by decision
+  remaining: number | null        // the BINDING headroom = min(lane headroom, fleet headroom), floored at 0. null = unbounded
+  laneRemaining: number | null
   // ── THE FLEET. The backstop, because the ops-per-request ratio is unknown. ──
   fleetRawRequestsToday: number
   fleetEstimatedOpsToday: number
-  fleetRemaining: number
+  fleetRemaining: number | null   // null = no daily cap to be remaining against
   byLaneRawRequests: Record<BudgetLane, number>
   unattributedRaw: number
   // ── THE FRAME ──
-  cap: number
-  reserve: number
-  catchupAllocation: number
+  cap: number | null              // null = Standard access, no daily operations cap (LORAMER_CAP_FOLLOWS_GRANT_V1)
+  reserve: number | null
+  catchupAllocation: number | null
   safetyMultiplier: number
   isLowerBound: true              // ops >= requests, always. Stated in the data per the instruction.
   reason: string
@@ -299,22 +335,28 @@ export function holdForBudget(b: GoogleOpBudget): boolean {
  * ⛔ AN UNKNOWN LANE GETS ZERO, NOT A REMAINDER. Fail-closed, matching `priorityOf`'s treatment of an
  * unrecognised identity: a lane nobody sized may not inherit the largest share by default.
  */
-export function allocationFor(lane: BudgetLane): number {
-  return LANE_ALLOCATIONS[lane] ?? 0
+// ⛔ `?? 0` WOULD BE A BUG NOW AND IT IS WORTH SAYING WHY. Since LORAMER_CAP_FOLLOWS_GRANT_V1 `null` means
+// UNLIMITED, so coalescing it to 0 would convert "no limit" into "spend nothing" — the gate re-appearing at
+// its most restrictive setting, silently. An UNKNOWN lane must still fail CLOSED at 0, so the two cases are
+// separated by presence in the table rather than by nullishness.
+export function allocationFor(lane: BudgetLane): number | null {
+  return Object.prototype.hasOwnProperty.call(LANE_ALLOCATIONS, lane) ? LANE_ALLOCATIONS[lane] : 0
 }
 
 // LORAMER_EMPTY_CARRIES_ITS_DENOMINATOR_V1 — the decline (and the ALLOW) states what it examined: the lane, the
 // lane's own units, the fleet total, and BOTH allocations. A reader never has to reconstruct the denominator.
+/** How an unlimited bound RENDERS. Never the empty string and never 'null' — a denominator a human cannot read is not one. */
+const bound = (n: number | null): string => (n === null ? 'unlimited' : String(n))
 function denominator(b: {
-  lane: BudgetLane; laneOps: number; allocation: number; fleetOps: number; cap: number
-  catchupAllocation: number; reserve: number; byLane: Record<BudgetLane, number>; unattributedRaw: number
+  lane: BudgetLane; laneOps: number; allocation: number | null; fleetOps: number; cap: number | null
+  catchupAllocation: number | null; reserve: number | null; byLane: Record<BudgetLane, number>; unattributedRaw: number
   mult: number
 }): string {
   const per = BUDGET_LANES.map((l) => `${l} ${b.byLane[l]}`).join(' · ')
   const un = b.unattributedRaw ? ` · unattributed ${b.unattributedRaw}` : ''
   return (
-    `lane=${b.lane} lane_ops~${b.laneOps}/${b.allocation} · fleet_ops~${b.fleetOps}/${b.cap} · ` +
-    `allocations: catchup ${b.catchupAllocation} / ranked ${b.reserve} · ` +
+    `lane=${b.lane} lane_ops~${b.laneOps}/${bound(b.allocation)} · fleet_ops~${b.fleetOps}/${bound(b.cap)} · ` +
+    `allocations: catchup ${bound(b.catchupAllocation)} / ranked ${bound(b.reserve)} · ` +
     `raw requests today by lane: ${per}${un} · estimate is a LOWER BOUND ×${b.mult}`
   )
 }
@@ -327,14 +369,28 @@ function denominator(b: {
 export function decideBudget(
   lane: BudgetLane,
   spend: GoogleSpendToday | null,
-  opts: { cap?: number; multiplier?: number } = {},
+  // ⛔ `cap` AND `allocations` ARE GUARD HANDLES, NEVER TUNING DIALS — the same standing as `multiplier`.
+  // `allocations` was added by LORAMER_CAP_FOLLOWS_GRANT_V1 for one reason: once the live table is all-null,
+  // the lane-allocation and fleet-ceiling branches become UNREACHABLE from the module defaults, and a branch
+  // no test can reach is a branch that rots. The guard drives both regimes — a finite cap with finite lane
+  // shares, and today's unlimited one — so the ceiling logic stays PROVEN against the day a cap returns.
+  // ⛔ NOTHING IN src/ MAY PASS EITHER. `fleet-cap-injection-is-guard-only.guard.mjs` fails the build if it does.
+  opts: { cap?: number | null; multiplier?: number; allocations?: Record<BudgetLane, number | null> } = {},
 ): GoogleOpBudget {
-  const cap = opts.cap ?? GOOGLE_DAILY_OP_CAP
+  // ⛔ `??` IS WRONG HERE FOR THE SAME REASON IT IS WRONG IN allocationFor: since the grant, `null` is a REAL
+  // VALUE (unlimited), not an absent one. `opts.cap` is undefined when the caller does not override, so the
+  // branch must be on `undefined`, never on nullish — otherwise a guard driving `{ cap: null }` would get the
+  // module default instead of the unlimited case it asked for, and the unlimited path would be untestable.
+  const cap = opts.cap === undefined ? GOOGLE_DAILY_OP_CAP : opts.cap
   // ⛔ 1, FROM THE VENDOR. Kept as a parameter only so a guard can drive the branch, never to be tuned.
   const mult = opts.multiplier ?? OPS_PER_REQUEST
-  const catchupAllocation = LANE_ALLOCATIONS.catchup
-  const reserve = cap - catchupAllocation
-  const allocation = allocationFor(lane)
+  const table = opts.allocations ?? LANE_ALLOCATIONS
+  const catchupAllocation = table.catchup
+  // Unbounded minus anything is still unbounded. Written as a branch rather than arithmetic so it cannot NaN.
+  const reserve = cap === null || catchupAllocation === null ? null : cap - catchupAllocation
+  const allocation = opts.allocations
+    ? (Object.prototype.hasOwnProperty.call(table, lane) ? table[lane] : 0)
+    : allocationFor(lane)
   const zero: Record<BudgetLane, number> = { forward: 0, driver: 0, catchup: 0, drain: 0, backfill: 0 }
   const base = {
     lane, allocation, cap, reserve, catchupAllocation,
@@ -357,9 +413,17 @@ export function decideBudget(
   const fleetRaw = BUDGET_LANES.reduce((s, l) => s + Number(byLane[l] ?? 0), 0) + Number(spend.unattributedRaw || 0)
   const laneOps = Math.ceil(laneRaw * mult)
   const fleetOps = Math.ceil(fleetRaw * mult)
-  const laneRemaining = Math.max(0, allocation - laneOps)
-  const fleetRemaining = Math.max(0, cap - fleetOps)
-  const remaining = Math.min(laneRemaining, fleetRemaining)
+  // ⛔ null PROPAGATES AS "NO BOUND" AND IS NEVER COERCED. `Math.max(0, null - n)` would be `Math.max(0, -n)`
+  // = 0 in plain JS — unlimited read as exhausted, the most restrictive possible misreading, and exactly the
+  // silent re-introduction of a ceiling this change exists to prevent. TypeScript rejects it under `strict`;
+  // these branches are what it rejects it IN FAVOUR OF.
+  const laneRemaining = allocation === null ? null : Math.max(0, allocation - laneOps)
+  const fleetRemaining = cap === null ? null : Math.max(0, cap - fleetOps)
+  const remaining =
+    laneRemaining === null && fleetRemaining === null ? null
+    : laneRemaining === null ? fleetRemaining
+    : fleetRemaining === null ? laneRemaining
+    : Math.min(laneRemaining, fleetRemaining)
   const denom = denominator({
     lane, laneOps, allocation, fleetOps, cap, catchupAllocation, reserve,
     byLane, unattributedRaw: spend.unattributedRaw, mult,
@@ -372,10 +436,17 @@ export function decideBudget(
     byLaneRawRequests: { ...byLane }, unattributedRaw: spend.unattributedRaw,
   }
 
-  // CHECK (a) — this lane has spent its own allocation.
-  if (laneRemaining <= 0) {
+  // CHECK (a) — this lane has spent its own allocation. SKIPPED ENTIRELY when the lane has no daily-ops limit.
+  // ⛔ THE ZERO CASE IS NOT A QUOTA AND THE REASON MUST NOT PRETEND IT IS. Since LORAMER_CAP_FOLLOWS_GRANT_V1
+  // the only numeric allocations left are drain and catchup at 0, and those are Russ's priority ruling
+  // (LORAMER_WALK_TAKES_THE_LANE_V1), not a vendor limit. `blockedBy` stays 'lane_allocation' because that is
+  // still literally which check fired and guards read it; the TEXT says which kind of stop it is.
+  if (laneRemaining !== null && laneRemaining <= 0) {
+    const stopped = allocation === 0
     return { ...common, state: 'blocked', blockedBy: 'lane_allocation', remaining: 0,
-      reason: `LANE ALLOCATION exhausted — ${denom}` }
+      reason: stopped
+        ? `LANE STOPPED BY DECISION (allocation 0 — LORAMER_WALK_TAKES_THE_LANE_V1, condition-gated on Russ; NOT a vendor quota) — ${denom}`
+        : `LANE ALLOCATION exhausted — ${denom}` }
   }
   // CHECK (b) — the fleet has spent the cap.
   // ⛔ LORAMER_FLEET_CEILING_HAS_A_PRIORITY_ORDER_V1. THE DEFECT THIS REPLACES: this check read ONLY
@@ -394,17 +465,21 @@ export function decideBudget(
   // 15,000 is genuinely gone, Google returns RESOURCE_EXHAUSTED whatever this function says. All this decides
   // is WHO ABSORBS a refusal that is coming anyway — and the answer must never be the lane carrying today's
   // customer data.
-  if (fleetRemaining <= 0) {
+  // ⛔ SKIPPED ENTIRELY UNDER STANDARD ACCESS. With `cap === null` there is no fleet ceiling to reach, so no
+  // lane is ever asked to yield on daily operations and the priority order below never has to arbitrate.
+  // The branch is KEPT, not deleted: it is the behaviour the fleet returns to if a cap is ever re-imposed,
+  // and deleting it would mean re-deriving LORAMER_FLEET_CEILING_HAS_A_PRIORITY_ORDER_V1 from scratch.
+  if (fleetRemaining !== null && fleetRemaining <= 0) {
     const lowerWithSpend = BUDGET_LANES.filter(
       (l) => priorityOf(l) > priorityOf(lane) && Number(byLane[l] ?? 0) > 0
     )
     // ⛔ UNATTRIBUTED SPEND IS NOT A LANE AND CANNOT BE BLAMED. If the ceiling was consumed by spend we could
     // not attribute, there is no lower-priority lane to yield, so this lane IS refused — fail-closed.
-    if (laneRemaining > 0 && lowerWithSpend.length > 0) {
+    if ((laneRemaining === null || laneRemaining > 0) && lowerWithSpend.length > 0) {
       return { ...common, state: 'not_blocked', blockedBy: 'none', remaining: laneRemaining,
         reason:
           `FLEET CEILING REACHED, AND THIS LANE IS NOT THE ONE THAT YIELDS — ${lane} is inside its own ` +
-          `allocation (${laneOps}/${allocation}) and lower-priority lane(s) [${lowerWithSpend.join(', ')}] hold ` +
+          `allocation (${laneOps}/${bound(allocation)}) and lower-priority lane(s) [${lowerWithSpend.join(', ')}] hold ` +
           `spend in this window. Priority: ${LANE_PRIORITY.join(' > ')}. ⛔ This is not headroom — if Google's ` +
           `cap is truly gone the vendor refuses regardless; it decides only WHO absorbs the refusal. — ${denom}`,
       }
@@ -412,13 +487,17 @@ export function decideBudget(
     return { ...common, state: 'blocked', blockedBy: 'fleet_cap', remaining: 0,
       reason:
         `FLEET CAP exhausted — ${lane} yields` +
-        (laneRemaining > 0
+        ((laneRemaining === null || laneRemaining > 0)
           ? ` even though it is inside its own allocation: no LOWER-priority lane holds spend in this window, so there is nobody below it to refuse first`
           : ` and is also past its own allocation`) +
         `. Priority: ${LANE_PRIORITY.join(' > ')} — ${denom}` }
   }
+  const binding =
+    remaining === null ? 'NOTHING — no daily operations limit (Standard access)'
+    : laneRemaining !== null && (fleetRemaining === null || laneRemaining <= fleetRemaining) ? 'lane allocation'
+    : 'fleet cap'
   return { ...common, state: 'not_blocked', blockedBy: 'none', remaining,
-    reason: `may spend ~${remaining} more ops (binding: ${laneRemaining <= fleetRemaining ? 'lane allocation' : 'fleet cap'}) — ${denom}` }
+    reason: `may spend ~${bound(remaining)} more ops (binding: ${binding}) — ${denom}` }
 }
 
 // Reads TODAY's google spend from the TWO ledgers that record it durably, each in its own unit.

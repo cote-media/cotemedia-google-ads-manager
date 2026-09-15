@@ -7,8 +7,8 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-09-15T14:36:08.576Z
-- built_from HEAD: 1e0d7ee0c26b0abfe5abfc985913cb2b11bd8737  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-09-15T16:46:59.793Z
+- built_from HEAD: 406a00c924801f5970899fca88bf4befa1b358df  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
@@ -18,7 +18,7 @@
     - LORAMER_HANDOFF.md: 9f349d7d232366b1bb0b29f797f7225540b3ff6c8b43fbbea32eb0db4e761680
     - CONTINUE_HERE.md: 0ee14d0db485c086a32c0050f9247fae65cca8352fdcd413217291e260891c89
     - LORAMER_DECISIONS.md: 7ce87cb385915cf688908894d41124c299299f06d50ea405571781a5b30ec6be
-    - LORAMER_QUEUE_OF_RECORD.md: 940c2f54cae3aab31fe80b2c2d865904cddf900bb7662ceb50e7f5c7fc918eeb
+    - LORAMER_QUEUE_OF_RECORD.md: a6ef3b9755c97dfab13269490509c0ac1ac06247b50911bb07c66555cbae1b05
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: f4bef31497a46984a3a54acc5be044d48000688ba74ed59689e7c4bfafca21a1
     - RESUME_INSTRUCTIONS.md: 2f317be8a48fcd7767dad447cebcaa417cae0e8d8cd5bc5a01cc3939fb9f994a
     - docs/LORAMER_ASSET_LAYER_SCOPE_V1.md: 5550c754b2bf30624360a47cb54bbfd190bf8fc3cda958ab9b843497eb61050d
@@ -1652,7 +1652,12 @@ The 2026-06-29 inventory pre-dates 6 shipped writers and was NOT trusted. | do n
 - ★MISSED-DAY-WALK — ⛔ **NEW 2026-09-12 (Russ, ruling; DECISIONS LORAMER_PROOF_VEHICLE_ESCENTIAL_V1 (3)) — A 9/30 REQUIREMENT, NOT A POLISH ITEM.** Russ's wording: a walk that RE-ASKS ANY DAY THE LEDGER SHOWS NEVER ASKED OR FAILED — any age, any client — once it is past the restatement boundary, on the same meter. DISTINCT FROM THE LOOKBACK LANE, which climbs only from a descent's top end in fixed-width windows (deriveBoundaryStrip, universe-resumer.ts:233-259) and cannot see a hole below it. WHY IT IS REQUIRED (LANE READ 02:04Z item 5, ADVERSARY 02:12Z (c)): the driver asks only [D−30, D]; the descent moves down only; catchup is 0; so a day the driver never asked (a dark day, a killed fire, a claim-lost unit) older than 31 days is asked by NOTHING until the lookback lane reaches it months later — and on a client with no descent, by nothing at all. THE DETECTOR EXISTS: src/lib/backfill/google-hole-map.ts (LORAMER_GOOGLE_HOLE_MAP_DETECTOR_V1) enumerates holes from coverage and fetches nothing. LIKELY SHAPE: the lookback strip reads the hole map instead of the clock — the same lane, the same 2-request bite, its next window chosen by "oldest hole past T−B" rather than "next 7 days above the top". Not designed; three-source first. ⛔ **COMMIT 2 OF LORAMER_WALK_BASE_DEALIAS_V1 (2026-09-12): its "never asked" ledger read is ALIAS-BLIND FOR FREE now that the four base entries are gone from DRAIN_ALIAS — the sealed base days (Escential 294, Foam OH 114) are exactly the first population it must re-ask; a sealed surface is excluded from the descend scan while its seal holds (universe-resume/route.ts:302-315, floorSealHolds), so this lane, not the descent, is the vehicle.** ⛔ **LIVE AND PROVING SINCE 2026-09-12 (DECISIONS LORAMER_MISSED_DAY_WALK_V1, commit 2 — the lane is deployed; this item stays OPEN until the drain is measured): lane 'missed' (migration 090), candidates from the hole map oldest-first in 30-day windows at or below T−B, MISSED_REQUESTS_PER_RUN 8 beside the descent's 40 and the lookback's 2, same meter, never self-chains, seals and rotation untouched. ESCENTIAL-FIRST (the cron entry is Escential's): its 294 sealed base days drain ≤ T−B (2026-06-15 today) now and the 06-16..07-29 remainder as the boundary rolls (by 2026-10-28). FLEET SEQUENCING: Foam OH (116 base + 677 non-base owed days) and the rest ride 2/2 B's rotation of the cron entry; the 14 inception-less clients are REFUSED by the enumerator until inception discovery runs for them (refusal 'missed-inception-unknown' on every fire — that is the instrument, not a bug). Stays open until the hole map reads 0 uncovered ≤ T−B on Escential and the Foam OH guard's four base surfaces read 0 owed.** ⛔ **RIDER 2026-09-13 (DECISIONS LORAMER_COLD_PROOF_ESCENTIAL_COMPLETE_V1): Escential is DRAINED TO THE BOUNDARY — campaign|base 107 days / 7 requests and customer|base 108 / 6, one fire each; the re-read scored 349/349 with 0 days held by nobody and 79 held-and-scheduled (06-16..07-29, drains as T−B rolls, by 10-28). The proof-vehicle half of this item is met. The FLEET drain rides 2/2 B's rotation of the cron entry (Foam OH's 116 base + 677 non-base owed days first). The 190-small-holes class (the strict-newest day at a span's top, one request each) drains through this same lane — nothing separate. Cursor: LORAMER_MISSED_CURSOR_V1 (migration 091) resumes the enumeration where the allowance cut it.** src: ruling 2026-09-12. open [LC] ⛔ **RIDER 2026-09-13 (LORAMER_SESSION_2026_09_13_ROTATION_LIVE_V1): LIVE FLEET-WIDE.** Since 2/2 B (158c608) the lane runs on every client's rotation turn once its inception row exists; first fleet fire Glenn Stearns 18:15Z (8 asks, 4,644 owed days seen); per-fire reach durable since 092 (★MISSED-SWEEP-PACE owns the pace). Escential: sweep 8+, 16/16 per turn, 0 holes. Status: shipped-and-proving fleet-wide.
 - ★LEGACY-RETIREMENT — ⛔ **NEW 2026-09-13 (Russ; DECISIONS LORAMER_COLD_PROOF_ESCENTIAL_COMPLETE_V1) — OWNER-GATED, NO FREEZE CHANGE NOW.** The legacy google crons (sync 30-day restate · catchup 35-day fill · drain 36-month rangeLap, the writers of the ''-spelled account/campaign/ad_group/ad rows) decommission ONLY after four gates: (1) walk done-done fleet-wide (every google connection walked to its floor with the missed lane at 0 owed), (2) 2/2 B rotation live so every client's descent, lookback and missed lanes run on the cron, (3) SERVING CUTOVER — Lora, /next and the registry read the walk spelling for the base grains (today breakdown-registry.ts:76 serves '' base and :212/:213/:231/:242 serve the walk spelling side by side; the '' rows are what the reconcile card was read from), (4) Google Standard Access resolves (DECISIONS:2461 freeze). Until then the '' writers stay byte-identical and frozen. NOT a 9/30 item. src: session close 2026-09-13. ⇒ **RIDER 2026-09-14 (night, R22 sweep): `DRIVER_EXCLUDED_CLIENTS` (forward-driver.ts:63) types the twin's id in runtime where canonical.ts role='fixture' already says it — derive it from the registry when the pin comes off; rides this item, Russ-gated.** open [LC]
 - ★REST-ROW-CAP-BURN-DOWN — ⚠ **NEW 2026-09-12. THE CLASS IS GUARDED (bf910f1, DECISIONS LORAMER_REST_ROW_CAP_READER_V1, law token ★REST-READ-HELD-MUST-EQUAL-SERVER-TOTAL); THE 18 FROZEN SITES ARE A BURN-DOWN, NOT ABSOLUTION.** tests/guards/rest-row-cap-readers.guard.mjs allowlists 18 raw /rest/v1/ fetch helpers by file + snippet with a one-line reason each. Nine are CANDIDATE LIARS (one page and trust over a set that can exceed max-rows, READ-FIRST 17:55Z item 2): check-conversion-action-config-captured.mjs:24 (limit=5000, 456 rows today) · check-google-forward-account-day.mjs:39 (limit=1000, ~108 today) · check-consumer-liveness.mjs:123 (limit=200 in a 45-min window) · check-fleet-meter-visibility.mjs:91 (fires limit=500, 288/24 h) · check-walk-liveness.mjs:109 (newest-200 by order, safe for latestCompleted) · check-restate-prune-live.mjs:63 (one client-day, no limit, 300 today) · anchor-recedes-by-window.guard.mjs:233 (floor/inception reads unbounded, 0/2 rows today) · plus two supabase-js readers outside the regex's sight (check-nongrain-window-resolves.mjs:100,134 · check-topwindow-frontier.mjs:132 — default page, one surface's attempts). Adding an allowlist entry is a refusal; removing one is the work. THE EMBED CAVEAT stays: an embedded resource is capped with NO 206 and NO Content-Range (PostgREST #2776) — rest-all.mjs is top-level only; use embeds for 1:1 joins only. src: READ-FIRST 17:55Z · BUILD 20:33Z. open [LC]
-- ★CAP-FOLLOWS-GRANT — ⚠ **NEW 2026-09-14 (round 19 lane read; DECISIONS (l)). THE FLIGHT FOR THE DAY STANDARD ACCESS IS GRANTED — one flight, trigger = Russ confirms the grant.** `GOOGLE_DAILY_OP_CAP` (google-op-budget.ts:88, Basic 15,000 per developer token) + the two guard literals that pin the lane table (google-op-budget.guard: 5,491 / 8,009 / sum = cap) + the LOOKBACK_WINDOW_DAYS ruling (Basic 7 → Standard 1, universe-resumer.ts; QUEUE ★LOOKBACK-LANE-OWNS-PROMOTION (4)). Nothing in the code follows the token's access level; until the grant the meter refuses on the honest 8,009 and no weighting or nudge is built (Russ, 09-14). ⛔ NOT before the grant: a raised cap on a Basic token is the 2026-09-11 over-run again. src: R19 read 2026-09-14; [DG] STANDARD ACCESS ESCALATION carries the grant's status. open.
+- ★LOOKBACK-WIDTH-FOLLOWS-GRANT — ⚠ **NEW 2026-09-15 (LORAMER_CAP_FOLLOWS_GRANT_V1, deliberately NOT flipped in that flight).** `LOOKBACK_WINDOW_DAYS_BASIC = 7` is still hardwired at universe-resume/route.ts:296; `LOOKBACK_WINDOW_DAYS_STANDARD = 1` exists (universe-resumer.ts:261) and HAS NO READER ANYWHERE. ⛔ THE STATED CONDITION FOR FLIPPING WAS MET AND I STILL DID NOT FLIP, so the reason is on the record rather than in a head: the window-vs-range recession trap (migrations/082, [[LORAMER_PARENT_WINDOW_IS_THE_UNIT_V1]]) is provably NOT reopened by width 1 — at width 1 `deriveBoundaryStrip` returns `fullEnd === nextStart`, so window and range are the SAME INTERVAL and the range-as-window hole cannot exist by construction; width 1 is strictly safer on that axis than width 7. WHAT I COULD NOT PROVE IS A DIFFERENT RISK WITH THE SAME CONSEQUENCE: throughput. The boundary T−B advances one day per day, so the lane must ask each surface's newly-eligible ground at least that fast. At width 7 a surface gains 7 days of ground per lap; at width 1 it gains 1. The margin over the advancing boundary collapses from roughly 11× to roughly 1.6× on a static read, and ground that is never asked is skipped SILENTLY — the same failure shape as a wrong alias, reached by arithmetic instead. The missing number is the POST-GRANT per-client fire rate, which did not exist while 91 of 288 fires were meter-held and now does. MEASURE FIRST, THEN FLIP: one read of fires-per-client-per-day and lookback windows finished per surface per day, against the 1-day-per-day boundary advance. open [LC]
+- ★DRIVER-SPENDS-UNGATED — ⚠ **NEW 2026-09-15 (CAP-FOLLOWS-GRANT leg 1, measured).** The forward driver spent **6,549 requests in the 24h to 2026-09-15 against an allocation of 5,491 — 119%**, and nothing could have stopped it: `forward-driver.ts` consults no budget at all, its only bound is `DRIVER_BUDGET_MS`. The 5,491 was ACCOUNTING (so the walk's meter would see spend the driver had already made out of a shared pool), which means the walk's meter authorised ~1,058 requests that were already gone — the same shape as the 2026-09-11 over-run (18,330 asked of 15,000), one order smaller. ⛔ **THIS IS NOT CLOSED BY [[★CAP-FOLLOWS-GRANT]] AND MUST NOT BE READ AS CLOSED BY IT.** The grant removed the shared pool, so today the overspend costs nothing; it is still a producer whose volume no instrument bounds and no reader can predict, and the day any ceiling returns (a re-cap, a second vendor, Postgres) it is the first thing that will breach it. THE FIX IS NOT A NUMBER: either the driver consults a budget, or its ask is derived from the catalogue and asserted against what it actually spends. open [LC]
+- ★SYNCED-AT-IS-INSERT-TIME — ⚠ **NEW 2026-09-15 (alias (v) read, round 4).** `metrics_daily.synced_at` has DB default `now()` and is **NOT in the upsert payload**, so it records FIRST INSERT and a re-write never touches it. Measured on Foam OH 2026-04-05: the walk's 2026-08-16 pass committed 6,650 rows for that day and 6,649 of them still carry their 2026-08-03 stamp. ⛔ **EVERY READER THAT TREATS IT AS "WHEN WE LAST CONFIRMED THIS ROW" IS READING THE WRONG THING**, and the round-4 diagnosis nearly did: the drain's 06-29 / 08-02 stamps look like confirmation times and are not. It is the [[LORAMER_ADJACENT_NUMBER_V1]] species exactly — a number that is CORRECT about what it measures and IRRELEVANT to what is being asked. THE WORK: enumerate every reader of synced_at (code, instruments, and prose), decide per reader whether it wants insert-time or last-write-time, and if any wants the latter, say where that fact would live — it is not recorded anywhere today. open [LC]
+- ★ALIAS-WITNESS-HAS-NO-DENOMINATOR — ⚠ **NEW 2026-09-15 (alias (v) read, round 4).** `demonstrateAlias` (drain-alias-coverage.guard.mjs) returns on the FIRST past-boundary day where either key holds rows, so check:data's red names ONE day and says nothing about the rest. It reported Foam OH 2026-04-05 and the population is wider: over 2026-03-01..05-31 on that account alone, geo_city differs on 4 of 36 days, geo_postal 2 of 36 and **geo_county 8 of 36** (a COARSER grain, differing MORE often and in the opposite direction), and The Escential Group's geo_city differs on 6 of 92. ⛔ THE INSTRUMENT IS A WITNESS AND ITS OUTPUT DOES NOT SAY SO — [[LORAMER_EMPTY_CARRIES_ITS_DENOMINATOR_V1]] turned inward on our own guard: a finding without a denominator reads as an isolated example and was treated as one. THE FIX: report the count it examined and the count that differed, not the first hit. ⚠ It also carries a live finding of its own — the two sides ask DIFFERENT GAQL (the drain's query selects campaign.id, the walk's does not), so exact equality is the wrong same-fact test for that pair; that half rides [[★ALIAS-EQUALITY-IS-THE-WRONG-TEST]]. open [LC]
+- ★ALIAS-EQUALITY-IS-THE-WRONG-TEST — ⚠ **NEW 2026-09-15 (alias (v) read, round 4 — the finding under the red).** The alias asserts that `campaign/geo_city` IS the same fact as `geographic_view/geo_target_city`. It is not: it is the same fact ASKED AT A DIFFERENT GRANULARITY. Proven in source, not inferred — the drain's GAQL is `SELECT campaign.id, campaign.name, <grain>, metrics… FROM geographic_view` (google-geo.ts:123, GEO_ENTITIES campaign + ad_group) while the walk's is `SELECT segments.date, <segment>, metrics… FROM <resource>` with no campaign term (google-ads-universe-writer.ts:679-710). Splitting by campaign changes the row set Google returns at the margin, and summing the split rows back up need not reproduce the unsplit total. Every measured delta is impressions-only, ±1 or ±2, with CLICKS IDENTICAL ON ALL TWELVE differing days, and the rows involved are 1 impression / 0 clicks / 0 spend. ⛔ **90 IS NOT IMPLICATED AND MOVING IT WOULD FIX NOTHING** — the postal pair's two copies were both taken past T−B and still differ, and the county deltas run the opposite direction, which a settling restatement does not do. THE OPEN QUESTION IS THE VENDOR'S RULE for which low-volume rows survive a campaign split, and ONE re-ask of both query shapes for a single day settles it. open [LC]
+- ★UNLEDGERED-PRODUCER-WROTE-6649-ROWS — ⚠ **NEW 2026-09-15 (alias (v) read, round 4).** 6,649 `geographic_view/geo_target_city` rows for Foam OH 2026-04-05 carry an insert stamp of 2026-08-03 20:27–20:28Z, and there is **no row in `universe_attempt_log` OR `universe_window_log`** for that surface and hour. Something wrote 6,649 rows to a live client's warehouse and left no ledger entry anywhere. ⛔ IT IS NOT AN ACCOUNTING ROUNDING ERROR — it is a PRODUCER THIS SYSTEM CANNOT NAME, and every completeness argument the repo makes (coverage derived from the warehouse, spend derived from the ledgers, the fleet meter's witness) assumes the two agree about who wrote what. A writer outside both ledgers is invisible to all three at once. Candidates not yet eliminated: `scripts/google-ads-capture-universe.mjs`, an earlier engine, or a manual run. THE WORK: identify it, then decide whether it still exists and whether it can still run. open [LC]
 - ★CAMPAIGN-AUDIENCE-VIEW-NEVER-OBSERVED — ⚠ **NEW 2026-09-12 (READ-FIRST 17:55Z item 5).** campaign_audience_view is in the vendor catalogue artifact (docs/google-ads-capture-universe.json:5533, 20 entries; its segment entries carry delivers:false) and has 0 rows EVER in forward_observation_log and universe_attempt_log, while ad_group_audience_view is driver-covered for 17/17 clients (119 rows, 7 segments on 2026-09-10). Whether it is catalogue-ineligible by rule or a surface nobody asks is unresolved — read catalogEligibleEntries against the artifact's base entry (delivers?). Distinct from [[★INTEL-AUDIENCE-SUBFETCH-INVALID-RESOURCE]]: the legacy path's bare `audience_view` is not in the vendor artifact at all (0 hits), which is why its sub-fetch fails on every forward fire ("Error in audience_view: is not a valid resource name" — VERDICT 17:20Z item 4a; one DEGRADED error per google connection). src: READ-FIRST 17:55Z. open [LC]
 - ★FROZEN-PATH-WROTE-67-UNSTAMPED-ROWS — ⚠ **NEW 2026-09-12 (PRE-PRESS 00:07Z item 4), OBSERVED, NOT DIAGNOSED.** metrics_daily · Escential · google · date 2026-09-09 · no grainSource key: 27,669 at ~03:xxZ 09-11 (the 2/2 A Gate-A baseline) → 27,736 at 00:05Z 09-12 (+67), unchanged through the press (27,736 at 03:04Z). Something on the FROZEN legacy path wrote 67 unstamped rows for that date after 03:xxZ 09-11 — the forward google cron's restate window (08:08–09:29Z, LORAMER_GOOGLE_FORWARD_RESTATE_V1) is the candidate writer. A legacy write under the Standard Access freeze is a fact to explain, not a fix to ship: identify the writer from the rows' entity_level/breakdown_type, then rule. src: PRE-PRESS 00:07Z. open [LC]
 - ★CHECKDATA-EVICTS-THE-CACHE — ⚠ **NEW 2026-09-12 (ROTATION-ERROR READ 01:47Z).** check:data's metrics_daily scans (no-owed-day-left-behind 85 s, check-completion-claims 656 s, check-coverage-density 58 s) flush shared_buffers (512 MB) and the next live rotation read of a deep client re-reads ~10k pages cold — the 20:10:55Z 09-11 rotation-error sits inside the 19:56–20:17Z run. Standing rule until ★ROTATION-INDEX-HEAP-FETCH ships: do not run check:data beside a press, a proof read or a deep client's live fires; the push law still requires it, so run it when no live fire matters (the ab48975 run was placed 02:19–02:40Z for exactly this reason). src: ROTATION-ERROR READ 01:47Z. open [LC]
@@ -2406,8 +2411,8 @@ HOW TO USE: before writing "NEW" on any finding, gap or correction, GREP THIS SE
 LORAMER_*_V* marker you are about to mint. A token collision is DECIDABLE; a topic match is not. This is
 ESSENCE law 7 made mechanical — the law is a rule about behaviour, and on 2026-07-31 four already-decided
 topics were discussed as open while it was in force.
-TOTALS: 1120 tokens indexed · 367 resolve to BOTH a decision and a queue item ·
-140 decision-only · 613 queue-only.
+TOTALS: 1128 tokens indexed · 367 resolve to BOTH a decision and a queue item ·
+140 decision-only · 621 queue-only.
 ⛔ UNINDEXABLE — THIS COUNT IS THE BACKLOG, NOT A DISCLAIMER: 164 DECISIONS entries and
 262 QUEUE items carry NO token at all, so they cannot be found this way. An untokened decision
 is invisible to the enforcer; the fix is to mint a token when banking, not to widen the matcher. Samples —
@@ -2434,7 +2439,9 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★ADVAR-NON-PRODUCTION — OPEN · decisions 0 · queue 1 · last 2026-07-25
 - ★AGENTS-MD-IS-A-CORRUPTED-COPY — OPEN · decisions 0 · queue 1 · last 2026-08-23
 - ★AGENTS-MD-IS-DEAD-WEIGHT — OPEN · decisions 0 · queue 1 · last 2026-08-20
+- ★ALIAS-EQUALITY-IS-THE-WRONG-TEST — OPEN · decisions 0 · queue 2 · last 2026-09-15
 - ★ALIAS-PROVES-PRESENCE-NOT-COMPLETENESS — OPEN · decisions 2 · queue 3 · last 2026-09-14
+- ★ALIAS-WITNESS-HAS-NO-DENOMINATOR — OPEN · decisions 0 · queue 1 · last 2026-09-15
 - ★ANALYZE-LEDGER-STALE — DONE · decisions 0 · queue 1 · last 2026-09-14
 - ★ANCHOR-HOLD-BRANCH-IS-UNGATED — OPEN · decisions 0 · queue 2 · last 2026-08-21
 - ★ANCHOR-RECEDES-BY-RANGE-NOT-WINDOW — DONE · decisions 0 · queue 1 · last 2026-08-19
@@ -2464,7 +2471,8 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★BUDGET-IS-A-DOOR-CHECK-NOT-A-METER — OPEN · decisions 0 · queue 1 · last 2026-08-01
 - ★CAMPAIGN-AUDIENCE-VIEW-NEVER-OBSERVED — OPEN · decisions 0 · queue 1 · last 2026-09-12
 - ★CANNOT-RUN-LEGS-NEVER-LOAD-ENV-LOCAL — OPEN · decisions 1 · queue 2 · last 2026-09-14
-- ★CAP-FOLLOWS-GRANT — OPEN · decisions 0 · queue 2 · last 2026-09-17
+- ★CAP-FOLLOWS-GRANT — OPEN · decisions 0 · queue 3 · last 2026-09-17
+- ★CAP-INJECTION-IS-GUARD-ONLY — DONE · decisions 0 · queue 1 · last 2026-09-15
 - ★CAPTURE-FACTS-PROMPT-BLOCK — OPEN · decisions 0 · queue 1 · last 2026-08-01
 - ★CATALOG-SURFACE-METRIC-INCOMPAT — OPEN · decisions 0 · queue 1 · last 2026-08-14
 - ★CATALOGUE-LACKS-AD-GROUP-AXIS — OPEN · decisions 0 · queue 3 · last 2026-12-14
@@ -2585,6 +2593,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★DRIVE-QUIESCE-BLIND-ON-A-DENSE-DAY — DONE · decisions 0 · queue 1 · last 2026-08-19
 - ★DRIVE-VERDICT-NOT-PERSISTED — OPEN · decisions 0 · queue 2 · last 2026-08-19
 - ★DRIVER-ALLOCATION-LITERAL-18TH-CONNECTION — OPEN · decisions 0 · queue 2 · last 2026-09-13
+- ★DRIVER-SPENDS-UNGATED — OPEN · decisions 0 · queue 1 · last 2026-09-15
 - ★DRONES-META-CAPTURE-CLIFF-2026-08 — OPEN · decisions 0 · queue 2 · last 2026-08-24
 - ★DRYRUN-EQUALS-TRUE-TRAP — DECIDED · decisions 1 · queue 0 · last 2026-08-11
 - ★DRYRUN-EQUALS-TRUE-TRAP-ON-SYNC-AND-DRAIN — OPEN · decisions 0 · queue 1 · last 2026-08-09
@@ -2735,6 +2744,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★LM-MARK-LIVE — OPEN · decisions 0 · queue 3 · last 2026-09-30
 - ★LOCAL-META-APP-ID-STALE — OPEN · decisions 0 · queue 1 · last 2026-08-22
 - ★LOOKBACK-LANE-OWNS-PROMOTION — OPEN · decisions 0 · queue 5 · last 2026-11-17
+- ★LOOKBACK-WIDTH-FOLLOWS-GRANT — OPEN · decisions 0 · queue 1 · last 2026-09-15
 - ★LORA-ANSWER-EXPORT — OPEN · decisions 0 · queue 2 · last 2026-08-15
 - ★LORA-ANSWERED-TWICE — OPEN · decisions 0 · queue 1 · last 2026-08-20
 - ★LORA-BACK-BUTTON-DEAD — OPEN · decisions 0 · queue 1 · last 2026-08-04
@@ -2904,6 +2914,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★SURFACE-TRUNCATION-TO-THE-USER — OPEN · decisions 0 · queue 1 · last 2026-08-16
 - ★SWEEP — OPEN · decisions 0 · queue 18 · last 2026-09-06
 - ★SWEEP-THE-WALK-AND-DRAIN-PATHS — OPEN · decisions 0 · queue 2 · last 2026-08-09
+- ★SYNCED-AT-IS-INSERT-TIME — OPEN · decisions 0 · queue 1 · last 2026-09-15
 - ★SYNCED-AT-UNINDEXED-BLOCKS-THE-ROW-TOUCH-QUESTION — OPEN · decisions 0 · queue 1 · last 2026-08-17
 - ★TEST-CLIENT-CLEANUP — OPEN · decisions 0 · queue 3 · last 2026-07-31
 - ★THOUGHT-STREAMS-GA-AGE-FREEZE — OPEN · decisions 0 · queue 1 · last 2026-07-30
@@ -2958,6 +2969,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★UNIVERSE-TIME-SEGMENT-REDUNDANCY — DONE · decisions 2 · queue 2 · last 2026-08-03
 - ★UNIVERSE-VOLUME-VS-SUPABASE-COMPUTE — DONE · decisions 4 · queue 2 · last 2026-08-04
 - ★UNIVERSE-WALK-DISK-CEILING — OPEN · decisions 1 · queue 3 · last 2026-08-07
+- ★UNLEDGERED-PRODUCER-WROTE-6649-ROWS — OPEN · decisions 0 · queue 1 · last 2026-09-15
 - ★UNLEDGERED-VENDOR-SPEND-IS-INVISIBLE — OPEN · decisions 2 · queue 1 · last 2026-08-11
 - ★UNPROVEN-DISTRICT-ALIAS — OPEN · decisions 0 · queue 1 · last 2026-08-09
 - ★UNPRUNED-CORRELATED-DATE-JOIN — OPEN · decisions 0 · queue 2 · last 2026-08-21
@@ -3018,7 +3030,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_A_LAW_IS_NOT_BANKED_UNTIL_IT_CAN_FAIL_A_BUILD_V1 — OPEN · decisions 2 · queue 1 · last 2026-09-14
 - LORAMER_ACCOUNT_ROW_INVARIANT_V1 — OPEN · decisions 2 · queue 3 · last 2026-09-12
 - LORAMER_ACCOUNT_ROW_PROVENANCE_V1 — OPEN · decisions 0 · queue 4 · last 2026-09-10
-- LORAMER_ADJACENT_NUMBER_V1 — OPEN · decisions 1 · queue 5 · last 2026-09-14
+- LORAMER_ADJACENT_NUMBER_V1 — OPEN · decisions 1 · queue 6 · last 2026-09-15
 - LORAMER_AGENCY_SCOPE_LORA_V1 — OPEN · decisions 1 · queue 1 · last 2026-07-24
 - LORAMER_ARGUMENT_IS_NOT_EVIDENCE_V1 — DECIDED · decisions 1 · queue 0 · last 2026-07-27
 - LORAMER_ASSET_LAYER_SCOPE_V1 — OPEN · decisions 0 · queue 2 · last 2026-08-15
@@ -3036,6 +3048,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_CAMPAIGN_TYPE_MATRIX_V1 — OPEN · decisions 0 · queue 2 · last 2026-08-01
 - LORAMER_CANONICAL_CLIENT_REGISTRY_V1 — DONE · decisions 1 · queue 1 · last 2026-08-23
 - LORAMER_CANONICAL_KEY_SPELLING_V1 — DONE · decisions 0 · queue 1 · last 2026-08-26
+- LORAMER_CAP_FOLLOWS_GRANT_V1 — OPEN · decisions 0 · queue 2 · last 2026-09-15
 - LORAMER_CAPABILITY_DENOMINATOR_V1 — OPEN · decisions 0 · queue 2 · last 2026-08-03
 - LORAMER_CAPTURE_FACTS_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-01
 - LORAMER_CAPTURE_LIMIT_IS_MEASURED_V1 — OPEN · decisions 0 · queue 1 · last 2026-08-06
@@ -3145,7 +3158,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_DROP_REASON_IS_A_FACT_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-17
 - LORAMER_ECOM_MONEY_SURFACE_V1 — OPEN · decisions 0 · queue 1 · last 2026-07-27
 - LORAMER_EFFECT_REFRESH_ON_SUCCESS_V1 — OPEN · decisions 2 · queue 1 · last 2026-08-23
-- LORAMER_EMPTY_CARRIES_ITS_DENOMINATOR_V1 — OPEN · decisions 6 · queue 2 · last 2026-08-09
+- LORAMER_EMPTY_CARRIES_ITS_DENOMINATOR_V1 — OPEN · decisions 6 · queue 3 · last 2026-09-15
 - LORAMER_ENGINE_FOR_ARBITRARY_ACCOUNTS_V1 — DECIDED · decisions 2 · queue 0 · last 2026-08-11
 - LORAMER_ENRICHED_CAMPAIGN_FALLBACK_VISIBLE_V1 — OPEN · decisions 0 · queue 2 · last 2026-07-27
 - LORAMER_ENTITY_STATE_HISTORY_V1 — OPEN · decisions 1 · queue 1 · last 2026-07-31
@@ -3382,7 +3395,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_ORG_TYPE_PERSIST_V1 — OPEN · decisions 0 · queue 1 · last 2026-07-12
 - LORAMER_OUTSIDE_SHELL_LOSES_WHAT_SHELL_PROVIDES_V1 — DECIDED · decisions 1 · queue 0 · last 2026-07-27
 - LORAMER_PARENT_ANALYZE_SCHEDULED_V1 — DONE · decisions 0 · queue 1 · last 2026-08-04
-- LORAMER_PARENT_WINDOW_IS_THE_UNIT_V1 — DONE · decisions 0 · queue 2 · last 2026-08-19
+- LORAMER_PARENT_WINDOW_IS_THE_UNIT_V1 — OPEN · decisions 0 · queue 3 · last 2026-09-15
 - LORAMER_PARTITION_METRICS_DAILY_DESIGN_V1 — OPEN · decisions 2 · queue 1 · last 2026-08-18
 - LORAMER_PARTITION_METRICS_DAILY_V1 — OPEN · decisions 1 · queue 1 · last 2026-08-18
 - LORAMER_PERIOD_RESOLUTION_NAMED_V1 — DONE · decisions 0 · queue 1 · last 2026-08-16
@@ -3524,7 +3537,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_WALK_STALL_DIAG_V1 — OPEN · decisions 0 · queue 2 · last 2026-08-14
 - LORAMER_WALK_STOP_ONE_RESOLVER_V1 — OPEN · decisions 0 · queue 1 · last 2026-08-17
 - LORAMER_WALK_TAKES_THE_LANE_TO_0915_V1 — DONE · decisions 2 · queue 1 · last 2026-08-11
-- LORAMER_WALK_TAKES_THE_LANE_V1 — DONE · decisions 2 · queue 1 · last 2026-08-11
+- LORAMER_WALK_TAKES_THE_LANE_V1 — DONE · decisions 2 · queue 2 · last 2026-09-15
 - LORAMER_WALK_TEARDOWN_AND_REBUILD_V1 — OPEN · decisions 0 · queue 2 · last 2026-08-09
 - LORAMER_WALK_UNWEDGE_AND_HEARTBEAT_V1 — DONE · decisions 0 · queue 2 · last 2026-08-14
 - LORAMER_WALKDUPE_CLEANUP_V1 — DONE · decisions 1 · queue 1 · last 2026-08-11
