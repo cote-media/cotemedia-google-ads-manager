@@ -23,147 +23,168 @@
 // right — a surface whose strip returns zero every day passes here and is correct to. It reads ALL lanes on
 // purpose (a day held by the descent is held), and it says nothing about ground below the frontier.
 //
-// USAGE: node tests/guards/top-edge-is-held.guard.mjs
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+// USAGE: node tests/guards/top-edge-is-held.guard.mjs [--client=<uuid>]
+//
+// ══ RE-SPEC 2026-09-14 — LORAMER_CHECKDATA_FLEET_SHAPED_BATCH_B_V1: THE THREE-LANE SEAM, PER CLIENT ══════════════════
+// The top-edge lane was RETIRED on 2026-09-08 (d4eab64, lookback lane STEP 2A): under the three-lane design the top of the
+// calendar is held by three things — the DESCENT anchors at yesterday on connect and only recedes; the LOOKBACK lane
+// asks each surface's ground up to the restatement boundary T−B in full windows (deriveBoundaryStrip, a window only when
+// it ends ≤ T−B); the FORWARD DRIVER covers [T−B+1 … yesterday] and its day-complete leg proves that. "Newest asked
+// window within 1 day of yesterday" — the old assertion — is therefore the driver's property, not the walk's, and it
+// read 349/349 RED on Foam OH for the wrong reason. The adversary (round 23) resolved to KEEP this leg, re-specced to the
+// SEAM between driver and walk: per surface, does the walk's own ground (descent ∪ lookback ∪ missed) reach the
+// boundary from below? Nothing else proves that, and it is exactly where a hole hides.
+//   · HELD           — the lane's own strip derivation says WAITING: the next full window would end above T−B, so
+//                      there is no askable, unasked ground below the boundary on this surface.
+//   · BEHIND         — the derivation yields a WINDOW: ground at or below T−B that the lane could ask now and has not.
+//   · NEVER-DESCENDED — the descent has never asked the surface; its history is the descent's, not this leg's.
+// B is the account's restatement boundary — `boundaryDaysFor` (lookback-boundary.ts, read from entity_state_history)
+// and `deriveBoundaryStrip` / `addDaysISO` / `LOOKBACK_WINDOW_DAYS_BASIC` (universe-resumer.ts), tsc-compiled and
+// IMPORTED, never re-derived here; UNKNOWN boundary → the account is skipped and named. An account whose MISSED lane
+// has not completed one sweep (universe_missed_cursor.sweep = 0) reads NOT-YET with its lap count — the missed lane is
+// what fills the holes this leg would otherwise call BEHIND — not red. `--client=<uuid>` / LORAMER_CLIENT names one
+// client; the default is every client with a google descend ledger. T−B is printed per account.
+import { readFileSync, mkdtempSync, rmSync, writeFileSync, existsSync } from 'node:fs'
+import { resolve, join } from 'node:path'
+import { tmpdir } from 'node:os'
+import { spawnSync } from 'node:child_process'
+import { createRequire } from 'node:module'
+import Module from 'node:module'
 
 const ROOT = process.env.LORAMER_GUARD_ROOT || process.cwd()
-const CLIENT = '957d484e-d0c4-4dd0-b382-d8499d556252' // Foam OH — the only account the walk has ever run on
+const CLIENT_ARG = (process.argv.find((a) => a.startsWith('--client=')) || '').slice('--client='.length) || process.env.LORAMER_CLIENT || null
 const VENDOR = 'google'
-
-// ── THE TOLERANCE, DERIVED FROM THE CADENCE RATHER THAN CHOSEN ───────────────────────────────────────
-// ⛔ EVERY TERM IS A MEASURED OR PINNED NUMBER, AND THE ARITHMETIC IS THE WHOLE JUSTIFICATION:
-//   · the cron fires every 5 minutes ⇒ 288 fires/day (vercel.json; pinned byte-for-byte by
-//     universe-stream-consumer.guard.mjs leg (e))
-//   · TOP_EDGE_REQUESTS_PER_RUN = 2 ⇒ 576 strip publish-slots/day (universe-resumer.ts, with its own
-//     derivation beside the constant)
-//   · the catalogue holds 346 selectable surfaces ⇒ demand is 346 strip-days/day, one contiguous strip per
-//     surface, one GAQL operation each
-//   · 576 ÷ 346 = 1.66× oversubscribed ⇒ **every surface is reached within 346/576 of a day = 14.4 hours**
-//   ⇒ a tolerance of 0 would go red on the ordinary gap between one pass and the next (14.4h can straddle a
-//     date boundary). **1 DAY IS THE SMALLEST INTEGER ABOVE THE 0.6-DAY REFRESH CYCLE**, and it buys a full
-//     24 hours — 288 consecutive missed fires — before a red. Anything larger would hide a lane that had
-//     stopped for most of a day, which is exactly what this guard is for.
-const TOLERANCE_DAYS = 1
-
 const findings = []
-const iso = (d) => d.toISOString().slice(0, 10)
-const daysBetween = (a, b) => Math.round((Date.parse(a + 'T00:00:00Z') - Date.parse(b + 'T00:00:00Z')) / 86400000)
+const iso = (d) => (d instanceof Date ? d.toISOString().slice(0, 10) : String(d).slice(0, 10))
+const cannot = (msg) => { console.error(`✗ top-edge-is-held CANNOT RUN — ${msg}. ⛔ A BROKEN INSTRUMENT IS NOT A PASS.`); process.exitCode = 2; process.exit() }
 
-/**
- * THE PURE DECISION, so the self-test drives it with no clock and no DB.
- * `newestAsked` is the newest `window_end` ANY lane has asked for on this surface.
- */
-export function stripVerdict({ newestAsked, newestServable, toleranceDays }) {
-  if (newestAsked === null) return { held: false, behind: null, why: 'never-asked' }
-  const behind = daysBetween(newestServable, newestAsked)
-  return { held: behind <= toleranceDays, behind, why: behind <= toleranceDays ? 'held' : 'strip' }
+/** THE PURE DECISION over the lane's own strip verdict. */
+export function seamVerdict(strip) {
+  if (strip.kind === 'waiting') return { state: 'held', behindDays: 0 }
+  if (strip.kind === 'none') return { state: 'never-descended', behindDays: 0 }
+  // 'window': askable ground exists at/below the boundary that has not been asked
+  const behindDays = Math.round((Date.parse(strip.boundaryEnd + 'T00:00:00Z') - Date.parse(strip.windowStart + 'T00:00:00Z')) / 86400000) + 1
+  return { state: 'behind', behindDays, from: strip.windowStart }
 }
 
-// ── SELF-TEST — GUARD-ON-GUARD, ALWAYS, BEFORE ANY DB READ ───────────────────────────────────────────
-// ⛔ A DETECTOR THAT CANNOT SEE THE DEFECT READS EXACTLY LIKE A CLEAN BILL OF HEALTH. The fixture that
-// matters is the strip this lane was built for — 6 days — and the one it must NOT cry wolf on, a surface
-// asked yesterday. If either goes the wrong way this exits 2 BROKEN rather than 0 or 1.
+// ── compile the lane's own derivations ──
+const out = mkdtempSync(join(tmpdir(), 'loramer-topedge-'))
+let R, boundaryJs
 {
+  const r = spawnSync(join(ROOT, 'node_modules', '.bin', 'tsc'), [
+    resolve(ROOT, 'src/lib/backfill/universe-resumer.ts'), resolve(ROOT, 'src/lib/backfill/lookback-boundary.ts'),
+    '--target', 'es2020', '--module', 'commonjs', '--moduleResolution', 'node',
+    '--skipLibCheck', '--noResolve', '--rootDir', resolve(ROOT), '--outDir', out,
+  ], { encoding: 'utf8' })
+  if (r.error) cannot(`tsc did not run: ${r.error.message}`)
+  const resumerJs = join(out, 'src/lib/backfill/universe-resumer.js')
+  boundaryJs = join(out, 'src/lib/backfill/lookback-boundary.js')
+  if (!existsSync(resumerJs) || !existsSync(boundaryJs)) cannot(`tsc produced no output (${(r.stdout || '').slice(0, 200)})`)
+  R = createRequire(import.meta.url)(resumerJs)
+  for (const fn of ['deriveBoundaryStrip', 'addDaysISO']) if (typeof R[fn] !== 'function') cannot(`${fn} is not exported by universe-resumer.ts — the subject moved`)
+  if (!(R.LOOKBACK_WINDOW_DAYS_BASIC > 0)) cannot('LOOKBACK_WINDOW_DAYS_BASIC is not exported')
+}
+
+// ── self-test: the decision driven through the REAL deriveBoundaryStrip, no clock, no DB ──
+{
+  const T = '2026-09-14', newestServable = R.addDaysISO(T, -1), B = 90, W = R.LOOKBACK_WINDOW_DAYS_BASIC, boundaryEnd = R.addDaysISO(T, -B)
+  const strip = (descendTopEnd, lastLookbackEnd) => R.deriveBoundaryStrip({ descendTopEnd, lastLookbackEnd, newestServable, boundaryDays: B, widthDays: W })
   const cases = [
-    { name: 'the 6-day strip measured before the lane existed', a: { newestAsked: '2026-08-12', newestServable: '2026-08-18', toleranceDays: TOLERANCE_DAYS }, held: false },
-    { name: 'a surface asked for yesterday', a: { newestAsked: '2026-08-18', newestServable: '2026-08-18', toleranceDays: TOLERANCE_DAYS }, held: true },
-    { name: 'a surface exactly at tolerance', a: { newestAsked: '2026-08-17', newestServable: '2026-08-18', toleranceDays: TOLERANCE_DAYS }, held: true },
-    { name: 'a surface one day past tolerance', a: { newestAsked: '2026-08-16', newestServable: '2026-08-18', toleranceDays: TOLERANCE_DAYS }, held: false },
-    { name: 'a surface never asked at all', a: { newestAsked: null, newestServable: '2026-08-18', toleranceDays: TOLERANCE_DAYS }, held: false },
+    { name: `lookback frontier at T−B−${W - 2} → next full window ends above T−B → HELD (waiting)`, v: seamVerdict(strip('2026-05-01', R.addDaysISO(boundaryEnd, -(W - 2)))), want: 'held' },
+    { name: 'lookback frontier 20 days below T−B → an askable window is owed → BEHIND', v: seamVerdict(strip('2026-05-01', R.addDaysISO(boundaryEnd, -20))), want: 'behind' },
+    { name: 'fresh connect: descent top at yesterday, no lookback yet → HELD', v: seamVerdict(strip(newestServable, null)), want: 'held' },
+    { name: 'descent never asked the surface → NEVER-DESCENDED', v: seamVerdict(strip(null, null)), want: 'never-descended' },
+    { name: 'descent top 30 days below T−B, no lookback → BEHIND by the strip from descent+1', v: seamVerdict(strip(R.addDaysISO(boundaryEnd, -30), null)), want: 'behind' },
   ]
-  const bad = cases.filter((c) => stripVerdict(c.a).held !== c.held)
-  if (bad.length) {
-    console.error(`[top-edge-is-held] CANNOT RUN — the decision failed its own self-test on ${bad.length} fixture(s): ` +
-      bad.map((c) => `${c.name} → held=${stripVerdict(c.a).held}, expected ${c.held}`).join(' · ') +
-      `. ⛔ A BROKEN INSTRUMENT, NOT A PASS.`)
-    process.exitCode = 2
-    process.exit()
-  }
-  console.log(`[top-edge-is-held] self-test PASS — 5/5 fixtures at TOLERANCE_DAYS=${TOLERANCE_DAYS}: the 6-day strip is REFUSED, yesterday and exactly-at-tolerance are HELD, one-day-past and never-asked are REFUSED.`)
+  const bad = cases.filter((c) => c.v.state !== c.want)
+  if (bad.length) cannot(`the decision failed its own self-test on ${bad.length} fixture(s): ` + bad.map((c) => `${c.name} → ${c.v.state}`).join(' · '))
+  console.log(`[top-edge-is-held] self-test PASS — 5/5 fixtures through the real deriveBoundaryStrip (W=${W}, imported): waiting→HELD, window→BEHIND, none→NEVER-DESCENDED; T−B=${boundaryEnd} for T=${T} B=${B}`)
 }
 
 async function main() {
   try {
     for (const l of readFileSync(resolve(ROOT, '.env.local'), 'utf8').split('\n')) {
-      const t = l.trim()
-      if (!t || t.startsWith('#')) continue
-      const i = t.indexOf('=')
-      if (i > 0) { const k = t.slice(0, i); if (!process.env[k]) process.env[k] = t.slice(i + 1).replace(/^["']|["']$/g, '') }
+      const t = l.trim(); if (!t || t.startsWith('#')) continue
+      const i = t.indexOf('='); if (i > 0) { const k = t.slice(0, i); if (!process.env[k]) process.env[k] = t.slice(i + 1).replace(/^["']|["']$/g, '') }
     }
-  } catch { /* no .env.local — ambient env */ }
-  const SB = process.env.NEXT_PUBLIC_SUPABASE_URL, K = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!SB || !K) {
-    console.error('✗ top-edge-is-held CANNOT RUN — Supabase env missing. A broken instrument is not a pass.')
-    process.exitCode = 2
-    return
+  } catch { /* ambient env */ }
+  if (!process.env.SUPABASE_DB_URL || !process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) cannot('Supabase env missing (SUPABASE_DB_URL + NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY)')
+  // boundaryDaysFor reads through supabaseAdmin — shim it with a real client
+  const req = createRequire(import.meta.url)
+  const { createClient } = req('@supabase/supabase-js')
+  if (typeof globalThis.WebSocket === 'undefined') globalThis.WebSocket = class { constructor() { throw new Error('Realtime unused') } }
+  global.__LORAMER_TOPEDGE_SB__ = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
+  const shim = join(out, '__supabase.js')
+  writeFileSync(shim, 'module.exports = { supabaseAdmin: global.__LORAMER_TOPEDGE_SB__, supabase: global.__LORAMER_TOPEDGE_SB__ }')
+  const origResolve = Module._resolveFilename
+  Module._resolveFilename = function (request, ...rest) {
+    if (/@\/lib\/supabase$/.test(request)) return shim
+    if (/universe-resumer$/.test(request)) return join(out, 'src/lib/backfill/universe-resumer.js')
+    return origResolve.call(this, request, ...rest)
   }
-  const get = async (p) => {
-    const r = await fetch(`${SB}/rest/v1/${p}`, { headers: { apikey: K, Authorization: `Bearer ${K}` } })
-    const body = await r.json().catch(() => null)
-    if (r.status !== 200 || !Array.isArray(body)) throw new Error(`read failed (HTTP ${r.status}) on ${p.slice(0, 90)}: ${JSON.stringify(body).slice(0, 200)}`)
-    return body
-  }
-  // ⛔ PAGED — PostgREST caps at 1,000 rows, and a truncated ledger is a guard that misses the surfaces it
-  // was built to find. The same cap that once blinded the rate governor.
-  const pageAll = async (base) => {
-    const rows = []
-    for (let offset = 0; ; offset += 1000) {
-      const page = await get(`${base}&limit=1000&offset=${offset}`)
-      rows.push(...page)
-      if (page.length < 1000) return rows
-    }
-  }
+  const { boundaryDaysFor } = req(boundaryJs)
+  Module._resolveFilename = origResolve
 
-  let rows
+  const pg = (await import('pg')).default
+  const db = new pg.Client({ connectionString: process.env.SUPABASE_DB_URL, ssl: { rejectUnauthorized: false } })
+  await db.connect()
+  await db.query("SET statement_timeout='115s'")
+  const q = async (s, p = []) => (await db.query(s, p)).rows
   try {
-    // ⛔ ALL LANES, DELIBERATELY. A day the DESCENT asked for is held just as well as one the strip lane
-    // asked for; this guard measures whether the TOP IS HELD, not which lane held it.
-    rows = await pageAll(`universe_attempt_log?select=resource,segment,window_end&client_id=eq.${CLIENT}&vendor=eq.${VENDOR}&phase=eq.attempt_started&resource=neq.__account_inception&order=window_end.desc`)
-  } catch (e) {
-    console.error(`✗ top-edge-is-held CANNOT RUN — ${e.message}. ⛔ A COVERAGE VERDICT MUST NOT BE SYNTHESISED FROM A FAILED READ.`)
-    process.exitCode = 2
-    return
-  }
-
-  const newest = new Map()
-  for (const r of rows) {
-    const k = `${r.resource}|${r.segment ?? ''}`
-    const we = String(r.window_end)
-    const cur = newest.get(k)
-    if (cur === undefined || we > cur) newest.set(k, we)
-  }
-  if (newest.size === 0) {
-    console.error(`✗ top-edge-is-held CANNOT RUN — no attempt_started rows for ${CLIENT}/${VENDOR}; there is no catalog to measure.`)
-    process.exitCode = 2
-    return
-  }
-
-  const newestServable = iso(new Date(Date.now() - 86400000)) // yesterday, the resumer's own frame
-  const behind = []
-  for (const [k, we] of newest) {
-    const v = stripVerdict({ newestAsked: we, newestServable, toleranceDays: TOLERANCE_DAYS })
-    if (!v.held) behind.push({ k, we, behind: v.behind })
-  }
-  behind.sort((a, b) => b.behind - a.behind)
-
-  console.log(`[top-edge-is-held] ${newest.size} surface(s) · newest servable ${newestServable} · tolerance ${TOLERANCE_DAYS} day(s) · ${newest.size - behind.length} held · ${behind.length} carrying a strip.`)
-  if (behind.length) {
-    const totalDays = behind.reduce((n, b) => n + (b.behind - TOLERANCE_DAYS), 0)
-    findings.push(
-      `${behind.length} of ${newest.size} surface(s) have UNHELD ground above their newest asked window — ${totalDays} owed day(s) beyond tolerance, growing by ${newest.size} day(s) per day. ` +
-      `Deepest: ${behind.slice(0, 5).map((b) => `${b.k} at ${b.we} (${b.behind}d behind)`).join(' · ')}${behind.length > 5 ? ` · …and ${behind.length - 5} more` : ''}. ` +
-      `⛔ THE WALK'S ANCHOR ONLY MOVES DOWN, so nothing behind it will ever come back for these days — they are held by the top-edge lane or by nothing.`)
-  }
+    const clients = CLIENT_ARG
+      ? await q(`select id, name from public.clients where id = $1::uuid`, [CLIENT_ARG])
+      : await q(`select distinct c.id, c.name from public.universe_attempt_log a join public.clients c on c.id = a.client_id where a.vendor = $1::text and a.lane = 'descend' order by c.name`, [VENDOR])
+    if (!clients.length) cannot(CLIENT_ARG ? `--client ${CLIENT_ARG} is not a client` : 'no client has a google descend ledger')
+    const T = new Date().toISOString().slice(0, 10)
+    const newestServable = R.addDaysISO(T, -1)
+    const W = R.LOOKBACK_WINDOW_DAYS_BASIC
+    console.log(`[top-edge-is-held] ${CLIENT_ARG ? 'client named by --client' : `fleet default — ${clients.length} client(s) with a google descend ledger`} · T=${T} · window width W=${W} (LOOKBACK_WINDOW_DAYS_BASIC, imported)`)
+    let notYet = 0, unknown = 0, graded = 0
+    for (const c of clients) {
+      const t0 = Date.now()
+      const [conn] = await q(`select account_id from public.platform_connections where client_id = $1::uuid and platform = $2::text and account_id is not null order by account_id limit 1`, [c.id, VENDOR])
+      if (!conn) { unknown++; console.log(`  ? ${c.name} ${c.id}: no google connection with an account id — boundary UNKNOWN, skipped`); continue }
+      const v = await boundaryDaysFor(c.id, conn.account_id)
+      if (!v.known) { unknown++; console.log(`  ? ${c.name} ${c.id}: boundary UNKNOWN — skipped, not defaulted (${v.reason.slice(0, 140)})`); continue }
+      const boundaryEnd = R.addDaysISO(T, -v.days)
+      const [cur] = await q(`select sweep, cursor from public.universe_missed_cursor where client_id = $1::uuid and vendor = $2::text`, [c.id, VENDOR])
+      const sweep = cur ? Number(cur.sweep) : 0
+      const surfaces = await q(`
+        select resource, coalesce(segment, '') as segment,
+               max(window_end) filter (where lane = 'descend' and phase = 'attempt_started')::date::text as descend_top,
+               max(window_end) filter (where lane in ('lookback', 'missed') and phase = 'attempt_finished' and outcome in ('ok', 'zero', 'nongrain'))::date::text as held_top
+          from public.universe_attempt_log
+         where client_id = $1::uuid and vendor = $2::text and resource <> '__account_inception'
+         group by 1, 2`, [c.id, VENDOR])
+      let held = 0, behind = 0, never = 0, behindDays = 0
+      const worst = []
+      for (const s of surfaces) {
+        const strip = R.deriveBoundaryStrip({ descendTopEnd: s.descend_top, lastLookbackEnd: s.held_top, newestServable, boundaryDays: v.days, widthDays: W })
+        const sv = seamVerdict(strip)
+        if (sv.state === 'held') held++
+        else if (sv.state === 'never-descended') never++
+        else { behind++; behindDays += sv.behindDays; worst.push({ k: `${s.resource}${s.segment ? '/' + s.segment : ''}`, from: sv.from, days: sv.behindDays }) }
+      }
+      worst.sort((a, b) => b.days - a.days)
+      const state = sweep === 0 ? 'NOT-YET' : behind === 0 ? 'HELD' : 'BEHIND'
+      const mark = state === 'HELD' ? '✓' : state === 'BEHIND' ? '✗' : '…'
+      console.log(`  ${mark} ${c.name} ${c.id}: T−B=${boundaryEnd} (B=${v.days} ⇐ ${v.basis}) · ${surfaces.length} surface(s): ${held} held · ${behind} behind (${behindDays} askable unasked day(s)) · ${never} never-descended · missed lane sweep ${sweep} (cursor ${cur ? cur.cursor : '—'}) · ${state}${state === 'NOT-YET' ? ' — the missed lane has not completed a sweep; counts reported, not graded' : ''} · ${Date.now() - t0} ms`)
+      if (state === 'BEHIND') {
+        graded++
+        findings.push(`${c.name}: ${behind} of ${surfaces.length} surface(s) have askable, unasked ground at or below T−B=${boundaryEnd} — ${behindDays} day(s) the walk's own lanes could ask now and have not (missed lane sweep ${sweep}). Deepest: ${worst.slice(0, 5).map((w) => `${w.k} from ${w.from} (${w.days}d)`).join(' · ')}${worst.length > 5 ? ` · …and ${worst.length - 5} more` : ''}.`)
+      } else if (state === 'HELD') graded++
+      else notYet++
+    }
+    console.log(`[top-edge-is-held] ${clients.length} client(s): ${graded} graded · ${notYet} NOT-YET (missed lane unswept) · ${unknown} boundary unknown`)
+  } finally { await db.end() }
 }
-
-await main()
-
+try { await main() } catch (e) { rmSync(out, { recursive: true, force: true }); cannot(e.message) }
+rmSync(out, { recursive: true, force: true })
 if (findings.length) {
   console.error(`[top-edge-is-held] FAIL — ${findings.length} finding(s):`)
   for (const f of findings) console.error(`  ✗ ${f}`)
-  console.error(`  ⇒ SPEC: DECISIONS LORAMER_TOP_EDGE_LANE_V1 + QUEUE ★TOP-EDGE-HAS-NO-LANE. Expected RED until the top-edge lane has run a full cycle (~14.4h at 288 fires × ${'2'} slots against 346 surfaces).`)
+  console.error('  ⇒ SPEC: DECISIONS LORAMER_LOOKBACK_LANE_V1 (the strip law) + LORAMER_RESTATEMENT_WINDOW_LAW_V1. The ground below T−B is the walk\'s to hold; the driver holds above it.')
   process.exitCode = 1
 } else {
-  console.log(`[top-edge-is-held] PASS — every surface's newest asked window is within ${TOLERANCE_DAYS} day(s) of the newest servable day. ⛔ LIMIT: this proves the top was ASKED, never that the answer was right.`)
+  console.log(`[top-edge-is-held] PASS — on every graded account the walk's own lanes reach the restatement boundary from below (no askable, unasked ground at or below T−B). ⛔ LIMIT: NOT-YET accounts are reported, not graded; this proves the ground was ASKED, never that the answer was right.`)
 }

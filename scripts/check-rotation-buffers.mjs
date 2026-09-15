@@ -22,7 +22,10 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const GATE = process.argv.includes('--gate')
 const SELF = process.argv.includes('--self')
 export const ROTATION_BUFFERS_CEILING = 5000
-const DEEPEST_CLIENT = '957d484e-d0c4-4dd0-b382-d8499d556252' // Foam OH — 349/349 sealed, the deepest descend ledger
+// LORAMER_CHECKDATA_FLEET_SHAPED_BATCH_B_V1 — THE SUBJECT IS DERIVED, NEVER TYPED. The deepest descend ledger is
+// whichever client holds the most descend attempt rows TODAY (read below); `--client=<uuid>` / LORAMER_CLIENT overrides
+// for a per-client reading. The first cut typed Foam OH's id one day after the walk widened to 17 accounts.
+const CLIENT_ARG = (process.argv.find((a) => a.startsWith('--client=')) || '').slice('--client='.length) || process.env.LORAMER_CLIENT || null
 
 /** Sum every node's shared hit + read blocks. Pure; driven by --self on the two measured shapes. */
 export function buffersOf(planJson) {
@@ -64,15 +67,26 @@ const c = new pg.Client({ connectionString: env.SUPABASE_DB_URL })
 await c.connect()
 await c.query("SET statement_timeout='115s'")
 const findings = []
+let subject = null
 try {
-  const { rows } = await c.query(`explain (analyze, buffers, timing off, format json) select * from public.universe_surface_rotation($1::uuid, 'google')`, [DEEPEST_CLIENT])
+  if (CLIENT_ARG) {
+    const { rows: s } = await c.query(`select c.id, c.name, (select count(*)::int from public.universe_attempt_log a where a.client_id = c.id and a.vendor = 'google' and a.lane = 'descend') as n from public.clients c where c.id = $1::uuid`, [CLIENT_ARG])
+    if (!s.length) throw new Error(`--client ${CLIENT_ARG} is not a client`)
+    subject = { ...s[0], how: 'named by --client' }
+  } else {
+    const { rows: s } = await c.query(`select a.client_id as id, c.name, count(*)::int as n from public.universe_attempt_log a join public.clients c on c.id = a.client_id where a.vendor = 'google' and a.lane = 'descend' group by 1, 2 order by 3 desc limit 1`)
+    if (!s.length) throw new Error('no descend attempt rows exist for any client — there is no ledger to measure')
+    subject = { ...s[0], how: 'the deepest descend ledger (most descend attempt rows, derived)' }
+  }
+  console.log(`[rotation-buffers] subject: ${subject.name} ${subject.id} — ${subject.n} descend attempt row(s); ${subject.how}`)
+  const { rows } = await c.query(`explain (analyze, buffers, timing off, format json) select * from public.universe_surface_rotation($1::uuid, 'google')`, [subject.id])
   const plan = rows[0]['QUERY PLAN']
   const b = buffersOf(plan)
   const v = decideRotationBuffers({ total: b.total })
-  const { rows: cnt } = await c.query(`select count(*)::int as n from public.universe_surface_rotation($1::uuid, 'google')`, [DEEPEST_CLIENT])
-  console.log(`[rotation-buffers] Foam OH: ${cnt[0].n} rows · shared hit ${b.hit} + read ${b.read} = ${b.total} buffers · ceiling ${ROTATION_BUFFERS_CEILING} · ${v.ok ? 'OK' : 'FAIL'}`)
+  const { rows: cnt } = await c.query(`select count(*)::int as n from public.universe_surface_rotation($1::uuid, 'google')`, [subject.id])
+  console.log(`[rotation-buffers] ${subject.name}: ${cnt[0].n} rows · shared hit ${b.hit} + read ${b.read} = ${b.total} buffers · ceiling ${ROTATION_BUFFERS_CEILING} · ${v.ok ? 'OK' : 'FAIL'}`)
   if (!v.ok) findings.push(v.reason)
-  if (cnt[0].n === 0) findings.push('universe_surface_rotation returned 0 rows for the deepest ledger — an empty rotation on a 349-surface account is a broken read, not a cheap one.')
+  if (cnt[0].n === 0 && subject.n > 0) findings.push(`universe_surface_rotation returned 0 rows for ${subject.name} — an empty rotation over ${subject.n} descend attempt rows is a broken read, not a cheap one.`)
 } catch (e) {
   findings.push(`could not EXPLAIN universe_surface_rotation: ${e.message}`)
 } finally { await c.end() }

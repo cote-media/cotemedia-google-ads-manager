@@ -29,16 +29,16 @@ import Module from 'node:module'
 const ROOT = process.env.LORAMER_GUARD_ROOT || process.cwd()
 
 // ── THE SINGLE DATA POINT, NAMED ONCE ───────────────────────────────────────────────────────────────────
-const CLIENT_ID = '957d484e-d0c4-4dd0-b382-d8499d556252'   // Foam OH
+// ── THE SUBJECT — DERIVED FROM THE LEDGER, PER CLIENT (LORAMER_CHECKDATA_FLEET_SHAPED_BATCH_B_V1) ────────
+// The first cut typed Foam OH's campaign_search_term_view/segments.device 2026-03-09..04-07 with STUCK_DAY 04-05. The
+// property (a committed top day is COVERED, the identical range is not re-asked, the residue is attestable) holds for
+// every walked account, so the subject is now: per client, the NEWEST window on one surface carrying ≥ 2 day_committed
+// records for the same day (the re-ask signature the fixture had: attempts 1, 2, 3 each committing 04-05). --client=
+// names one client; --resource= --segment= --window=A..B --day= pin a subject. No qualifying client → CANNOT-RUN.
+const arg = (k) => { const a = process.argv.find((x) => x.startsWith(`--${k}=`)); return a ? a.slice(k.length + 3) : null }
+const CLIENT_ARG = arg('client') || process.env.LORAMER_CLIENT || null
+const RESOURCE_ARG = arg('resource'), SEGMENT_ARG = arg('segment'), WINDOW_ARG = arg('window'), DAY_ARG = arg('day')
 const VENDOR = 'google'
-const RESOURCE = 'campaign_search_term_view'
-const SEGMENT = 'segments.device'
-const BREAKDOWN = 'device'                                  // breakdownTypeForSurface(RESOURCE, SEGMENT)
-const WIN_START = '2026-03-09'
-const WIN_END = '2026-04-07'
-const STUCK_DAY = '2026-04-05'                              // newest day-with-rows in the window; the stripped one
-const STUCK_RANGE = { start: '2026-04-05', end: '2026-04-07' }
-
 const results = []
 const ok = (id, what) => results.push({ id, pass: true, what })
 const red = (id, what, why) => results.push({ id, pass: false, what, why })
@@ -87,7 +87,7 @@ const COVERAGE = 'src/lib/backfill/universe-coverage.ts'
 const SURFACES = 'src/lib/backfill/universe-surfaces.ts'
 const RESUMER = 'src/lib/backfill/universe-resumer.ts'
 
-let cov, resumer, sb
+let cov, resumer, sb, surf
 try {
   const tsc = join(ROOT, 'node_modules', '.bin', 'tsc')
   const r = spawnSync(tsc, [
@@ -117,6 +117,7 @@ try {
   const req = createRequire(import.meta.url)
   cov = req(join(out, 'src/lib/backfill/universe-coverage.js'))
   resumer = req(join(out, 'src/lib/backfill/universe-resumer.js'))
+  surf = req(surfacesJs)
 } catch (e) {
   cleanup()
   console.error(`[topwindow-frontier] CANNOT RUN — harness failed: ${e.message}`)
@@ -124,88 +125,103 @@ try {
   process.exit(2)
 }
 
-const KEY = { clientId: CLIENT_ID, platform: VENDOR, entityLevel: RESOURCE, breakdownType: BREAKDOWN }
-
 try {
-  // ── A0 · PRECONDITION — THE COMMIT RECORD MUST ACTUALLY EXIST ────────────────────────────────────────
-  // ⛔ WITHOUT THIS THE TEST MEASURES NOTHING. If no day_committed row exists for the stripped day, then a
-  // fix that consults commit records cannot move this surface and a RED below would be red for the wrong
-  // reason. This is a CANNOT-RUN, never a pass and never a fail.
-  const { data: commits, error: cErr } = await sb.from('universe_attempt_log')
-    .select('attempt_no, rows_written, recorded_at')
-    .eq('client_id', CLIENT_ID).eq('vendor', VENDOR).eq('resource', RESOURCE).eq('segment', SEGMENT)
-    .eq('phase', 'day_committed').eq('day', STUCK_DAY)
-  if (cErr) throw new Error(`precondition read failed: ${cErr.message}`)
-  if (!commits || commits.length === 0) {
-    cleanup()
-    console.error(`[topwindow-frontier] CANNOT RUN — no day_committed record exists for ${RESOURCE}/${SEGMENT} on ${STUCK_DAY}.`)
-    console.error('  The proof depends on a REAL commit record. Without one the fix has nothing to read and this test proves nothing.')
-    console.log('[topwindow-frontier] VERDICT — CANNOT-RUN · 0 green · 0 red · precondition absent')
-    process.exit(2)
-  }
-  console.log(`[topwindow-frontier] PRECONDITION OK — ${commits.length} real day_committed record(s) for ${STUCK_DAY} ` +
-    `(attempt_no ${commits.map((c) => c.attempt_no).join(', ')}; ${commits.map((c) => c.rows_written).join('/')} rows each).`)
-
-  // ── DRIVE THE REAL PREDICATE. NO SYNTHETIC INPUT. ───────────────────────────────────────────────────
-  const owed = await cov.rangesStillOwed(KEY, WIN_START, WIN_END)
-  const c = owed.coverage
-  console.log(`[topwindow-frontier] REAL windowCoverage ${RESOURCE}/${SEGMENT} ${WIN_START}..${WIN_END}: ` +
-    `${c.covered.length} covered · ${c.attestedEmpty.length} attested-empty · ${c.uncovered.length} owed ` +
-    `in ${owed.ranges.length} range(s) · ${c.probes} probes / ${c.ms}ms`)
-  console.log(`[topwindow-frontier] owed ranges: ${JSON.stringify(owed.ranges)}`)
-
-  // ── A1 · THE COMMITTED DAY MUST COUNT AS COVERED ────────────────────────────────────────────────────
-  if (c.covered.includes(STUCK_DAY)) {
-    ok('A1', `${STUCK_DAY} is COVERED — the commit record was consulted.`)
+  // ── subjects ──
+  let subjects = []
+  if (CLIENT_ARG && RESOURCE_ARG && SEGMENT_ARG !== null && WINDOW_ARG && DAY_ARG) {
+    const [ws, we] = WINDOW_ARG.split('..')
+    const { data: c } = await sb.from('clients').select('id, name').eq('id', CLIENT_ARG).maybeSingle()
+    if (!c) throw new Error(`--client ${CLIENT_ARG} is not a client`)
+    subjects = [{ client_id: c.id, name: c.name, resource: RESOURCE_ARG, segment: SEGMENT_ARG, ws, we, day: DAY_ARG, how: 'pinned by args' }]
   } else {
-    red('A1', `${STUCK_DAY} must be COVERED once it has been committed.`,
-      `windowCoverage returned it as ${c.uncovered.includes(STUCK_DAY) ? 'UNCOVERED' : 'attested-empty/absent'}. ` +
-      `coveredDaysStrict strips the NEWEST day-with-rows unless opts.dayCommitted names it, and universe-coverage.ts:149 ` +
-      `calls it with no second argument, so opts={} on every walk read. ${commits.length} real commit record(s) for this day ` +
-      `sit in universe_attempt_log and nothing reads them.`)
+    // newest window per client holding ≥ 2 day_committed records for the same day on one surface — aggregated
+    // server-side over pg (PostgREST caps a page at 1,000 rows; a client-side group-by over one page misses the ledger).
+    if (!process.env.SUPABASE_DB_URL) throw new Error('SUPABASE_DB_URL missing — the subject read aggregates the ledger server-side')
+    const pg = (await import('pg')).default
+    const db = new pg.Client({ connectionString: process.env.SUPABASE_DB_URL, ssl: { rejectUnauthorized: false } })
+    await db.connect()
+    let agg
+    try {
+      await db.query("SET statement_timeout='115s'")
+      agg = (await db.query(`
+        with k as (
+          select client_id, resource, coalesce(segment, '') as segment, window_start::date::text as ws, window_end::date::text as we, day::date::text as day,
+                 count(*)::int as n, max(recorded_at) as newest
+            from public.universe_attempt_log
+           where vendor = $1::text and phase = 'day_committed' and resource <> '__account_inception'
+             ${CLIENT_ARG ? 'and client_id = $2::uuid' : ''}
+           group by 1, 2, 3, 4, 5, 6 having count(*) >= 2
+        )
+        select distinct on (client_id) client_id, resource, segment, ws, we, day, n, newest
+          from k order by client_id, newest desc`, CLIENT_ARG ? [VENDOR, CLIENT_ARG] : [VENDOR])).rows
+    } finally { await db.end() }
+    const perClient = new Map(agg.map((r) => [r.client_id, { r, n: r.n }]))
+    if (perClient.size === 0) {
+      cleanup(); console.error(`[topwindow-frontier] CANNOT RUN — ${CLIENT_ARG ? `client ${CLIENT_ARG} has NO` : 'no client has a'} window with ≥ 2 day_committed records for one day; there is no subject, and no subject is not a pass.`)
+      console.log('[topwindow-frontier] VERDICT — CANNOT-RUN · 0 green · 0 red · no qualifying window'); process.exit(2)
+    }
+    const { data: names } = await sb.from('clients').select('id, name').in('id', [...perClient.keys()])
+    const nameOf = new Map((names || []).map((n) => [n.id, n.name]))
+    subjects = [...perClient.entries()].map(([id, { r, n }]) => ({
+      client_id: id, name: nameOf.get(id) || id, resource: r.resource, segment: r.segment,
+      ws: r.ws, we: r.we, day: r.day, how: `${n} day_committed records for that day, newest ${new Date(r.newest).toISOString().slice(0, 16)}`,
+    })).sort((a, b) => a.name.localeCompare(b.name))
   }
+  console.log(`[topwindow-frontier] ${CLIENT_ARG ? 'client named by --client' : 'fleet default'} — ${subjects.length} subject(s), one per client: its newest window with a day committed ≥ 2 times`)
 
-  // ── A2 · THE OWED RANGE MUST SHRINK — no re-ask of the identical stuck range ─────────────────────────
-  const identical = owed.ranges.some((r) => r.start === STUCK_RANGE.start && r.end === STUCK_RANGE.end)
-  if (!identical && !c.uncovered.includes(STUCK_DAY)) {
-    ok('A2', `the owed set no longer contains ${STUCK_DAY}; the identical ${STUCK_RANGE.start}..${STUCK_RANGE.end} range is not re-asked.`)
-  } else {
-    red('A2', `the top window must stop re-asking the identical range ${STUCK_RANGE.start}..${STUCK_RANGE.end}.`,
-      `it is still owed verbatim (${JSON.stringify(owed.ranges)}). Every fire re-asks it, spends one vendor request, ` +
-      `re-writes the same rows and advances nothing.`)
+  for (const S of subjects) {
+    const tag = (id) => `${id}·${S.name}`
+    const BREAKDOWN = surf.breakdownTypeForSurface(S.resource, S.segment)
+    const KEY = { clientId: S.client_id, platform: VENDOR, entityLevel: S.resource, breakdownType: BREAKDOWN }
+    const STUCK_RANGE = { start: S.day, end: S.we }
+    const { data: commits, error: cErr } = await sb.from('universe_attempt_log')
+      .select('attempt_no, rows_written, recorded_at')
+      .eq('client_id', S.client_id).eq('vendor', VENDOR).eq('resource', S.resource).eq('segment', S.segment)
+      .eq('phase', 'day_committed').eq('day', S.day)
+    if (cErr) throw new Error(`precondition read failed: ${cErr.message}`)
+    if (!commits || commits.length === 0) { red(tag('A0'), 'the subject day must carry a real day_committed record', `none for ${S.resource}/${S.segment} on ${S.day} (${S.how})`); continue }
+    console.log(`[topwindow-frontier] ${S.name}: ${S.resource}/${S.segment} ${S.ws}..${S.we}, committed day ${S.day} (${S.how}) — attempt_no ${commits.map((c) => c.attempt_no).join(', ')}; ${commits.map((c) => c.rows_written).join('/')} rows each`)
+    const owed = await cov.rangesStillOwed(KEY, S.ws, S.we)
+    const c = owed.coverage
+    console.log(`  windowCoverage: ${c.covered.length} covered · ${c.attestedEmpty.length} attested-empty · ${c.uncovered.length} owed in ${owed.ranges.length} range(s) · ${c.probes} probes / ${c.ms}ms · owed ${JSON.stringify(owed.ranges)}`)
+    // A1 — a committed day must be RESOLVED: a day committed WITH rows must read COVERED (the commit record consulted);
+    // a day committed with ZERO rows (the vendor answered nothing at this grain) must read COVERED or ATTESTED. Which one
+    // is the ledger's to say — rows_written on the commit records — never this check's.
+    const rowsCommitted = commits.reduce((n, r) => n + Number(r.rows_written ?? 0), 0)
+    const resolvedAs = c.covered.includes(S.day) ? 'covered' : c.attestedEmpty.includes(S.day) ? 'attested-empty' : null
+    if (rowsCommitted > 0 ? resolvedAs === 'covered' : resolvedAs !== null) {
+      ok(tag('A1'), `${S.day} (committed with ${rowsCommitted} row(s) over ${commits.length} record(s)) reads ${resolvedAs.toUpperCase()} — the committed day is resolved.`)
+    } else {
+      red(tag('A1'), `${S.day} must be ${rowsCommitted > 0 ? 'COVERED' : 'COVERED or ATTESTED'} once it has been committed (${rowsCommitted} row(s) committed).`,
+        `windowCoverage returned it as ${resolvedAs ?? (c.uncovered.includes(S.day) ? 'UNCOVERED' : 'absent')}. ` +
+        (rowsCommitted > 0
+          ? `coveredDaysStrict strips the NEWEST day-with-rows unless opts.dayCommitted names it; ${commits.length} real commit record(s) for this day sit in universe_attempt_log — if nothing reads them the day is stripped on every walk read.`
+          : `a zero-row committed day that neither covers nor attests is owed forever — the nongrain/zero terminal for it is missing or unread.`))
+    }
+    const identical = owed.ranges.some((r) => r.start === STUCK_RANGE.start && r.end === STUCK_RANGE.end)
+    if (!identical && !c.uncovered.includes(S.day)) {
+      ok(tag('A2'), `the owed set no longer contains ${S.day}; the identical ${STUCK_RANGE.start}..${STUCK_RANGE.end} range is not re-asked.`)
+    } else {
+      red(tag('A2'), `the top window must stop re-asking the identical range ${STUCK_RANGE.start}..${STUCK_RANGE.end}.`,
+        `it is still owed verbatim (${JSON.stringify(owed.ranges)}). Every fire re-asks it, spends one vendor request, re-writes the same rows and advances nothing.`)
+    }
+    const withRows = []
+    for (const day of c.uncovered) {
+      const { data, error } = await sb.from('metrics_daily').select('date')
+        .eq('client_id', S.client_id).eq('platform', VENDOR)
+        .eq('entity_level', S.resource).eq('breakdown_type', BREAKDOWN).eq('date', day).limit(1)
+      if (error) throw new Error(`residue probe failed on ${day}: ${error.message}`)
+      if ((data?.length ?? 0) > 0) withRows.push(day)
+    }
+    if (withRows.length === 0) {
+      ok(tag('A3'), 'every remaining owed day holds ZERO rows — a real pass returns zero, attests, and the anchor recedes.')
+    } else {
+      red(tag('A3'), 'the owed residue must be days a zero-returning pass can attest.',
+        `${withRows.length} owed day(s) STILL HOLD ROWS: ${withRows.join(', ')}. A pass over this range returns rows, so its outcome is 'ok' and never 'zero' — ` +
+        `attestedEmptyDays can never clear the days beside it. That is the deadlock: the day with rows cannot cover, and the empty days cannot attest.`)
+    }
   }
-
-  // ── A3 · THE RESIDUE MUST BE GENUINELY-EMPTY GROUND — the deadlock broken ────────────────────────────
-  // ⛔ THIS IS NOT "THE FRONTIER MOVED". It cannot be, offline: after the fix this window still owes
-  // 2026-04-06..07, and the anchor only recedes once the window owes NOTHING — which needs one more REAL
-  // pass returning 'zero' so attestedEmptyDays can clear them. That pass costs a vendor request and belongs
-  // to Gate-B. What IS checkable here is that the residue is ground a zero-returning pass CAN clear: every
-  // remaining owed day holds no rows. Today it does not, because the stripped day has 6,532 of them.
-  const withRows = []
-  for (const day of c.uncovered) {
-    const { data, error } = await sb.from('metrics_daily').select('date')
-      .eq('client_id', CLIENT_ID).eq('platform', VENDOR)
-      .eq('entity_level', RESOURCE).eq('breakdown_type', BREAKDOWN).eq('date', day).limit(1)
-    if (error) throw new Error(`residue probe failed on ${day}: ${error.message}`)
-    if ((data?.length ?? 0) > 0) withRows.push(day)
-  }
-  if (withRows.length === 0) {
-    ok('A3', 'every remaining owed day holds ZERO rows — a real pass returns zero, attests, and the anchor recedes.')
-  } else {
-    red('A3', 'the owed residue must be days a zero-returning pass can attest.',
-      `${withRows.length} owed day(s) STILL HOLD ROWS: ${withRows.join(', ')}. A pass over this range returns rows, ` +
-      `so its outcome is 'ok' and never 'zero' — attestedEmptyDays can never clear the days beside it. That is the ` +
-      `deadlock: the day with rows cannot cover, and the empty days cannot attest.`)
-  }
-
-  // ── A4 · THE NO-PROGRESS BOUND MUST FIRE ON COMMIT-BUT-NO-SHRINK ────────────────────────────────────
-  // ⛔ THE REAL STUCK SHAPE, TAKEN FROM THE LIVE LOG: attempt #3 over 2026-04-05..04-07 reported 'ok' and
-  // committed exactly ONE day, and the owed set was 3 before and 3 after. `owedDaysAtLastAttempt` is passed
-  // because the bound cannot see a stall without it — and it is OPTIONAL by design, so a caller that omits
-  // it behaves exactly as before (universe-resumer.guard leg (f) pins the fragmented-window case that a
-  // wider condition would have broken).
-  // ⚠ THIS ASSERTS THE FUNCTION, NOT THE PRODUCTION WIRING. The caller does not yet derive this field — see
-  // ★NO-PROGRESS-BOUND-KEYED-ON-THE-WRONG-SHAPE. Stated so a green here is never read as "it fires live".
+  // A4 is pure — the no-progress bound, once, subject-free
   const verdict = resumer.decideRepublish({
     owedDays: 3, owedDaysAtLastAttempt: 3,
     attemptsAtMinSpan: 1, maxAttemptsAtMinSpan: 3, spanDays: 3, minSpanDays: 1,
@@ -215,9 +231,7 @@ try {
     ok('A4', 'decideRepublish refuses a lap that committed a day and shrank nothing.')
   } else {
     red('A4', 'the no-progress bound must fire when a lap commits a day but the owed set does not shrink.',
-      `decideRepublish returned ${JSON.stringify(verdict)}. universe-resumer.ts:214 tests ` +
-      `\`last.daysCommitted === 0\`; a stuck surface commits exactly ONE day per pass, so 1 !== 0 and the bound ` +
-      `never fires. It measures "did we commit a day", not "did the owed set shrink" — and those disagree here.`)
+      `decideRepublish returned ${JSON.stringify(verdict)}. A stuck surface commits exactly ONE day per pass; a bound that tests daysCommitted === 0 never fires — it measures "did we commit a day", not "did the owed set shrink".`)
   }
 } catch (e) {
   cleanup()

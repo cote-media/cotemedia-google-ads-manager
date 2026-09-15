@@ -50,7 +50,12 @@ import { createRequire } from 'node:module'
 import { loadLedger, budgetFor } from '../../scripts/lib/checkdata-budget.mjs'
 
 const ROOT = process.env.LORAMER_GUARD_ROOT || process.cwd()
-const CLIENT = '957d484e-d0c4-4dd0-b382-d8499d556252'   // Foam OH — the only client the walk has ever run for
+// LORAMER_CHECKDATA_FLEET_SHAPED_BATCH_B_V1 — THE CLIENT IS AN INPUT, THE FLEET IS THE DEFAULT. The first cut typed Foam OH
+// ("the only client the walk has ever run for", true on 2026-08-18); the walk widened to 17 accounts on 2026-09-13 and this
+// detector kept grading one of them. `--client=<uuid>` / LORAMER_CLIENT names one; otherwise every client with a google
+// descend attempt row is measured, one line each, findings summed. The guard-on-guard (a ledger-derived known-live skip the
+// detector must SEE) is satisfied fleet-wide — one client's proven skip proves the detector.
+const CLIENT_ARG = (process.argv.find((a) => a.startsWith('--client=')) || '').slice('--client='.length) || process.env.LORAMER_CLIENT || null
 const VENDOR = 'google'
 
 // ⛔ THE KNOWN-LIVE SKIP IS DERIVED FROM THE LEDGER AT RUN TIME, NEVER TYPED (LORAMER_NO_OWED_DAY_DERIVED_FIXTURE_V1).
@@ -109,14 +114,14 @@ const db = new pg.Client({
   connectionTimeoutMillis: OWN_BUDGET.budgetMs ?? undefined, query_timeout: OWN_BUDGET.budgetMs ?? undefined,
 })
 const iso = (d) => (d instanceof Date ? d.toISOString().slice(0, 10) : String(d).slice(0, 10))
-let rot = [], frontiers = [], skipped = [], candidates = [], rotHasParentKnown = false
-try {
-  await db.connect()
-  const q = async (s, p = []) => (await db.query(s, p)).rows
+const q = async (s, p = []) => (await db.query(s, p)).rows
+/** Measure ONE client: the live rotation, the frontier the real deriveAnchorEnd would derive, the asked-but-unheld days above it. */
+async function measureClient(CLIENT) {
+  let rot = [], frontiers = [], skipped = [], candidates = [], rotHasParentKnown = false
 
   // ── 1 · THE ROTATION, FROM THE REAL RPC ───────────────────────────────────────────────────────────────
   rot = await q(`select * from public.universe_surface_rotation($1::uuid, $2::text)`, [CLIENT, VENDOR])
-  if (!rot.length) broken(`universe_surface_rotation returned no surfaces for ${CLIENT}/${VENDOR} — nothing to measure`)
+  if (!rot.length) return { rot, frontiers, skipped, candidates, rotHasParentKnown }
 
   // surface → the coverage grain, from the REAL mapping (never re-spelled here)
   const surfaces = rot.map((r) => {
@@ -251,6 +256,20 @@ try {
         and a.window_start <= b.window_start and a.window_end >= b.window_end
     )
     order by b.recorded_at desc`, [CLIENT, VENDOR])
+  return { rot, frontiers, skipped, candidates, rotHasParentKnown }
+}
+let clients = []
+const perClient = []
+try {
+  await db.connect()
+  if (CLIENT_ARG) clients = await q(`select id, name from public.clients where id = $1::uuid`, [CLIENT_ARG])
+  else clients = await q(`select distinct c.id, c.name from public.universe_attempt_log a join public.clients c on c.id = a.client_id where a.vendor = $1::text and a.lane = 'descend' order by c.name`, [VENDOR])
+  if (!clients.length) broken(CLIENT_ARG ? `--client ${CLIENT_ARG} is not a client` : 'no client has a google descend attempt row — there is no walk to measure')
+  for (const c of clients) {
+    const t0 = Date.now()
+    const m = await measureClient(c.id)
+    perClient.push({ ...c, ...m, ms: Date.now() - t0 })
+  }
 } catch (e) {
   try { await db.end() } catch { /* the throw below is the report */ }
   broken(e.message)
@@ -262,35 +281,45 @@ rmSync(out, { recursive: true, force: true })
 // LORAMER_NO_OWED_DAY_DERIVED_FIXTURE_V1: a candidate is an error/skipped window nothing later attested or filled;
 // the detector must report skipped days on at least one candidate's surface overlapping that window. Zero
 // candidates = nothing to self-test against — CANNOT-SELF-TEST, exit 2, with the count.
-if (candidates.length === 0) {
-  console.error(`[no-owed-day-left-behind] CANNOT-SELF-TEST — the ledger holds 0 error/skipped windows without a later attest on ${CLIENT}/${VENDOR}; there is no known-live skip to prove the detector against. Not a pass, not a fail: exit 2 with the count.`)
+// ── guard-on-guard, fleet-wide: at least one client's ledger-derived known-live skip must be SEEN by the detector ──
+const seenBy = (m) => m.candidates.find((c) => {
+  const s = m.skipped.find((x) => x.resource === c.resource && (x.segment ?? '') === (c.segment ?? ''))
+  return s && iso(s.oldest) <= iso(c.window_end) && iso(s.newest) >= iso(c.window_start)
+})
+console.log(`[no-owed-day-left-behind] ${CLIENT_ARG ? 'client named by --client' : `fleet default — ${perClient.length} client(s) with a google descend ledger`} · frontier from the live rotation + the real deriveAnchorEnd`)
+for (const m of perClient) {
+  const days = m.skipped.reduce((n, s) => n + s.days, 0)
+  const c = m.rot.length === 0 ? 'no rotation surfaces' : `${m.rot.length} surface(s) · ${m.skipped.length} with owed ground above the frontier · ${days} owed day(s) · ${m.candidates.length} known-skip candidate(s)${seenBy(m) ? ' (seen)' : ''}`
+  console.log(`  ${m.skipped.length ? '✗' : '✓'} ${m.name} ${m.id}: ${c} · ${m.ms} ms`)
+}
+const withCandidates = perClient.filter((m) => m.candidates.length > 0)
+const proven = perClient.map((m) => ({ m, seen: seenBy(m) })).find((x) => x.seen)
+if (withCandidates.length === 0) {
+  console.error(`[no-owed-day-left-behind] CANNOT-SELF-TEST — across ${perClient.length} client(s) the ledger holds 0 error/skipped windows without a later attest; there is no known-live skip to prove the detector against. A detector without a witnessed positive is UNPROVEN, and unproven does not pass.${CLIENT_ARG ? ' The lines above are this client\'s measurement; the fleet default proves the detector on whichever client holds a known skip.' : ''}`)
   process.exitCode = 2
   process.exit()
 }
-const seen = candidates.find((c) => {
-  const s = skipped.find((x) => x.resource === c.resource && (x.segment ?? '') === (c.segment ?? ''))
-  return s && iso(s.oldest) <= iso(c.window_end) && iso(s.newest) >= iso(c.window_start)
-})
-if (!seen) {
-  const c0 = candidates[0]
+if (!proven) {
+  const c0 = withCandidates[0].candidates[0]
   console.error(
-    `[no-owed-day-left-behind] BROKEN — the detector sees NONE of the ${candidates.length} ledger-derived known-live skip candidate(s).\n` +
-    `  newest candidate: ${c0.resource} segment '${c0.segment ?? ''}' ${iso(c0.window_start)}..${iso(c0.window_end)} (${c0.outcome}, ${new Date(c0.recorded_at).toISOString()})\n` +
+    `[no-owed-day-left-behind] BROKEN — the detector sees NONE of the ledger-derived known-live skip candidate(s) on ${withCandidates.length} client(s) (${withCandidates.reduce((n, m) => n + m.candidates.length, 0)} candidate(s)).\n` +
+    `  newest on ${withCandidates[0].name}: ${c0.resource} segment '${c0.segment ?? ''}' ${iso(c0.window_start)}..${iso(c0.window_end)} (${c0.outcome}, ${new Date(c0.recorded_at).toISOString()})\n` +
     `  ⛔ A DETECTOR THAT CANNOT SEE A SKIP THE LEDGER HOLDS IS WORSE THAN NONE: it would read as a clean bill of health.\n` +
     `  Re-derive it against the attempt log before trusting any verdict from it.`)
   process.exitCode = 2
   process.exit()
 }
-const known = skipped.find((x) => x.resource === seen.resource && (x.segment ?? '') === (seen.segment ?? ''))
+const seen = proven.seen
+const skipped = perClient.flatMap((m) => m.skipped.map((x) => ({ ...x, client: m.name })))
 const totalDays = skipped.reduce((n, s) => n + s.days, 0)
-console.log(`[no-owed-day-left-behind] measured ${rot.length} surface(s) of ${CLIENT}/${VENDOR} · frontier from the live rotation + the real deriveAnchorEnd (parent_known ${rotHasParentKnown ? 'READ FROM THE ROTATION — 082 is applied' : 'ABSENT — pre-082 rotation, modelling the deployed resumer'}) · ` +
-            `guard-on-guard OK — known skip = ${seen.resource} segment '${seen.segment ?? ''}' ${iso(seen.window_start)}..${iso(seen.window_end)} (${seen.outcome}), derived from ${candidates.length} live candidate(s); the detector reports ${known.days} skipped day(s) there, ${iso(known.oldest)}..${iso(known.newest)}.`)
-
+const totalSurfaces = perClient.reduce((n, m) => n + m.rot.length, 0)
+console.log(`[no-owed-day-left-behind] guard-on-guard OK on ${proven.m.name} — known skip = ${seen.resource} segment '${seen.segment ?? ''}' ${iso(seen.window_start)}..${iso(seen.window_end)} (${seen.outcome}), derived from ${proven.m.candidates.length} ledger candidate(s)`)
+console.log(`[no-owed-day-left-behind] measured ${totalSurfaces} surface(s) across ${perClient.length} client(s) (parent_known ${perClient.some((m) => m.rotHasParentKnown) ? 'READ FROM THE ROTATION' : 'not exposed by the rotation'}) · ${skipped.length} surface(s) skipped · ${totalDays} owed day(s)`)
 if (skipped.length) {
   findings.push(`${totalDays} owed day(s) sit ABOVE the walk's own frontier across ${skipped.length} surface(s) — asked for, held by nothing, attested by nobody, and below no future window because the anchor only moves DOWN.`)
   console.error(`[no-owed-day-left-behind] FAIL — ${findings[0]}`)
   for (const s of skipped) {
-    console.error(`  - ${s.resource}${s.segment ? ' / ' + s.segment : ''} — ${s.days} day(s), ${iso(s.oldest)}..${iso(s.newest)}`)
+    console.error(`  - ${s.client} · ${s.resource}${s.segment ? ' / ' + s.segment : ''} — ${s.days} day(s), ${iso(s.oldest)}..${iso(s.newest)}`)
   }
   console.error(`  ⇒ THIS IS A FLOOR, NOT A TOTAL: covered is read LOOSELY and the ASKED band is built from RECORDED bounds, which are RANGE bounds for a multi-range window.`)
   console.error(`  ⇒ SPEC: docs/LORAMER_WALK_REBUILD_ARCHITECTURE.md § PROGRESS-TRUTH. ⛔ The parent_window_* design closes the RANGE-AS-WINDOW hole; it does NOT close G1 (the ungated hold branch, universe-resumer.ts:316-321) or G2 (mis-sized upper half dropped at google-ads-universe-v2/route.ts:286). This guard goes green only when NO owed day is left above the frontier.`)

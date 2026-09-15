@@ -51,7 +51,7 @@ const ALLOWLIST = [
   { file: 'scripts/check-conversion-action-config-captured.mjs', line: 24, why: 'CANDIDATE — :31 limit=5000 absence-judgement over entity_state_history open rows (456 on 2026-09-11); lies past max-rows' },
   { file: 'scripts/check-consumer-liveness.mjs', line: 123, why: 'bounded: 45-minute window, limit=200 (≤ 9 fires at the 5-minute cadence)' },
   { file: 'scripts/check-coverage-density.mjs', line: 54, why: 'reads: connections + clients limit=200 (~60 rows); density itself via RPC' },
-  { file: 'scripts/check-fleet-meter-visibility.mjs', line: 91, why: 'CANDIDATE-BY-GROWTH — :107 fires limit=500 (288 per 24 h on 2026-09-11); the forward leg :163 counts via HEAD count=exact' },
+  { file: 'scripts/check-fleet-meter-visibility.mjs', line: 138, why: 'CANDIDATE-BY-GROWTH — :107 fires limit=500 (288 per 24 h on 2026-09-11); the forward leg :163 counts via HEAD count=exact' },
   { file: 'scripts/check-google-forward-account-day.mjs', line: 39, why: 'CANDIDATE — :127 limit=1000 absence-judgement (~connections × fires, ~108 on 2026-09-11); metrics reads chunk 50 ids' },
   { file: 'scripts/check-lora-named-entity.mjs', line: 54, why: 'reads: clients limit=40 + top-1 by spend (limit=1)' },
   { file: 'scripts/check-walk-liveness.mjs', line: 109, why: 'newest-200 fires by order=fired_at.desc, used only for latestCompleted; rows via RPC :136, attempts via HEAD count=exact :151' },
@@ -64,7 +64,7 @@ const ALLOWLIST = [
   { file: 'scripts/stripe-sync-products.mjs', line: 129, why: 'one plan_entitlements row per tier' },
   { file: 'tests/guards/anchor-recedes-by-window.guard.mjs', line: 233, why: 'CANDIDATE-BY-GROWTH — :262-263 inception (2 rows) / floor (0 rows) read with no limit; floor can reach one row per client × surface; :243 pages by offset' },
   { file: 'tests/guards/device-respell-scope.guard.mjs', line: 40, why: 'limit=1 existence probe' },
-  { file: 'tests/guards/top-edge-is-held.guard.mjs', line: 102, why: 'pages by limit=1000&offset loop at :112' },
+  // burn-down 2026-09-14 (LORAMER_CHECKDATA_FLEET_SHAPED_BATCH_B_V1): top-edge-is-held.guard.mjs:102 raw /rest/v1/ pager REMOVED — the re-specced leg reads the ledger over pg; 18 → 17 frozen sites.
 ]
 
 const findings = []
