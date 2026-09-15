@@ -49,7 +49,7 @@ const N = 5000
 
   const dates = ['2026-08-04', '2025-11-15', '2024-02-29']   // three different partitions on purpose
   const rows = Array.from({ length: N }, (_, i) => ({
-    client_id: '00000000-0000-0000-0000-000000000000', user_email: 'steady@probe', platform: PROBE_PLATFORM,
+    client_id: '00000000-0000-0000-0000-000000000000', user_email: 'steady@probe', platform: PROBE_PLATFORM, // sentinel: nil uuid — probe rows under PROBE_PLATFORM, deleted by the probe itself
     account_id: 'probe', entity_level: 'account', entity_id: 'e' + (i % 500), entity_name: null,
     parent_entity_id: null, date: dates[i % 3], breakdown_type: '__probe', breakdown_value: 'v' + i,
     spend: 1, impressions: 10, clicks: 1, conversions: 0, conversion_value: 0, revenue: 0, extra: null,

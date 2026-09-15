@@ -105,7 +105,7 @@ const mkStream = (turn) => ({
     if (turn === 0) {
       return { stop_reason: 'tool_use', usage: {}, content: [
         { type: 'tool_use', id: TOOL_USE_ID, name: 'query_metrics',
-          input: { clientId: '957d484e-d0c4-4dd0-b382-d8499d556252', platform: 'google', startDate: '2024-11-01', endDate: '2024-12-31' } },
+          input: { clientId: '957d484e-d0c4-4dd0-b382-d8499d556252', platform: 'google', startDate: '2024-11-01', endDate: '2024-12-31' } }, // fixture: hermetic — Foam OH's id as a stand-in tool input; nothing resolves it (no DB, no network)
       ] }
     }
     return { stop_reason: 'end_turn', usage: {}, content: [{ type: 'text', text: 'Here is the answer.' }] }
@@ -120,7 +120,7 @@ let loopErr = null
 try {
   await mod.runClaudeToolLoopStreaming({
     anthropic, model: 'guard-model', maxTokens: 100, system: 'x', messages: [{ role: 'user', content: 'q' }],
-    clientId: '957d484e-d0c4-4dd0-b382-d8499d556252', userEmail: 'guard@example.com', clientName: 'Foam OH',
+    clientId: '957d484e-d0c4-4dd0-b382-d8499d556252', userEmail: 'guard@example.com', clientName: 'Foam OH', // fixture: hermetic — same stand-in; nothing resolves it
     emit: (event, data) => events.push({ event, data }),
     onFirstTurnStarted: () => { if (gateReleasedAfter === null) gateReleasedAfter = events.length },
   })

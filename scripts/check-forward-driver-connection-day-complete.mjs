@@ -28,7 +28,7 @@ if (!SB || !KEY) { console.error('✗ forward-driver-connection-day-complete: no
 // held 319/319. A client limit= cannot raise the server's max-rows. Every read here now pages from the server's own total
 // and THROWS on a partial set; the denominator printed below is the server's, not the page's.
 const REQUIRED = 323 // HEAVY 50 + REST 273 (forward-driver-slices.ts; Gate-A 2026-09-10 N=319, + the four de-aliased bases — LORAMER_WALK_BASE_DEALIAS_V1 2026-09-12; reads RED for windows driven before the first 323-surface window)
-const EXCLUDED = new Set(['2617b163-f392-427e-9a29-f134acc51406']) // DRIVER_EXCLUDED_CLIENTS — the RMF-frozen demo twin (DECISIONS:2461); identity per the registry, src/lib/clients/canonical.ts
+const EXCLUDED = new Set(['2617b163-f392-427e-9a29-f134acc51406']) // registry: src/lib/clients/canonical.ts — DRIVER_EXCLUDED_CLIENTS copy (the RMF-frozen demo twin, DECISIONS:2461); an .mjs cannot import the TS constant — rides ★LEGACY-RETIREMENT
 
 const now = new Date()
 const dayShift = now.getUTCHours() >= 17 ? 1 : 2

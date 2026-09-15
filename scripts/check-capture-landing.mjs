@@ -354,7 +354,7 @@ async function runAccountRowInvariant(conns, q, { gateA, guard, proveExact }) {
   // --prove-exact: inject a synthetic violation OUTSIDE the baselined range (in memory only, no DB write) to prove
   // the baseline is a bounded [from..to] window — this out-of-range Shelley woo day must NOT be baselined → guard fails.
   if (proveExact) {
-    violations.push({ clientId: '23c697bb-5255-4289-9329-659544ba8e6e', client: 'Shelley Kyle (SYNTHETIC out-of-range)', platform: 'woocommerce', date: '2025-06-15', synthetic: true })
+    violations.push({ clientId: '23c697bb-5255-4289-9329-659544ba8e6e', client: 'Shelley Kyle (SYNTHETIC out-of-range)', platform: 'woocommerce', date: '2025-06-15', synthetic: true }) // fixture: synthetic — an out-of-range row injected under --inject, never written
     console.log('\n  [--prove-exact] injected synthetic Shelley woo violation on 2025-06-15 (OUTSIDE the 2016..2018 baseline).')
   }
 

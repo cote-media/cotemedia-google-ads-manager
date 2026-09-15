@@ -488,6 +488,7 @@ const GUARDS = [
   'tests/guards/fleet-meter-pinned-window.guard.mjs', // LORAMER_FLEET_METER_PINNED_WINDOW_V1 — the fleet-meter witness pins a closed fire interval, counts discovery ops, imports its ceiling; drift must be 0
   'tests/guards/fire-log-readers-wet-only.guard.mjs', // LORAMER_STATUS_WET_FIRES_ONLY_V1 — every universe_fire_log reader excludes dry fires (query-level or selected+filtered rows); writers ignored; classifier fixture-proven
   'tests/guards/coverage-probe-bound.guard.mjs', // LORAMER_COVERAGE_PROBE_BOUND_V1 — windowCoverage's per-day probes ride a sliding window (COVERAGE_PROBE_CONCURRENCY in flight, cancel-on-first-failure), never Promise.all(days.map) — the fire-7621 EBUSY storm
+  'tests/guards/instrument-client-literal.guard.mjs', // LORAMER_INSTRUMENT_CLIENT_LITERAL_GUARD_V1 — a client-id-shaped literal (uuid / 10-digit customer id / act_) in a scripts/ or tests/guards/ code line fails the build unless allowlisted or WHY-annotated on its line; hermetic; classifier fixture-proven
   'tests/guards/resume-digest-freshness.guard.mjs',
 ]
 

@@ -53,7 +53,7 @@ if (!process.env.SUPABASE_DB_URL) {
 const pg = (await import('pg')).default
 const db = new pg.Client({ connectionString: process.env.SUPABASE_DB_URL, ssl: { rejectUnauthorized: false } })
 const BASE = {
-  client_id: '00000000-0000-0000-0000-000000000000',
+  client_id: '00000000-0000-0000-0000-000000000000', // sentinel: nil uuid — probe rows inside a transaction that is always rolled back
   vendor: '__guard__', resource: '__guard_parent_ck__', segment: '',
 }
 // ⛔ EVERY PROBE IS AN INSERT THAT SHOULD BE REFUSED WITH 23514 (check_violation). A probe that succeeds is

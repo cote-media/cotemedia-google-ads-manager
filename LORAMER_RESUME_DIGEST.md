@@ -7,8 +7,8 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-09-15T01:16:43.114Z
-- built_from HEAD: 89ad90a491e3aaf0af4bfe59a24519de39bccfe3  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-09-15T14:36:08.576Z
+- built_from HEAD: 1e0d7ee0c26b0abfe5abfc985913cb2b11bd8737  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
@@ -18,7 +18,7 @@
     - LORAMER_HANDOFF.md: 9f349d7d232366b1bb0b29f797f7225540b3ff6c8b43fbbea32eb0db4e761680
     - CONTINUE_HERE.md: 0ee14d0db485c086a32c0050f9247fae65cca8352fdcd413217291e260891c89
     - LORAMER_DECISIONS.md: 7ce87cb385915cf688908894d41124c299299f06d50ea405571781a5b30ec6be
-    - LORAMER_QUEUE_OF_RECORD.md: 2c1704ad13d6029c7694251764117482f7f370b7ec1cd01034330ccdfb824a1a
+    - LORAMER_QUEUE_OF_RECORD.md: 940c2f54cae3aab31fe80b2c2d865904cddf900bb7662ceb50e7f5c7fc918eeb
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: f4bef31497a46984a3a54acc5be044d48000688ba74ed59689e7c4bfafca21a1
     - RESUME_INSTRUCTIONS.md: 2f317be8a48fcd7767dad447cebcaa417cae0e8d8cd5bc5a01cc3939fb9f994a
     - docs/LORAMER_ASSET_LAYER_SCOPE_V1.md: 5550c754b2bf30624360a47cb54bbfd190bf8fc3cda958ab9b843497eb61050d
@@ -2406,8 +2406,8 @@ HOW TO USE: before writing "NEW" on any finding, gap or correction, GREP THIS SE
 LORAMER_*_V* marker you are about to mint. A token collision is DECIDABLE; a topic match is not. This is
 ESSENCE law 7 made mechanical — the law is a rule about behaviour, and on 2026-07-31 four already-decided
 topics were discussed as open while it was in force.
-TOTALS: 1119 tokens indexed · 367 resolve to BOTH a decision and a queue item ·
-140 decision-only · 612 queue-only.
+TOTALS: 1120 tokens indexed · 367 resolve to BOTH a decision and a queue item ·
+140 decision-only · 613 queue-only.
 ⛔ UNINDEXABLE — THIS COUNT IS THE BACKLOG, NOT A DISCLAIMER: 164 DECISIONS entries and
 262 QUEUE items carry NO token at all, so they cannot be found this way. An untokened decision
 is invisible to the enforcer; the fix is to mint a token when banking, not to widen the matcher. Samples —
@@ -2710,7 +2710,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★INCEPTION-DISCOVERY-HAS-NO-EXECUTOR — OPEN · decisions 0 · queue 3 · last 2026-08-13
 - ★INFLUENTIAL-SHOPIFY-ZERO-COMPLETE-MONTHS — OPEN · decisions 0 · queue 1 · last 2026-08-01
 - ★INSIGHT-INVESTIGATOR — OPEN · decisions 1 · queue 2 · last 2026-07-17
-- ★INSTRUMENT-CLIENT-LITERAL-GUARD — OPEN · decisions 0 · queue 2 · last 2026-09-14
+- ★INSTRUMENT-CLIENT-LITERAL-GUARD — OPEN · decisions 0 · queue 2 · last 2026-09-15
 - ★INTEL-AUDIENCE-SUBFETCH-INVALID-RESOURCE — OPEN · decisions 0 · queue 4 · last 2026-11-17
 - ★INVALID-PAGE-TOKEN-REQUESTS-COUNT-AGAINST-QUOTA — OPEN · decisions 1 · queue 1 · last 2026-08-09
 - ★IOS-NO-STANDARDS-FIX-FOR-KEYBOARD-VIEWPORT — OPEN · decisions 1 · queue 1 · last 2026-08-07
@@ -3227,6 +3227,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_HORIZON_FORK_DEPLOY1_V1 — OPEN · decisions 0 · queue 1 · last 2026-08-17
 - LORAMER_HYDRATED_CUSTOM_RANGE_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-16
 - LORAMER_INSIGHT_OPUS_FLOOR_V1 — DONE · decisions 2 · queue 1 · last 2026-07-17
+- LORAMER_INSTRUMENT_CLIENT_LITERAL_GUARD_V1 — DONE · decisions 0 · queue 1 · last 2026-09-15
 - LORAMER_INSTRUMENT_MUST_NAME_ITS_PHASE_V1 — DECIDED · decisions 4 · queue 0 · last 2026-07-31
 - LORAMER_INTELLIGENCE_HARDENING_V1 — DONE · decisions 1 · queue 1 · last 2026-07-11
 - LORAMER_JUDGE_PROSE_NAMES_THE_WRONG_MECHANISM_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-16
@@ -3447,7 +3448,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_SESSION_2026_08_25_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-25
 - LORAMER_SESSION_2026_08_26_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-26
 - LORAMER_SESSION_2026_09_13_ROTATION_LIVE_V1 — OPEN · decisions 1 · queue 2 · last 2026-10-28
-- LORAMER_SESSION_2026_09_14_STORM_AND_INSTRUMENTS_V1 — DONE · decisions 1 · queue 3 · last 2026-09-14
+- LORAMER_SESSION_2026_09_14_STORM_AND_INSTRUMENTS_V1 — DONE · decisions 1 · queue 3 · last 2026-09-15
 - LORAMER_SESSION_CLOSE_2026_08_07_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-07
 - LORAMER_SESSION_WRAP_2026_08_03_V1 — DECIDED · decisions 2 · queue 0 · last 2026-08-03
 - LORAMER_SHELF_DVH_RETIRED_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-11

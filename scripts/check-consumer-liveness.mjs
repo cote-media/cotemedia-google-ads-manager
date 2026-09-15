@@ -159,7 +159,7 @@ async function main() {
 
   // (4) THE QUOTA SENTINEL — the one legitimate reason for consumer silence under a live producer.
   // Same row the shipped reader uses (google-quota.ts: sentinel client 000…0, platform '__google_quota').
-  const qRes = await get("sync_state?select=backfill_blocked,backfill_block_window&client_id=eq.00000000-0000-0000-0000-000000000000&platform=eq.__google_quota&limit=1")
+  const qRes = await get("sync_state?select=backfill_blocked,backfill_block_window&client_id=eq.00000000-0000-0000-0000-000000000000&platform=eq.__google_quota&limit=1") // sentinel: the __google_quota row's nil client_id (google-quota.ts), not a client
   const qRows = need(qRes, 'quota sentinel'); if (!qRows) return
   const q = qRows[0] ?? null
   // ⛔ MIRRORS `holdGoogleWork` — blocked, UNLESS the block window has already elapsed. An UNREADABLE

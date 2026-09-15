@@ -20,7 +20,7 @@ for (const l of readFileSync(resolve(ROOT, '.env.local'), 'utf8').split('\n')) {
   const m = /^([A-Z_][A-Z0-9_]*)=(.*)$/.exec(l.trim()); if (m && !process.env[m[1]]) process.env[m[1]] = m[2]
 }
 
-const CLIENT = '957d484e-d0c4-4dd0-b382-d8499d556252'   // Foam OH — the measured window's account
+const CLIENT = '957d484e-d0c4-4dd0-b382-d8499d556252' // fixture: the measured window's account (Foam OH) — a one-off ranking of 2026-03-07..04-05, not a fleet instrument
 const WINDOW = { start: '2026-03-07', end: '2026-04-05' }
 const BYTES_PER_ROW = 832        // MEASURED for this shape (heap 500 / index 332), not the 740 average
 const WINDOWS_IN_WALK = 50

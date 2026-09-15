@@ -149,7 +149,7 @@ catch (e) { Module._resolveFilename = origResolve; rmSync(out, { recursive: true
 
 const PREAMBLE = 'Confirming exactly which campaigns carried impressions on the jump day itself.'
 const FORCED = 'Impressions rose 7.19x on 2025-10-19 -> 2025-10-20. I could not finish checking which campaigns carried it.'
-const TOOL_INPUT = { clientId: '957d484e-d0c4-4dd0-b382-d8499d556252', platform: 'google', startDate: '2025-10-01', endDate: '2025-10-31' }
+const TOOL_INPUT = { clientId: '957d484e-d0c4-4dd0-b382-d8499d556252', platform: 'google', startDate: '2025-10-01', endDate: '2025-10-31' } // fixture: hermetic — Foam OH's id as a stand-in tool input; nothing resolves it
 
 // A model that NEVER stops asking for tools — the exact production shape, and the one no cap can survive.
 // It also emits the preamble beside every tool_use block, which the API documents as normal behaviour.

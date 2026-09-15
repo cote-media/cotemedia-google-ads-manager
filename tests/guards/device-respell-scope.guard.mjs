@@ -25,7 +25,7 @@ import { resolve } from 'node:path'
 
 const ROOT = process.env.LORAMER_GUARD_ROOT || process.cwd()
 const NAME = 'device-respell-scope'
-const CLIENT = '957d484e-d0c4-4dd0-b382-d8499d556252'
+const CLIENT = '957d484e-d0c4-4dd0-b382-d8499d556252' // registry: src/lib/clients/canonical.ts — Foam OH, the repair's pinned scope; this guard asserts respell-device-ordinals stays pinned to it
 const BASELINE = resolve(ROOT, '.device-respell-scope-baseline.json')
 const findings = []
 
@@ -63,7 +63,7 @@ if (src === null) {
   findings.push('(b1) scripts/respell-device-ordinals.mjs does not exist — the repair this guard gates is missing')
 } else {
   for (const [what, re] of [
-    ['the client pin', /client_id = '\$\{CLIENT\}'|CLIENT = '957d484e-d0c4-4dd0-b382-d8499d556252'/],
+    ['the client pin', /client_id = '\$\{CLIENT\}'|CLIENT = '957d484e-d0c4-4dd0-b382-d8499d556252'/], // fixture: the pin this guard asserts — the literal must appear verbatim in the repair script
     ['platform google', /platform = 'google'/],
     ["entity_level = detail_placement_view (and ONLY it)", /LEVEL = 'detail_placement_view'/],
     ['breakdown_type device', /breakdown_type = 'device'/],

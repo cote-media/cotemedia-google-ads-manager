@@ -39,7 +39,7 @@ if (!SB_URL || !SB_KEY) {
     'A check that cannot reach its evidence FAILS; it does not pass quietly.')
   process.exitCode = 1
 } else {
-  const CLIENT = '957d484e-d0c4-4dd0-b382-d8499d556252' // Foam OH — the client every eval truth was certified against
+  const CLIENT = '957d484e-d0c4-4dd0-b382-d8499d556252' // fixture: certified — Foam OH, the client every eval truth was certified against; the truths are this account's numbers
 
   // The certified figures, hand-verified in the 2026-08-13/14 truth pass and reproduced from metrics_daily.
   // family, level, window, rankBy, [expected top-N values of that metric]

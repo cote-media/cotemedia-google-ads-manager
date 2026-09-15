@@ -68,7 +68,7 @@ let Q
 try { Q = req(join(out, 'src/lib/metrics-query.js')) } catch (e) { Module._load = origLoad; cleanup(); fail(`load — ${e.message}`) }
 
 // ── FIXTURE: a real client with real multi-level device data, and its real top campaign / ad group ──────────
-const C = '60e6dd99-fd42-466f-870f-48eb407835e8'   // Bath Fitter | O'Gorman Bros
+const C = '60e6dd99-fd42-466f-870f-48eb407835e8' // fixture: certified — Bath Fitter | O'Gorman Bros, the real multi-level device rows this drilldown was proven on
 const CAMP = '22835473330'                          // EM | North Jersey | Max Conversions
 const AG = '185422837600'                           // Brand
 const W = { startDate: '2026-06-01', endDate: '2026-06-30' }

@@ -36,7 +36,7 @@ const BASELINE = {
   sharedBuffersXL: '4GB', effectiveCacheXL: '12GB',
 }
 
-const CLIENT = '957d484e-d0c4-4dd0-b382-d8499d556252'
+const CLIENT = '957d484e-d0c4-4dd0-b382-d8499d556252' // fixture: the measured window's account (Foam OH) — a one-off measurement, not a fleet instrument
 const GEO_SQL = `
   select breakdown_value, sum(spend) s, sum(impressions) i
   from metrics_daily

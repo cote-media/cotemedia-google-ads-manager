@@ -40,8 +40,8 @@ const NAME = 'restate-prune-live'
 
 // Two synthetic clients: the SUBJECT and a NEIGHBOUR that must be untouched. Fixed uuids so a crashed run
 // leaves rows this check itself cleans up on its next pass rather than orphaning a random key forever.
-const SUBJECT = '00000000-0000-4000-8000-000000000001'
-const NEIGHBOUR = '00000000-0000-4000-8000-000000000002'
+const SUBJECT = '00000000-0000-4000-8000-000000000001' // fixture: synthetic — fixed uuid so a crashed run's rows are cleaned up on the next pass
+const NEIGHBOUR = '00000000-0000-4000-8000-000000000002' // fixture: synthetic — the untouched neighbour, same reason
 const SYNTH_EMAIL = 'guard+restate-prune@loramer.invalid'
 const SYNTH_ACCOUNT = '__guard_restate_prune__'
 

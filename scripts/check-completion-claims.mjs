@@ -497,7 +497,7 @@ await db.end()
 
 if (INJECT_CLAIM) {
   claims.push({
-    client: 'SYNTHETIC Gate-A client', clientId: '00000000-dead-beef-0000-000000000002', platform: 'google',
+    client: 'SYNTHETIC Gate-A client', clientId: '00000000-dead-beef-0000-000000000002', platform: 'google', // fixture: synthetic — Gate-A injection under --inject-claim-exceeds, never written
     step: 'google_geo', cursorKey: 'google_geo', claimedFloor: '2019-01-01', notRowCheckable: false,
     rowsPresent: true, minRowDate: '2025-06-01', firstActive: '2019-01-01', everDelivered: true, synthetic: true,
   })
@@ -507,7 +507,7 @@ if (INJECT_CLAIM) {
 for (const c of claims) Object.assign(c, classifyClaim(c))
 
 const baseline = INJECT_STALE
-  ? [...KNOWN_COMPLETION_CLAIM_VIOLATIONS, { clientId: '00000000-0000-0000-0000-000000000009', client: 'SYNTHETIC', platform: 'google', step: 'google_hour', note: 'SYNTHETIC stale entry — not a real violation' }]
+  ? [...KNOWN_COMPLETION_CLAIM_VIOLATIONS, { clientId: '00000000-0000-0000-0000-000000000009', client: 'SYNTHETIC', platform: 'google', step: 'google_hour', note: 'SYNTHETIC stale entry — not a real violation' }] // fixture: synthetic — stale baseline entry appended under --inject-stale-baseline, file untouched
   : KNOWN_COMPLETION_CLAIM_VIOLATIONS
 if (INJECT_STALE) console.log('  [--inject-stale-baseline] appended ONE synthetic baseline entry that matches no live violation. Baseline FILE untouched.')
 
@@ -570,7 +570,7 @@ if (honest.length > 12) console.log(`  … and ${honest.length - 12} more`)
 
 // ── LORAMER_FLOOR_REACHED_NOT_COMPLETE_V1 — the floor leg, reported every run and FAILED in --guard ──────────────
 if (INJECT_FLOOR) {
-  floorCursors.push({ client_id: '00000000-dead-beef-0000-000000000003', client: 'SYNTHETIC Gate-A client',
+  floorCursors.push({ client_id: '00000000-dead-beef-0000-000000000003', client: 'SYNTHETIC Gate-A client', // fixture: synthetic — Gate-A injection under --inject-floor-not-complete, never written
     platform: 'ga_dimensional', earliest: '2015-08-14', target: '2015-08-14', backfill_complete: false })
   console.log('  [--inject-floor-not-complete] injected ONE synthetic cursor: earliest 2015-08-14 = target 2015-08-14, complete=false. No DB write.')
 }

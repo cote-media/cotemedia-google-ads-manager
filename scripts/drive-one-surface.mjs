@@ -153,15 +153,15 @@ if (process.argv.includes('--selftest')) {
   //     surface nobody asked for. Emptiness cannot detect a missing segment — an unsegmented surface writes
   //     segment='' — so the fixture drives the OMITTED case, not the empty one.
   const noArgs = resolveSurface([], {})
-  const omittedSegment = resolveSurface(['--client=957d484e-d0c4-4dd0-b382-d8499d556252', '--resource=campaign_search_term_view'], {})
-  const emptySegment = resolveSurface(['--client=957d484e-d0c4-4dd0-b382-d8499d556252', '--resource=campaign_search_term_view', '--segment='], {})
-  const full = resolveSurface(['--client=957d484e-d0c4-4dd0-b382-d8499d556252', '--resource=campaign_search_term_view', '--segment=segments.device'], {})
+  const omittedSegment = resolveSurface(['--client=957d484e-d0c4-4dd0-b382-d8499d556252', '--resource=campaign_search_term_view'], {}) // fixture: run #1's own surface (Foam OH) as the argv self-test input; parse-only, never resolved
+  const emptySegment = resolveSurface(['--client=957d484e-d0c4-4dd0-b382-d8499d556252', '--resource=campaign_search_term_view', '--segment='], {}) // fixture: same self-test input
+  const full = resolveSurface(['--client=957d484e-d0c4-4dd0-b382-d8499d556252', '--resource=campaign_search_term_view', '--segment=segments.device'], {}) // fixture: same self-test input
   fixtures.push({
     name: 'CLIENT_ID/RESOURCE/SEGMENT come from argv and REFUSE when absent (run #1\'s own surface as the fixture)',
     ok: noArgs.ok === false && noArgs.missing.length === 3
       && omittedSegment.ok === false && omittedSegment.missing.length === 1
       && emptySegment.ok === true && emptySegment.segment === ''
-      && full.ok === true && full.clientId === '957d484e-d0c4-4dd0-b382-d8499d556252'
+      && full.ok === true && full.clientId === '957d484e-d0c4-4dd0-b382-d8499d556252' // fixture: the self-test's expected echo of its own input
       && full.resource === 'campaign_search_term_view' && full.segment === 'segments.device',
     why: 'no args must refuse with 3 missing; an OMITTED segment must refuse with 1; an EXPLICITLY EMPTY segment must be accepted as "no segment"; a full triple must resolve verbatim',
   })

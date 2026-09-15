@@ -27,7 +27,7 @@ const read = (p) => { try { return readFileSync(resolve(ROOT, p), 'utf8') } catc
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').split('\n').filter((l) => !/^\s*(\/\/|\*)/.test(l)).join('\n')
 
 const FILES = ['src/lib/backfill/forward-driver.ts', 'src/lib/backfill/forward-driver-slices.ts']
-const TWIN = '2617b163-f392-427e-9a29-f134acc51406' // the demo twin — identity per the registry, src/lib/clients/canonical.ts
+const TWIN = '2617b163-f392-427e-9a29-f134acc51406' // registry: src/lib/clients/canonical.ts — the demo twin's id, identity per the registry, copied because the guard asserts the driver excludes exactly it
 for (const f of FILES) {
   const raw = read(f)
   if (!raw) { findings.push(`${f} does not exist`); continue }

@@ -56,7 +56,7 @@ if (EXECUTE && process.env.LORAMER_REPAIR_CONFIRM !== 'device-respell') {
 }
 
 // ── SCOPE CONSTANTS — the predicate, in one place, spelled once ────────────────────────────────────────
-const CLIENT = '957d484e-d0c4-4dd0-b382-d8499d556252' // Foam OH — registry id (canonical.ts), never a name
+const CLIENT = '957d484e-d0c4-4dd0-b382-d8499d556252' // registry: src/lib/clients/canonical.ts — Foam OH, the one account whose device ordinals were mis-spelled and repaired; scope pinned by device-respell-scope.guard
 const LEVEL = 'detail_placement_view'
 const ORDINALS = ['2', '3', '4', '5', '6']
 const SCOPE_SQL = `client_id = '${CLIENT}' AND platform = 'google' AND entity_level = '${LEVEL}'

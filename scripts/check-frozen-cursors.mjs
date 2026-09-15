@@ -165,7 +165,7 @@ const excludedHits = allIncomplete.filter((c) => EXCLUDED_IDS.has(c.clientId))
 // real one, so it can never be accidentally baselined.
 if (INJECT_FROZEN) {
   cursors.push({
-    clientId: '00000000-dead-beef-0000-000000000001', client: 'SYNTHETIC Gate-A client', platform: 'shopify_money',
+    clientId: '00000000-dead-beef-0000-000000000001', client: 'SYNTHETIC Gate-A client', platform: 'shopify_money', // fixture: synthetic — Gate-A injection under --inject-frozen, never written
     base: 'shopify', cursorAt: '2025-01-01', blocked: false, blockReason: null, days: 41,
     updatedAt: '2026-06-18', hasConn: true, health: 'healthy',
   })
@@ -174,7 +174,7 @@ if (INJECT_FROZEN) {
 
 const baseline = INJECT_STALE
   ? [...KNOWN_FROZEN_CURSORS, {
-      clientId: 'f5fbe7e5-7b22-4a17-9681-6fab7fbeddb2', client: 'Veterinary mastermind (SYNTHETIC)',
+      clientId: 'f5fbe7e5-7b22-4a17-9681-6fab7fbeddb2', client: 'Veterinary mastermind (SYNTHETIC)', // fixture: synthetic — a real id typed into a SYNTHETIC stale baseline entry under --inject-stale, never written
       platform: 'google_device', cursorAt: '2020-01-01', daysWhenBaselined: 99,
       note: 'SYNTHETIC stale entry — google_device is NOT frozen for this client',
     }]
