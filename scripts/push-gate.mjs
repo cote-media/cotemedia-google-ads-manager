@@ -52,10 +52,16 @@ const LOG_REL = 'docs/LORAMER_PUSH_GATE_LOG.jsonl'
 // anywhere: the first cut matched inside quoted strings and heredoc bodies, and blocked two commit commands whose
 // MESSAGE mentioned pushing (2026-09-10, logged). A commit message is not a push.
 export const PUSH_RE = /(^|[;&|(]\s*)(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+)*git\s+push\b/m
-export const MEASURED_SUITE_MS = 540_000 // ⇐ RE-MEASURED 2026-09-15, `npm run guard`, 190 guards, MacBook Air (was
-// 209_000 at 163 guards, 2026-09-09 — the suite grew and the constant did not, so the gate refused a run that had
-// just printed ALL GREEN 190/190 locally. A budget whose provenance is stale blocks good pushes and teaches the
-// executor to route around the gate, which is worse than no gate.)
+export const MEASURED_SUITE_MS = 540_000 // ⇐ RE-MEASURED 2026-09-15, `npm run guard`, 190 guards, MacBook Air.
+// Was 209_000 at 163 guards (2026-09-09): the suite grew and the constant did not, so the gate refused a run that
+// had just printed ALL GREEN 190/190 locally. A budget whose provenance is stale blocks good pushes and teaches the
+// executor to route around the gate, which is worse than no gate.
+// ⛔ TWO SAMPLES, AND THIS TAKES THE WORSE ONE — the spread is the point, not the mean. 327 s, measured by the gate
+// itself on the green run it allowed (LORAMER_PUSH_GATE_LOG.jsonl, 2026-09-15T23:57:52Z, elapsedMs 326922), and
+// ~540 s in the foreground minutes earlier, after a SIGTERM'd gate run whose spawned guard children could still
+// have been finishing. 540_000 is therefore 2× THE WORST OBSERVED HEALTHY RUN, not 2× the best: a budget sized to
+// the clean sample refuses the suite the moment anything else touches the machine, which is exactly how this
+// constant blocked a green push in the first place.
 export const INNER_BUDGET_MS = 2 * MEASURED_SUITE_MS
 const GREEN_RE = /^\[run-guards\] ALL GREEN — (\d+)\/(\d+) guards ran and passed\.\s*$/m
 const RED_RE = /^\[run-guards\] EXIT (\d+) — .*$/m
