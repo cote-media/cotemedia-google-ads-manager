@@ -110,17 +110,42 @@ export type ResumeVerdict =
 // (run-guards.mjs:205 records the retirement). The fire now runs `processMessage` INLINE, so the binding
 // constraint is the fire's own capture budget, not a queue's drain.
 //
-// THE DERIVATION, from durations measured on this fleet on 2026-09-15 between 17:02:53Z and 20:08:33Z, the
-// first three hours after the daily operations cap was removed:
-//   · CAPTURE_BUDGET_MS = 235,000 — the contract's own figure: 300,000 ceiling − 55,000 scan − 10,000 unit reservation.
-//   · a request's WORST measured cycle = 3,277 ms = 2,735 ms (descend attempt_started→attempt_finished p90,
-//     N=1,429, which covers the vendor call AND the row write) + 542 ms (p50 gap between one attempt
-//     finishing and the next starting, N=1,025 — the per-attempt coverage derivation between vendor calls).
-//   · 235,000 ÷ 3,277 = 71.7 ⇒ 71. THE BITE IS WHAT THE BUDGET AFFORDS WHEN EVERY REQUEST RUNS AT THE p90
-//     PACE. At the p50 pace (1,242 ms) the same 71 requests take ~88 s and the fire stops on work, not clock.
-// ⛔ 71 × 288 fires/day = 20448/day, up from 11,520. It is no longer a share of anything: Standard access
-// removed the daily operations cap (LORAMER_CAP_FOLLOWS_GRANT_V1), so this bound answers to the fire's clock
-// and to Postgres, never to a vendor quota.
+// ⛔ RE-DERIVED AGAIN 2026-09-16 — LORAMER_FIRE_BITE_FOLLOWS_CONCURRENCY_V1. THE 71 WAS SIZED FOR A SERIAL
+// LOOP THAT NO LONGER EXISTS. LORAMER_FIRE_UNITS_CONCURRENT_V1 made the fire run its units UNIT_CONCURRENCY
+// wide, partitioned by surface, and the 3,277 ms figure the 71 divided by is a SERIAL per-request cycle. The
+// old derivation is preserved below for the record; the numbers that bind now are these, and every one of them
+// was measured on the SHIPPED concurrent code (c95258f), 19 completed fires between 2026-09-16T00:02Z and
+// 01:37Z, NOT carried forward from the serial arc.
+//
+// THE DERIVATION, and it charges the scan at what the scan MEASURABLY COSTS rather than at what the contract
+// allows it, because that difference is the difference between a fire that stops and a fire that is killed:
+//   · the platform kills at CONSUMER_MAX_DURATION_S = 300,000 ms, and `captureStartedAt` — the clock the
+//     admission rule measures against — STARTS AFTER THE SCAN. So the fire's real room is the ceiling minus
+//     the scan it actually paid, minus one reservation for a unit not yet measured.
+//   · WORST measured scan = 70,982 ms (n=19 fires; min 23,688 · p50 63,240 · p90 69,616). ⛔ SCAN_ALLOWANCE_MS
+//     IS 55,000 AND 16 OF THOSE 19 FIRES EXCEEDED IT, worst overshoot 15,982 ms. That allowance is wrong and
+//     is NOT corrected here — see ★SCAN-ALLOWANCE-IS-16S-SHORT. This derivation simply refuses to rely on it.
+//   · UNIT_RESERVATION_FLOOR_MS = 10,000, unchanged.
+//   · real room = 300,000 − 70,982 − 10,000 = 219,018 ms.
+//   · WORST measured cycle = 608 ms per unit (n=16 full-bite fires, capture wall clock ÷ units executed;
+//     min 178 · p50 223 · p90 549). This is the CONCURRENT amortised cost of a unit at UNIT_CONCURRENCY = 12,
+//     which is the only figure a bite can be divided by now: the serial 3,277 ms describes a loop we deleted.
+//   · 219,018 ÷ 608 = 360.2 ⇒ 360.
+// ⛔ WHY A PER-UNIT CYCLE MAY DIVIDE A PER-REQUEST BITE, stated because the units differ and that is normally a
+// defect: `boundedSelection` spends the bite in RANGES (requests), and a unit walks one or more ranges, so the
+// unit count a bite of N produces is ≤ N. Dividing by the per-UNIT cost therefore over-charges every fire whose
+// units carry more than one range, and is exact in the worst case of one range per unit. It errs toward a
+// smaller bite, which is the direction a bound is allowed to err in.
+// ⛔ WHY NOT 386, the figure CAPTURE_BUDGET_MS would give: 235,000 ÷ 608 = 386, and 70,982 + 235,000 = 305,982 ms
+// against a 300,000 ms kill. 386 would authorise a fire that the platform terminates mid-work — the one outcome
+// the round forbade — and the admission rule could not save it, because that rule's clock cannot see the scan.
+// ⛔ THE OLD DERIVATION, KEPT SO THE MOVE IS LEGIBLE: CAPTURE_BUDGET_MS 235,000 ÷ a serial per-request cycle of
+// 3,277 ms (2,735 ms descend attempt_started→attempt_finished p90, N=1,429 + 542 ms p50 inter-attempt gap,
+// N=1,025) = 71.7 ⇒ 71.
+// ⛔ 360 × 288 fires/day = 103,680/day of ceiling, up from 20,448. It is not a share of anything: Standard
+// access removed the daily operations cap (LORAMER_CAP_FOLLOWS_GRANT_V1), so this bound answers to the fire's
+// clock and to Postgres, never to a vendor quota. ⚠ IT IS A CEILING, NOT A FORECAST — what a fire can actually
+// spend is bounded by what the scan OFFERS it, and that is the next constraint, named below.
 //
 // ⛔ WHY RAISING IT CANNOT OVERRUN THE CEILING, and this is the property that made the change small: the
 // execution loop ALREADY sizes itself against its own remaining time. Before every unit it asks
@@ -129,11 +154,16 @@ export type ResumeVerdict =
 // deferred, not truncated, and a deferred unit opened no attempt and is re-derived next fire. The bite
 // decides how much is OFFERED to that loop; the loop decides how much runs. This change stops the COUNT
 // binding before the CLOCK does; it does not remove a stop, and it adds no new way to be cut off mid-work.
-// ⚠ AND THE NEXT CONSTRAINT IS NAMED RATHER THAN DISCOVERED: with the bite at 71 the scan cap
-// (MAX_ENTRIES_SCANNED_PER_RUN = 60) becomes the binding bound on most fires — measured 2026-09-15,
-// scan_completed on 35 of 35 bounded fires. Raising THAT costs scan time against a 55 s allowance already
-// measured at ~57 s, so it is a different flight with a different trade.
-export const MAX_REQUESTS_PER_RUN = 71
+// ⚠ AND THE NEXT CONSTRAINT IS NAMED RATHER THAN DISCOVERED, with the measurement that names it: the scan cap
+// (MAX_ENTRIES_SCANNED_PER_RUN = 60) is what OFFERS work to this bite, and it offered 60 candidates on every
+// full-bite fire of the 19. At the old 71 the two bounds interleaved — a fire whose candidates carried one range
+// each was capped by the SCAN (60 candidates + 8 missed + 2 lookback = 68 requests, under the bite), while a
+// fire whose candidates carried several ranges was capped by the BITE (measured 2026-09-16T01:2xZ: 60 candidates
+// offered, 37 taken, 23 DROPPED FOR BOUND at 69 of 71 requests). Raising the bite removes the second case only.
+// Raising the scan cap is the change that would raise the first, and it costs scan time against an allowance
+// that is ALREADY exceeded on 16 of 19 fires — a different flight with a different trade, and it must wait on
+// ★SCAN-ALLOWANCE-IS-16S-SHORT.
+export const MAX_REQUESTS_PER_RUN = 360
 
 /**
  * ⛔ AND A SECOND, INDEPENDENT BOUND ON HOW MUCH THE RUN MAY *LOOK* AT. Coverage costs ~30 indexed reads per

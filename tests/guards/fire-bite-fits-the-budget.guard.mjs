@@ -10,10 +10,18 @@
 // that actually binds now: the fire runs its units INLINE, so the bite answers to CAPTURE_BUDGET_MS.
 //
 // THE TWO PROPERTIES, and they are different claims:
-//   (a) THE BITE FITS THE BUDGET. bite × the measured worst request cycle ≤ CAPTURE_BUDGET_MS. If the bite
-//       may ask for more time than the budget holds, the fire is relying on the loop to save it every time
-//       rather than only at the margin — and a bound that is always wrong in the safe direction is not a
-//       bound, it is a number someone will later "fix" upward without measuring.
+//   (a) THE BITE FITS THE TIME THE FIRE ACTUALLY HAS. bite × the measured worst unit cycle ≤ the ceiling minus
+//       the scan minus one unit reservation. If the bite may ask for more time than the fire holds, the fire is
+//       relying on the loop to save it every time rather than only at the margin — and a bound that is always
+//       wrong in the safe direction is not a bound, it is a number someone will later "fix" upward without
+//       measuring.
+//       ⛔ RE-CUT 2026-09-16 — THE SCAN IS CHARGED AT max(ALLOWANCE, WORST MEASURED), NOT AT THE ALLOWANCE.
+//       CAPTURE_BUDGET_MS is defined as 300,000 − SCAN_ALLOWANCE_MS 55,000 − 10,000, and the capture clock
+//       (`captureStartedAt`) starts AFTER the scan — so the contract's budget is only true while the scan fits
+//       its allowance. Measured on the shipped concurrent code, the scan ran over 55 s on 16 of 19 fires, worst
+//       70,982 ms. A bite derived from 235,000 would therefore authorise scan+capture of 305,982 ms against a
+//       300,000 ms platform kill: the ONE thing the round called non-negotiable. Charging the larger of the two
+//       makes the identity safe whichever way the allowance is later corrected.
 //   (b) THE LOOP CANNOT BE CUT OFF MID-WORK. `shouldStartAnotherLap` is DRIVEN here, not read: a unit is
 //       admitted only when the WORST unit observed so far still fits inside the budget, and the reservation
 //       floor covers a unit that has not been measured yet. This is the property the round called
@@ -54,23 +62,38 @@ const floorMs = num(contract, 'UNIT_RESERVATION_FLOOR_MS')
 if (bite === null) findings.push(`(a) MAX_REQUESTS_PER_RUN not found in ${RESUMER} — the bound this invariant is about has moved or vanished.`)
 if (ceilingS === null || scanMs === null || floorMs === null) findings.push(`(a) the timing constants could not be read from ${CONTRACT}; the budget cannot be recomputed.`)
 
-// ⛔ THE CYCLE IS READ FROM THE BITE'S OWN DERIVATION, NOT RETYPED HERE. A guard that carries its own copy of
-// the measurement is a second source of truth for the same fact, and the two drift. The header must state the
-// ms figure it divided by; this reads that figure back out and redoes the division.
+// ⛔ THE CYCLE AND THE SCAN ARE READ FROM THE BITE'S OWN DERIVATION, NOT RETYPED HERE. A guard that carries its
+// own copy of a measurement is a second source of truth for the same fact, and the two drift. The header must
+// state both ms figures it divided from; this reads them back out and redoes the division.
 const cycleM = resumer.match(/WORST measured cycle\s*=\s*([0-9][0-9,_]*)\s*ms/)
 const cycleMs = cycleM ? Number(cycleM[1].replace(/[,_]/g, '')) : null
 if (cycleMs === null) {
-  findings.push(`(a) ${RESUMER} does not state the per-request cycle its bite was divided from ("WORST measured cycle = <n> ms"). The bite is then a number with no derivation on the line, which is the class this repo refuses.`)
+  findings.push(`(a) ${RESUMER} does not state the per-unit cycle its bite was divided from ("WORST measured cycle = <n> ms"). The bite is then a number with no derivation on the line, which is the class this repo refuses.`)
 }
-if (bite !== null && ceilingS !== null && scanMs !== null && floorMs !== null && cycleMs !== null) {
-  const budgetMs = ceilingS * 1000 - scanMs - floorMs
+const scanMeasuredM = resumer.match(/WORST measured scan\s*=\s*([0-9][0-9,_]*)\s*ms/)
+const scanMeasuredMs = scanMeasuredM ? Number(scanMeasuredM[1].replace(/[,_]/g, '')) : null
+if (scanMeasuredMs === null) {
+  findings.push(`(a) ${RESUMER} does not state the WORST MEASURED SCAN its bite was derived against ("WORST measured scan = <n> ms"). CAPTURE_BUDGET_MS charges the scan at SCAN_ALLOWANCE_MS and the capture clock starts after the scan, so a bite derived without a measured scan figure is derived against an assumption — and on this fleet that assumption is false on most fires.`)
+}
+if (bite !== null && ceilingS !== null && scanMs !== null && floorMs !== null && cycleMs !== null && scanMeasuredMs !== null) {
+  const ceilingMs = ceilingS * 1000
+  // The scan is charged at whichever is LARGER: what the contract allows, or what the fleet was measured doing.
+  const scanCharge = Math.max(scanMs, scanMeasuredMs)
+  const budgetMs = ceilingMs - scanCharge - floorMs
   const wants = bite * cycleMs
   if (wants > budgetMs) {
-    findings.push(`(a) THE BITE ASKS FOR MORE TIME THAN THE FIRE HAS: ${bite} requests × ${cycleMs} ms = ${wants} ms against a ${budgetMs} ms capture budget (${ceilingS}s ceiling − ${scanMs} scan − ${floorMs} reservation). Either the bite is too large for the measured pace or the pace has been re-measured and this line was not.`)
+    findings.push(`(a) THE BITE ASKS FOR MORE TIME THAN THE FIRE HAS: ${bite} × ${cycleMs} ms = ${wants} ms against ${budgetMs} ms of real room (${ceilingMs} ceiling − ${scanCharge} scan charged at max(allowance ${scanMs}, measured ${scanMeasuredMs}) − ${floorMs} reservation). Either the bite is too large for the measured pace or the pace has been re-measured and this line was not.`)
   }
   const affords = Math.floor(budgetMs / cycleMs)
   if (bite !== affords) {
-    findings.push(`(a) the bite is ${bite} but the budget affords ${affords} at ${cycleMs} ms/request (${budgetMs} ÷ ${cycleMs}). The bite must BE the derivation, not sit near it — a gap here is where the next unexplained constant comes from.`)
+    findings.push(`(a) the bite is ${bite} but the fire's real room affords ${affords} at ${cycleMs} ms/unit (${budgetMs} ÷ ${cycleMs}). The bite must BE the derivation, not sit near it — a gap here is where the next unexplained constant comes from.`)
+  }
+  // ⛔ THE CEILING PROPERTY, STATED AS ITS OWN ASSERTION RATHER THAN LEFT TO FOLLOW FROM THE ONE ABOVE. This is
+  // the claim the round called non-negotiable: a fire must never be killed mid-work. The platform kills at the
+  // ceiling, and scan + capture + one unmeasured unit is the whole of a fire.
+  const worstFire = scanCharge + wants + floorMs
+  if (worstFire > ceilingMs) {
+    findings.push(`(a) A FIRE AT THIS BITE CAN BE KILLED MID-WORK: worst scan ${scanCharge} + bite work ${wants} + reservation ${floorMs} = ${worstFire} ms against a ${ceilingMs} ms platform kill. The loop's admission rule cannot save it, because the admission budget is measured from the END of the scan and therefore cannot see the scan's overshoot.`)
   }
 }
 
@@ -130,4 +153,4 @@ if (findings.length) {
   console.error(`[fire-bite-fits-the-budget] FAIL — ${findings.length} finding(s).`)
   process.exit(1)
 }
-console.log(`[fire-bite-fits-the-budget] PASS — the bite (${bite}) IS the capture budget divided by the measured worst request cycle, the admission rule refuses a unit that would not fit and reserves the floor for an unmeasured one (6 fixtures), and the loop still consults it and records what it deferred. LIMIT: this proves the arithmetic and the rule, never that a single unit finishes inside the reservation.`)
+console.log(`[fire-bite-fits-the-budget] PASS — the bite (${bite}) IS the fire's real room divided by the measured worst unit cycle (${cycleMs} ms), the scan is charged at max(allowance ${scanMs}, measured ${scanMeasuredMs}) so scan + bite work + reservation cannot reach the ${ceilingS}s kill, the admission rule refuses a unit that would not fit and reserves the floor for an unmeasured one (6 fixtures), and the loop still consults it and records what it deferred. LIMIT: this proves the arithmetic and the rule, never that a single unit finishes inside the reservation.`)
