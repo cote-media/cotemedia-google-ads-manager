@@ -38,7 +38,7 @@
 // shared with all four existing boundaries, and changing it is a live-path behaviour change for the drain and
 // catchup. Banked as ★QUOTA-CLASSIFIER-CONFLATES-DAILY-EXHAUSTION-WITH-RATE-LIMITING; deliberately NOT done here.
 // ⛔ CONSTRUCTED THROUGH THE CHOKE POINT — LORAMER_GOOGLE_CLIENT_CHOKE_POINT_V1 (inert path, migrated first).
-import { googleAdsCustomerFor } from '@/lib/google-ads-client'
+import { withGoogleAdsStream } from '@/lib/google-ads-client' // LORAMER_DIRECT_ACCESS_CUSTOMER_V1 — manager first, direct only on a pre-first-row permission refusal
 import { supabaseAdmin } from '@/lib/supabase'
 import { noteGoogleQuotaError } from './google-quota-store' // LORAMER_QUOTA_ARM_AT_ERROR_BOUNDARY_V1 — boundary 5 of 5
 
@@ -50,11 +50,11 @@ export async function googleAdsStreamFor(
   if (error || !data?.refresh_token) {
     throw new Error(`No Google refresh token for ${userEmail}: ${error?.message ?? 'not found'}`)
   }
-  const customer = googleAdsCustomerFor({ refreshToken: data.refresh_token, customerId })
+  const key = { refreshToken: data.refresh_token as string, customerId }
   // ⛔ THE GENERATOR IS WRAPPED SO THE ERROR BOUNDARY SITS AROUND THE PULL, WHERE THE REJECTION ACTUALLY
   // ARRIVES. `yield*` delegates every row through unchanged — no buffering is introduced, so the streaming
   // property the whole rebuild rests on is untouched — and the catch arms the sentinel before re-throwing.
-  return (gaql: string) => armingStream(() => customer.queryStream(gaql) as AsyncGenerator<any>)
+  return (gaql: string) => armingStream(() => withGoogleAdsStream(key, (c) => c.queryStream(gaql) as AsyncGenerator<any>))
 }
 
 /**

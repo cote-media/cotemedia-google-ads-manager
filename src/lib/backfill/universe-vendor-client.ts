@@ -13,12 +13,12 @@
 // recorded here and the assumption is replaced.
 // ⛔ CONSTRUCTED THROUGH THE CHOKE POINT — LORAMER_GOOGLE_CLIENT_CHOKE_POINT_V1. This file is INERT
 // (the v1 walk is idle) and was migrated first for exactly that reason: zero live traffic, zero risk.
-import { googleAdsCustomerFor } from '@/lib/google-ads-client'
+import { withGoogleAdsCustomer } from '@/lib/google-ads-client' // LORAMER_DIRECT_ACCESS_CUSTOMER_V1 — manager first, direct only on a permission refusal
 import { supabaseAdmin } from '@/lib/supabase'
 
 export async function googleAdsQueryFor(userEmail: string, customerId: string): Promise<(gaql: string) => Promise<any[]>> {
   const { data, error } = await supabaseAdmin.from('google_tokens').select('refresh_token').eq('user_email', userEmail).single()
   if (error || !data?.refresh_token) throw new Error(`No Google refresh token for ${userEmail}: ${error?.message ?? 'not found'}`)
-  const customer = googleAdsCustomerFor({ refreshToken: data.refresh_token, customerId })
-  return (gaql: string) => customer.query(gaql) as Promise<any[]>
+  const key = { refreshToken: data.refresh_token as string, customerId }
+  return (gaql: string) => withGoogleAdsCustomer(key, (c) => c.query(gaql) as Promise<any[]>)
 }

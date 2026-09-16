@@ -15,25 +15,110 @@ function getCustomer(refreshToken: string, customerId: string) {
   })
 }
 
+/**
+ * LORAMER_DIRECT_ACCESS_CUSTOMER_V1 — WHAT THIS LOGIN CAN ACTUALLY REACH, WHICH IS A STRICT SUPERSET OF WHAT
+ * IT USED TO RETURN.
+ *
+ * ⛔ WHAT IT USED TO DO, AND WHY THAT COULD NEVER SERVE A CUSTOMER WHO IS NOT US: it asked the token for the
+ * `customer_client` children of OUR OWN manager account, at `level = 1`. A stranger's token was being asked
+ * for the contents of Russ's manager account, so their own accounts could not appear in the list however
+ * valid their authorization was. MEASURED 2026-09-16: that query returned 17 accounts for the owner token
+ * while `ListAccessibleCustomers` returned 20 for the same token — 3 the picker could not show, of which 5
+ * live accounts across the wider set sit outside the manager entirely.
+ *
+ * ⛔ THE HIERARCHY QUERY IS KEPT, NOT REPLACED, AND THE REASON IS COST. It names every account under the
+ * manager in ONE request, and that is the common case for the existing fleet. `ListAccessibleCustomers` costs
+ * nothing extra (Google's own doc: the `login-customer-id` header "is not required for this request type, and
+ * has no effect on the list of customers returned") but it returns IDS ONLY, so a name for an account outside
+ * the manager costs one request each. Paying that only for the accounts the old path could not show keeps the
+ * existing fleet's picker at the request count it has today.
+ *
+ * ⚠ A DIRECTLY-REACHED ACCOUNT WHOSE NAME LOOKUP FAILS IS STILL RETURNED, WITH ITS ID AS ITS NAME — EXCEPT A
+ * DEACTIVATED ONE, WHICH IS DROPPED. Those two are not the same case and the live run is what separated them:
+ * of the 8 accounts this newly reaches for the owner token, 5 named cleanly and 3 came back
+ * *"not yet enabled or has been deactivated"*. A deactivated account can never produce a row, so listing it as
+ * a bare number is a TRAP — the customer maps it and the walk then captures nothing, which is the silent-empty
+ * shape this repo refuses. An account that merely failed to NAME itself is a different thing: it may still be
+ * usable, so it is kept and shown by id rather than hidden.
+ */
 export async function listAccessibleAccounts(refreshToken: string) {
-  const customer = client.Customer({
-    customer_id: process.env.GOOGLE_ADS_MANAGER_ACCOUNT_ID!,
-    refresh_token: refreshToken,
-    login_customer_id: process.env.GOOGLE_ADS_MANAGER_ACCOUNT_ID!,
-  })
-  const rows = await customer.query(`
-    SELECT customer_client.client_customer, customer_client.descriptive_name,
-    customer_client.currency_code, customer_client.time_zone, customer_client.status
-    FROM customer_client
-    WHERE customer_client.level = 1
-    AND customer_client.status = 'ENABLED'
-  `)
-  return rows.map((row: any) => ({
-    id: String(row.customer_client.client_customer || '').replace('customers/', ''),
-    name: String(row.customer_client.descriptive_name || ''),
-    currency: String(row.customer_client.currency_code || ''),
-    timezone: String(row.customer_client.time_zone || ''),
+  const manager = process.env.GOOGLE_ADS_MANAGER_ACCOUNT_ID!
+  const out = new Map<string, { id: string; name: string; currency: string; timezone: string }>()
+
+  // (1) everything under OUR manager, one request, names included — unchanged from before this change.
+  try {
+    const customer = client.Customer({ customer_id: manager, refresh_token: refreshToken, login_customer_id: manager })
+    const rows = await customer.query(`
+      SELECT customer_client.client_customer, customer_client.descriptive_name,
+      customer_client.currency_code, customer_client.time_zone, customer_client.status
+      FROM customer_client
+      WHERE customer_client.level = 1
+      AND customer_client.status = 'ENABLED'
+    `)
+    for (const row of rows as any[]) {
+      const id = String(row.customer_client.client_customer || '').replace('customers/', '')
+      if (id) out.set(id, {
+        id,
+        name: String(row.customer_client.descriptive_name || ''),
+        currency: String(row.customer_client.currency_code || ''),
+        timezone: String(row.customer_client.time_zone || ''),
+      })
+    }
+  } catch (e: any) {
+    // ⛔ NOT FATAL AND NOT SILENT. A token with no relationship to our manager — which is every future
+    // customer — is REFUSED here, and that refusal is the normal case for them, not an error for us.
+    console.log(`[google-ads] manager hierarchy unavailable for this token (normal for a customer who is not under it): ${e?.errors?.[0]?.message ?? e?.message ?? e}`)
+  }
+
+  // (2) everything the TOKEN reaches directly, whatever hierarchy it sits in.
+  const reachable = await listReachableCustomerIds(refreshToken)
+  for (const id of reachable) {
+    if (out.has(id) || id === String(manager).replace(/-/g, '')) continue
+    out.set(id, { id, name: id, currency: '', timezone: '' })
+  }
+
+  // (3) name the ones the hierarchy query could not name — one request each, direct access only.
+  // ⛔ DEACTIVATED IS NOT "UNNAMED". The vendor says so in its own words and the two get different fates.
+  const DEACTIVATED = /not yet enabled|has been deactivated|CUSTOMER_NOT_ENABLED/i
+  const drop = new Set<string>()
+  await Promise.all([...out.values()].filter((a) => a.name === a.id).map(async (a) => {
+    try {
+      const c = client.Customer({ customer_id: a.id, refresh_token: refreshToken })
+      const rows = await c.query('SELECT customer.descriptive_name, customer.currency_code, customer.time_zone FROM customer LIMIT 1')
+      const r = (rows as any[])[0]?.customer
+      if (r) {
+        a.name = String(r.descriptive_name || a.id)
+        a.currency = String(r.currency_code || '')
+        a.timezone = String(r.time_zone || '')
+      }
+    } catch (e: any) {
+      const msg = String(e?.errors?.[0]?.message ?? e?.message ?? e)
+      if (DEACTIVATED.test(msg)) {
+        drop.add(a.id)
+        console.log(`[google-ads] ${a.id}: DEACTIVATED — not offered. Mapping it would capture nothing and read as an empty account.`)
+      } else {
+        console.log(`[google-ads] ${a.id}: reachable but not nameable — offered by id: ${msg}`)
+      }
+    }
   }))
+
+  return [...out.values()].filter((a) => !drop.has(a.id))
+}
+
+/**
+ * `CustomerService.ListAccessibleCustomers` — the customers THIS TOKEN can reach, by the vendor's own account.
+ * ⛔ NO `login-customer-id`, and that is the vendor's instruction rather than our preference: Google documents
+ * that the header "is not required for this request type, and has no effect on the list of customers returned."
+ */
+export async function listReachableCustomerIds(refreshToken: string): Promise<string[]> {
+  try {
+    const names = await client.listAccessibleCustomers(refreshToken)
+    const list = (names as any)?.resource_names ?? (names as any)?.resourceNames ?? names
+    return (Array.isArray(list) ? list : []).map((n: string) => String(n).split('/')[1]).filter(Boolean)
+  } catch (e: any) {
+    console.error(`[google-ads] listAccessibleCustomers failed: ${e?.errors?.[0]?.message ?? e?.message ?? e}`)
+    return []
+  }
 }
 
 // LORAMER_GAQL_DATE_WINDOW_V1 — `DURING ${dateRange}` breaks on LAST_90_DAYS/CUSTOM (not GAQL enums); one
