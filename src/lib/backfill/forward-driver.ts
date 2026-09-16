@@ -32,6 +32,7 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { loadUniverse, selectableEntries, readWalkStopAccountFacts, type UniverseEntry } from '@/lib/backfill/google-ads-universe-writer'
 import { googleAdsCaptureAdapter, surfaceOfEntry } from '@/lib/backfill/capture-adapters/google-ads.adapter'
+import { captureEntityDimension, type DimensionCaptureReport } from '@/lib/backfill/entity-dimension-capture' // LORAMER_ENTITY_DIMENSION_V1
 import { drainAliasFor, DEALIASED_BASE_SURFACES } from '@/lib/backfill/universe-surfaces' // LORAMER_WALK_BASE_DEALIAS_V1 — the four bases are two-writer-two-key
 import { captureSurfaceStreaming } from '@/lib/backfill/universe-stream-capture'
 import { googleAdsStreamFor } from '@/lib/backfill/universe-vendor-stream'
@@ -101,6 +102,8 @@ export interface DriverRunReport {
   restSurfaces: number
   excludedClients: string[]
   units: DriverUnitReport[]
+  /** LORAMER_ENTITY_DIMENSION_V1 — one entry per client whose dimension was refreshed this run. */
+  entityDimension: DimensionCaptureReport[]
 }
 
 export interface RunForwardDriverOpts {
@@ -160,7 +163,7 @@ export async function runForwardDriver(opts: RunForwardDriverOpts): Promise<Driv
   const report: DriverRunReport = {
     targetDate: D, dryRun: dry, startedAt: new Date(started).toISOString(), elapsedMs: 0,
     catalogueSurfaces: catalogue.heavy.length + catalogue.rest.length, heavySurfaces: catalogue.heavy.length, restSurfaces: catalogue.rest.length,
-    excludedClients: [...DRIVER_EXCLUDED_CLIENTS], units: [],
+    excludedClients: [...DRIVER_EXCLUDED_CLIENTS], units: [], entityDimension: [],
   }
 
   let q = supabaseAdmin.from('clients').select('id, user_email, platform_connections(*)').is('deleted_at', null)
@@ -180,6 +183,21 @@ export async function runForwardDriver(opts: RunForwardDriverOpts): Promise<Driv
       const customerId = conn.account_id
       const userEmail = conn.user_email || client.user_email || ''
       const state = await readSliceObservationState({ clientId: client.id, vendor: 'google', windowEnd: D })
+
+      // ⛔ LORAMER_ENTITY_DIMENSION_V1 — ONCE PER CLIENT PER DRIVER RUN, BESIDE THE CAPTURE LOOP.
+      // Three UN-SEGMENTED queries refresh this account's current names and its real parent chain. It runs
+      // HERE and not in the walk because the write path is the measured ceiling and this flight may not slow
+      // capture: a fire's cost is unchanged because a fire does not do this.
+      // ⛔ SOFT BY CONSTRUCTION — it never throws and its failure never costs the driver a row of real work.
+      // An unchanged account writes NOTHING, so the steady-state cost is 3 reads and 0 writes.
+      if (!dry) {
+        try {
+          const dim = await captureEntityDimension({ clientId: client.id, userEmail, customerId, log })
+          report.entityDimension.push(dim)
+        } catch (e: any) {
+          log(`[forward-driver] ${client.id}: entity dimension threw (work unaffected): ${e?.message ?? e}`)
+        }
+      }
 
       for (const slice of DRIVER_SLICES) {
         const entries = slice === 'HEAVY' ? catalogue.heavy : catalogue.rest

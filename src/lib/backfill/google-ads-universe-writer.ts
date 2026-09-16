@@ -25,6 +25,7 @@ import { upsertMetricsChunked, type ChunkedUpsertResult } from '@/lib/metrics-up
 import { describeGaqlError } from '@/lib/intelligence/google-intelligence'
 // ⛔ THE CANONICAL KEY FORMS LIVE AS DATA IN THE SURFACE MODULE — LORAMER_CANONICAL_KEY_SPELLING_V1.
 import { canonicalEntityId, canonicalBreakdownValue, breakdownTypeForSurface } from '@/lib/backfill/universe-surfaces'
+import { parentFromResourceName } from '@/lib/backfill/entity-dimension' // LORAMER_ENTITY_DIMENSION_V1 — the parent the vendor's own id already carries
 
 export interface UniverseEntry {
   resource: string
@@ -1010,7 +1011,16 @@ export function buildUniverseRowsAtGrain(entry: UniverseEntry, ctx: BuildCtx, ap
     const convValue = Number(a.convValue.toFixed(2))
     out.push({
       client_id: ctx.clientId, user_email: ctx.userEmail, platform: 'google', account_id: ctx.customerId,
-      entity_level: level, entity_id: a.entityId, entity_name: null, parent_entity_id: ctx.customerId,
+      // ⛔ LORAMER_ENTITY_DIMENSION_V1 — THE REAL PARENT WHERE THE VENDOR'S OWN ID CARRIES IT.
+      // `customers/{cid}/adGroupAds/{adGroupId}~{adId}` encodes its ad group, and Google's resource-name
+      // doc says so explicitly, so this costs ZERO requests — the link was already in the row and was
+      // being discarded. Every other shape falls back to the ACCOUNT, exactly as before: a campaign's
+      // parent IS the account, and an ad group's logical parent (its campaign) is NOT in its id, so
+      // guessing there would be confidently wrong. That link and every NAME come from the dimension.
+      // ⚠ `entity_name` STAYS NULL ON THE FACT ROW, BY RULING. Russ 2026-09-15: screens show the CURRENT
+      // name, looked up — a name stamped on a dated row is a copy that goes stale the day it is renamed.
+      entity_level: level, entity_id: a.entityId, entity_name: null,
+      parent_entity_id: parentFromResourceName(a.entityId) ?? ctx.customerId,
       date: a.date, breakdown_type: bt, breakdown_value: a.value,
       spend, impressions: a.impressions, clicks: a.clicks, conversions: a.conversions,
       conversion_value: convValue, revenue: 0,
@@ -1077,7 +1087,16 @@ export function buildDerivedTimeRows(entry: UniverseEntry, ctx: BuildCtx, apiRow
       const anchor = [...a.days].sort()[0]
       out.push({
         client_id: ctx.clientId, user_email: ctx.userEmail, platform: 'google', account_id: ctx.customerId,
-        entity_level: level, entity_id: a.entityId, entity_name: null, parent_entity_id: ctx.customerId,
+        // ⛔ LORAMER_ENTITY_DIMENSION_V1 — THE REAL PARENT WHERE THE VENDOR'S OWN ID CARRIES IT.
+      // `customers/{cid}/adGroupAds/{adGroupId}~{adId}` encodes its ad group, and Google's resource-name
+      // doc says so explicitly, so this costs ZERO requests — the link was already in the row and was
+      // being discarded. Every other shape falls back to the ACCOUNT, exactly as before: a campaign's
+      // parent IS the account, and an ad group's logical parent (its campaign) is NOT in its id, so
+      // guessing there would be confidently wrong. That link and every NAME come from the dimension.
+      // ⚠ `entity_name` STAYS NULL ON THE FACT ROW, BY RULING. Russ 2026-09-15: screens show the CURRENT
+      // name, looked up — a name stamped on a dated row is a copy that goes stale the day it is renamed.
+      entity_level: level, entity_id: a.entityId, entity_name: null,
+      parent_entity_id: parentFromResourceName(a.entityId) ?? ctx.customerId,
         date: anchor, breakdown_type: fam.breakdownType, breakdown_value: a.period,
         spend, impressions: a.impressions, clicks: a.clicks, conversions: a.conversions,
         conversion_value: convValue, revenue: 0,

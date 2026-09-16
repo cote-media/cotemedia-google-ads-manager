@@ -185,6 +185,39 @@ if (mig) {
   }
 }
 
+// ── (i) THE WRITER SETS THE REAL PARENT, AND STILL LEAVES THE NAME OFF THE FACT ROW ─────────────────
+{
+  const W = read('src/lib/backfill/google-ads-universe-writer.ts')
+  const sites = (W.match(/parent_entity_id: parentFromResourceName\(a\.entityId\) \?\? ctx\.customerId/g) || []).length
+  if (sites !== 2) {
+    findings.push(`(i) the writer sets the derived parent at ${sites} row-build site(s), expected 2. A site left on the old rule keeps writing a flat hierarchy for whichever family it builds.`)
+  }
+  if (/entity_name: [^n]/.test(W)) {
+    findings.push(`(i) the writer stamps a name onto a FACT row. Russ's 2026-09-15 ruling is that screens show the CURRENT name, looked up — a name copied onto dated rows goes stale the day the entity is renamed, and 98,060 such copies is the drift this dimension exists to prevent.`)
+  }
+}
+
+// ── (j) THE DIMENSION CAPTURE RUNS BESIDE THE CAPTURE LOOP, NOT INSIDE IT ───────────────────────────
+{
+  const driver = read('src/lib/backfill/forward-driver.ts')
+  if (!/captureEntityDimension\(/.test(driver)) {
+    findings.push(`(j) the forward driver does not refresh the dimension. Names and parents would then only ever exist for entities captured before this shipped.`)
+  }
+  for (const f of ['src/app/api/cron/universe-resume/route.ts', 'src/lib/backfill/universe-v2-worker.ts', 'src/lib/backfill/universe-stream-capture.ts']) {
+    const src = read(f)
+    if (src && /captureEntityDimension|DIMENSION_READS/.test(src)) {
+      findings.push(`(j) ${f} runs the dimension read INSIDE the capture path. The write path is the measured ceiling and this must not grow a fire's cost — the dimension belongs beside the loop, in the driver.`)
+    }
+  }
+  const cap = read('src/lib/backfill/entity-dimension-capture.ts')
+  if (cap && !/never throws|NEVER throws|soft|SOFT/i.test(cap)) {
+    findings.push(`(j) the dimension capture does not declare itself soft. A names refresh that can fail the driver's real work trades metrics for enrichment, which is the wrong half of that bargain.`)
+  }
+  if (cap && !/onConflict: 'client_id,platform,entity_level,entity_id'/.test(cap)) {
+    findings.push(`(j) the dimension upsert does not target the natural key, so a re-run could create a second copy — the one thing a re-capture may never do.`)
+  }
+}
+
 if (findings.length) {
   console.error(`[entity-dimension] FAIL — ${findings.length} finding(s):`)
   for (const f of findings) console.error(`  - ${f}`)
