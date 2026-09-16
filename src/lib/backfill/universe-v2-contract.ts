@@ -76,27 +76,55 @@ export const CONSUMER_MAX_DURATION_S = 300
 export const LEASE_TTL_S = CONSUMER_MAX_DURATION_S + 30
 
 /**
- * ⛔ THE INLINE FIRE'S TIME BUDGET — LORAMER_QUEUE_REMOVED_INLINE_WALK_V1. Three constants, one
- * identity, pinned by `inline-fire-fits-the-ceiling.guard.mjs`:
- *   SCAN_ALLOWANCE_MS + CAPTURE_BUDGET_MS + UNIT_RESERVATION_FLOOR_MS ≤ CONSUMER_MAX_DURATION_S × 1000
+ * ⛔ THE FIRE'S WORK BUDGET — LORAMER_FIRE_DEADLINE_FROM_FIRE_START_V1, 2026-09-16. ONE number, ONE
+ * clock, and the clock starts when the FIRE starts. Pinned by `inline-fire-fits-the-ceiling.guard.mjs`:
+ *   FIRE_WORK_BUDGET_MS + UNIT_RESERVATION_FLOOR_MS = CONSUMER_MAX_DURATION_S × 1000
  *
- * SCAN_ALLOWANCE_MS — what the selection scan may take before capture begins. DERIVED from the live
- * pdx1 ledger 2026-08-22 (universe_fire_log, scanned=60, N=25): mean 47,489 · p50 47,410 · p99 50,434 ·
- * max 50,692. 55,000 covers the observed max +8.5%. ⚠ Re-derive if the scan's shape changes (more
- * clients per fire, coverage batching).
+ * ⛔ WHAT THIS REPLACES, AND WHY IT IS A CORRECTNESS FIX RATHER THAN A RE-TUNE. The budget used to be
+ * `300,000 − SCAN_ALLOWANCE_MS − UNIT_RESERVATION_FLOOR_MS`, and the capture clock started AFTER the
+ * scan (`captureStartedAt = Date.now()`). So the deadline FLOATED: every millisecond the scan ran over
+ * its allowance was a millisecond added to the fire's total, invisible to the admission rule. A fire
+ * that actually spent its budget ran `scan + 235,000` against a 300,000 ms kill and would have died
+ * MID-WORK — the one outcome [[LORAMER_FIRE_BITE_FITS_THE_BUDGET_V1]] exists to prevent.
  *
- * CAPTURE_BUDGET_MS — what the unit loop may consume. (300 − 55)s minus ONE reservation floor: the
- * floor IS the kill-margin — after the loop stops admitting, one worst-case unit plus the post-loop
- * writes (heartbeat + lease release, measured ≤82ms at pdx1) still fit under the platform kill.
+ * ⛔ AND THE ALLOWANCE COULD NOT BE FIXED BY RAISING IT. MEASURED 2026-09-16 on the SHIPPED concurrent
+ * code (n=157 wet fires since the 02:51Z bite deploy; scan derived per fire as first
+ * `universe_attempt_log.recorded_at` minus fire start): min 22,963 · p50 65,380 · p90 83,848 ·
+ * p99 133,891 · MAX 139,911 ms. **132 of 157 exceeded the 55,000 allowance, and 45 of 157 exceeded the
+ * 71,000 the queue item proposed as its replacement** — a constant proposed against a 19-fire sample
+ * was already wrong for 29% of fires one day later, because the scan's cost tracks entries × coverage
+ * probes and that grows with clients and surfaces. A per-phase allowance must be re-tuned every time
+ * the phase changes shape. AN ABSOLUTE DEADLINE NEVER DOES: whatever the scan spends simply is not
+ * available to capture, automatically, at any scan duration including ones never measured.
  *
- * UNIT_RESERVATION_FLOOR_MS — the reservation for a unit not yet measured this fire. DERIVED: all-time
- * per-range p99 6,768ms (N=14,154) × 1.48 ≈ 10,000. ⚠ The ×1.48 is a DECLARED SAFETY FACTOR, not a
- * measurement: the post-pin regime (N=277, max 2,221ms) is one afternoon old and the all-time tail
- * spans the slow-write iad1 regime. Re-derive from pdx1-only data after ~7 days (≈2026-08-29).
+ * FIRE_WORK_BUDGET_MS — the latest point at which a unit may still be ADMITTED, measured from fire
+ * start. The unit loop, the range admission inside the worker, and every mis-size continuation all
+ * reserve against this one number via `fireDeadlineAt()`.
+ *
+ * UNIT_RESERVATION_FLOOR_MS — unchanged, and it is doing TWO jobs, both stated: the reservation for a
+ * unit not yet measured this fire, AND the kill-margin — after the loop stops admitting, one
+ * worst-case unit plus the post-loop writes (heartbeat + lease release, measured ≤82ms at pdx1) still
+ * fit under the platform kill. DERIVED: all-time per-range p99 6,768ms (N=14,154) × 1.48 ≈ 10,000.
+ * ⚠ The ×1.48 is a DECLARED SAFETY FACTOR, not a measurement.
+ *
+ * ⚠ WHAT THIS DOES **NOT** BOUND, said plainly so nobody reads it as more than it is: the SCAN itself.
+ * A scan that alone exceeds the budget yields a fire that admits NOTHING and records that — safe, and
+ * strictly better than today's, which would admit units and overrun the kill — but it is still a fire
+ * that did no work. Bounding the scan is the ENTRY-CAP flight (QUEUE ★SCAN-ALLOWANCE-IS-16S-SHORT's
+ * sibling ★COVERAGE-DAY-SET-RPC), deliberately not done here.
  */
-export const SCAN_ALLOWANCE_MS = 55_000
 export const UNIT_RESERVATION_FLOOR_MS = 10_000
-export const CAPTURE_BUDGET_MS = (CONSUMER_MAX_DURATION_S * 1000) - SCAN_ALLOWANCE_MS - UNIT_RESERVATION_FLOOR_MS
+export const FIRE_WORK_BUDGET_MS = (CONSUMER_MAX_DURATION_S * 1000) - UNIT_RESERVATION_FLOOR_MS
+
+/**
+ * ⛔ THE ONE PLACE A FIRE DEADLINE IS COMPUTED. Callers pass the moment the FIRE started — never the
+ * moment a later phase started — and get the absolute epoch-ms ceiling every admission reserves
+ * against. A function rather than a constant because the only way to get this wrong is to add the
+ * budget to the wrong clock, and a function makes that clock a named argument the guard can read.
+ */
+export function fireDeadlineAt(fireStartedAtMs: number): number {
+  return fireStartedAtMs + FIRE_WORK_BUDGET_MS
+}
 
 /**
  * ⛔ HOW MANY UNITS A FIRE RUNS AT ONCE — LORAMER_FIRE_UNITS_CONCURRENT_V1, 2026-09-15. DERIVED FROM A LOAD

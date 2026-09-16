@@ -44,8 +44,10 @@ const main = async () => {
   const writer = await import('../src/lib/backfill/google-ads-universe-writer')
   const { enumerateGoogleHoles } = await import('../src/lib/backfill/google-hole-map')
   const { readGoogleQuotaPause, holdGoogleWork } = await import('../src/lib/backfill/google-quota-store')
-  const { MAX_ENTRIES_SCANNED_PER_RUN } = await import('../src/lib/backfill/universe-resumer')
-  const { SCAN_ALLOWANCE_MS } = await import('../src/lib/backfill/universe-v2-contract')
+  // LORAMER_FIRE_DEADLINE_FROM_FIRE_START_V1 — the proof now uses the bound PRODUCTION passes
+  // (route.ts passes MISSED_ALLOWANCE_MS to enumerateGoogleHoles). It used SCAN_ALLOWANCE_MS, which the
+  // route never passed here, so the proof was measuring the enumerator under a bound no fire ever gave it.
+  const { MAX_ENTRIES_SCANNED_PER_RUN, MISSED_ALLOWANCE_MS } = await import('../src/lib/backfill/universe-resumer')
   const VENDOR = 'google'
 
   // ── the connection, resolved by UUID, never by name ─────────────────────────────────────────────────
@@ -79,7 +81,7 @@ const main = async () => {
   }
   if (!inception) {
     // Prove the MODULE's refusal, not the script's: hand it the span and show it returns refused and nothing else.
-    const r = await enumerateGoogleHoles({ clientId, start: spans[0].start, end: spans[0].end, bounds: { allowanceMs: SCAN_ALLOWANCE_MS, maxEntries: MAX_ENTRIES_SCANNED_PER_RUN } })
+    const r = await enumerateGoogleHoles({ clientId, start: spans[0].start, end: spans[0].end, bounds: { allowanceMs: MISSED_ALLOWANCE_MS, maxEntries: MAX_ENTRIES_SCANNED_PER_RUN } })
     console.log(`ENUMERATOR on UNKNOWN → refused=${r.refused}${r.refused ? ` reason="${r.reason}"` : ' (DEFECT: it returned a page on UNKNOWN)'} · keys=${Object.keys(r).join(',')}`)
     console.log('STOP — UNKNOWN inception. Run without --no-discover to spend the op.')
     process.exit(r.refused ? 0 : 1)
@@ -91,7 +93,7 @@ const main = async () => {
   console.log(`STOP wall=${stop.surfaceWall ? stop.surfaceWall.wallDate : 'null (no vendor refusal recorded)'} inception=${facts.inceptionDate} earliestHeld=${facts.earliestHeldDate} → stopDate=${stop.stopDate} inceptionKnown=${stop.inceptionKnown} basis="${stop.basis}"`)
 
   // ── (c)+(d) per span ────────────────────────────────────────────────────────────────────────────────
-  const bounds = { allowanceMs: SCAN_ALLOWANCE_MS, maxEntries: MAX_ENTRIES_SCANNED_PER_RUN }
+  const bounds = { allowanceMs: MISSED_ALLOWANCE_MS, maxEntries: MAX_ENTRIES_SCANNED_PER_RUN }
   for (const s of spans) {
     const t0 = Date.now()
     let from: number | null = 0, pages = 0, scanned = 0, belowFloor = 0, totalEntries = 0

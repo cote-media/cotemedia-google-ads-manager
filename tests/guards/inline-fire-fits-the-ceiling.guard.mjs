@@ -69,16 +69,21 @@ if (contract) {
     return m ? Number(m[1].replace(/_/g, '')) : null
   }
   const ceilingS = num('CONSUMER_MAX_DURATION_S')
-  const scanMs = num('SCAN_ALLOWANCE_MS')
   const floorMs = num('UNIT_RESERVATION_FLOOR_MS')
-  // (a) CAPTURE_BUDGET must be DERIVED — the textual relationship, not a retyped number.
-  const capForm = /export const CAPTURE_BUDGET_MS = \(CONSUMER_MAX_DURATION_S \* 1000\) - SCAN_ALLOWANCE_MS - UNIT_RESERVATION_FLOOR_MS/.test(contract)
-  if (!capForm) findings.push(`(a) ${CONTRACT}: CAPTURE_BUDGET_MS is not derived as (CONSUMER_MAX_DURATION_S * 1000) - SCAN_ALLOWANCE_MS - UNIT_RESERVATION_FLOOR_MS. A literal here is a second copy of the ceiling that drifts silently.`)
-  if (ceilingS === null || scanMs === null || floorMs === null) {
-    findings.push(`(a) ${CONTRACT}: could not read CONSUMER_MAX_DURATION_S / SCAN_ALLOWANCE_MS / UNIT_RESERVATION_FLOOR_MS — unknown never defaults to a pass.`)
+  // (a) ⛔ REWRITTEN 2026-09-16 BY LORAMER_FIRE_DEADLINE_FROM_FIRE_START_V1. The identity used to be
+  // SCAN_ALLOWANCE_MS + CAPTURE_BUDGET_MS + UNIT_RESERVATION_FLOOR_MS <= ceiling, and it was SATISFIED on
+  // every build while fires ran past the kill — because a per-phase allowance only holds if the phase obeys
+  // it, and the scan did not (132 of 157 fires over the 55,000 allowance, worst 139,911 ms). The identity is
+  // now TWO terms on ONE clock that starts when the fire starts, so there is no phase left to disobey it.
+  const budgetForm = /export const FIRE_WORK_BUDGET_MS = \(CONSUMER_MAX_DURATION_S \* 1000\) - UNIT_RESERVATION_FLOOR_MS/.test(contract)
+  if (!budgetForm) findings.push(`(a) ${CONTRACT}: FIRE_WORK_BUDGET_MS is not derived as (CONSUMER_MAX_DURATION_S * 1000) - UNIT_RESERVATION_FLOOR_MS. A literal here is a second copy of the ceiling that drifts silently.`)
+  if (ceilingS === null || floorMs === null) {
+    findings.push(`(a) ${CONTRACT}: could not read CONSUMER_MAX_DURATION_S / UNIT_RESERVATION_FLOOR_MS — unknown never defaults to a pass.`)
   } else {
-    const captureMs = (ceilingS * 1000) - scanMs - floorMs
-    const v = fireFits({ scanMs, captureMs, floorMs, ceilingS })
+    // scanMs = 0 in the identity BY CONSTRUCTION: the scan is no longer a budgeted phase, it is simply time
+    // the fire has already spent when admission is asked. The reservation floor still has to fit under the ceiling.
+    const budgetMs = (ceilingS * 1000) - floorMs
+    const v = fireFits({ scanMs: 0, captureMs: budgetMs, floorMs, ceilingS })
     if (!v.ok) findings.push(`(a) the fire identity FAILS: ${v.why}`)
   }
   // (b) the TTL is ceiling + positive grace, BY FORM — a literal or a subtraction is the inversion risk.

@@ -117,31 +117,34 @@ export type ResumeVerdict =
 // was measured on the SHIPPED concurrent code (c95258f), 19 completed fires between 2026-09-16T00:02Z and
 // 01:37Z, NOT carried forward from the serial arc.
 //
-// THE DERIVATION, and it charges the scan at what the scan MEASURABLY COSTS rather than at what the contract
-// allows it, because that difference is the difference between a fire that stops and a fire that is killed:
-//   · the platform kills at CONSUMER_MAX_DURATION_S = 300,000 ms, and `captureStartedAt` — the clock the
-//     admission rule measures against — STARTS AFTER THE SCAN. So the fire's real room is the ceiling minus
-//     the scan it actually paid, minus one reservation for a unit not yet measured.
-//   · WORST measured scan = 70,982 ms (n=19 fires; min 23,688 · p50 63,240 · p90 69,616). ⛔ SCAN_ALLOWANCE_MS
-//     IS 55,000 AND 16 OF THOSE 19 FIRES EXCEEDED IT, worst overshoot 15,982 ms. That allowance is wrong and
-//     is NOT corrected here — see ★SCAN-ALLOWANCE-IS-16S-SHORT. This derivation simply refuses to rely on it.
-//   · UNIT_RESERVATION_FLOOR_MS = 10,000, unchanged.
-//   · real room = 300,000 − 70,982 − 10,000 = 219,018 ms.
+// THE DERIVATION — REWRITTEN 2026-09-16 BY LORAMER_FIRE_DEADLINE_FROM_FIRE_START_V1, AND THE REWRITE IS THE
+// POINT: THE BITE NO LONGER CHARGES THE SCAN AT ALL, BECAUSE THE CLOCK NOW SEES IT.
+//   · the platform kills at CONSUMER_MAX_DURATION_S = 300,000 ms. The admission rule's clock now starts at
+//     the FIRE's start (`fireDeadlineAt(startedAt)`), not after the scan, so every millisecond the scan
+//     spends is already subtracted from what capture may use. No scan figure enters this derivation.
+//   · FIRE_WORK_BUDGET_MS = 300,000 − UNIT_RESERVATION_FLOOR_MS 10,000 = 290,000 ms, measured from fire start.
 //   · WORST measured cycle = 608 ms per unit (n=16 full-bite fires, capture wall clock ÷ units executed;
 //     min 178 · p50 223 · p90 549). This is the CONCURRENT amortised cost of a unit at UNIT_CONCURRENCY = 12,
 //     which is the only figure a bite can be divided by now: the serial 3,277 ms describes a loop we deleted.
-//   · 219,018 ÷ 608 = 360.2 ⇒ 360.
+//   · The bite is a CEILING ON WHAT IS OFFERED, and the clock is what STOPS the fire. For 360 to be the
+//     binding bound rather than the clock, a fire would need 360 × 608 = 218,880 ms of capture, i.e. a scan
+//     under 290,000 − 218,880 = 71,120 ms. MEASURED 2026-09-16 (n=157): p50 scan 65,380 ms, so the bite binds
+//     on roughly half of fires and the clock binds on the rest. Both stops are safe and both defer rather
+//     than truncate.
+// ⛔ WHY 360 IS KEPT RATHER THAN RE-DERIVED UPWARD. The fastest scan measured (22,963 ms) would leave
+// 267,037 ms ⇒ 439 units, so 360 is below even the most generous room and cannot overrun on its own. Raising
+// it is a THROUGHPUT change and belongs to the entry-cap flight; this flight changes the CLOCK only, and a
+// correctness fix that also moves a throughput number cannot be reverted cleanly.
 // ⛔ WHY A PER-UNIT CYCLE MAY DIVIDE A PER-REQUEST BITE, stated because the units differ and that is normally a
 // defect: `boundedSelection` spends the bite in RANGES (requests), and a unit walks one or more ranges, so the
-// unit count a bite of N produces is ≤ N. Dividing by the per-UNIT cost therefore over-charges every fire whose
+// unit count a bite of N produces is <= N. Dividing by the per-UNIT cost therefore over-charges every fire whose
 // units carry more than one range, and is exact in the worst case of one range per unit. It errs toward a
 // smaller bite, which is the direction a bound is allowed to err in.
-// ⛔ WHY NOT 386, the figure CAPTURE_BUDGET_MS would give: 235,000 ÷ 608 = 386, and 70,982 + 235,000 = 305,982 ms
-// against a 300,000 ms kill. 386 would authorise a fire that the platform terminates mid-work — the one outcome
-// the round forbade — and the admission rule could not save it, because that rule's clock cannot see the scan.
-// ⛔ THE OLD DERIVATION, KEPT SO THE MOVE IS LEGIBLE: CAPTURE_BUDGET_MS 235,000 ÷ a serial per-request cycle of
-// 3,277 ms (2,735 ms descend attempt_started→attempt_finished p90, N=1,429 + 542 ms p50 inter-attempt gap,
-// N=1,025) = 71.7 ⇒ 71.
+// ⛔ THE SUPERSEDED DERIVATION, KEPT SO THE MOVE IS LEGIBLE: real room was computed as 300,000 − WORST MEASURED
+// SCAN 70,982 − 10,000 = 219,018, and 219,018 ÷ 608 = 360. That arithmetic reached the same 360 for a reason
+// that no longer holds — it charged the scan a constant taken from a 19-fire sample. On 157 fires of the SAME
+// shipped code the scan reached 139,911 ms, which that derivation would have had to re-cut for. The clock
+// change removes the need for any such constant; the number 360 survives its own justification.
 // ⛔ 360 × 288 fires/day = 103,680/day of ceiling, up from 20,448. It is not a share of anything: Standard
 // access removed the daily operations cap (LORAMER_CAP_FOLLOWS_GRANT_V1), so this bound answers to the fire's
 // clock and to Postgres, never to a vendor quota. ⚠ IT IS A CEILING, NOT A FORECAST — what a fire can actually
@@ -149,7 +152,7 @@ export type ResumeVerdict =
 //
 // ⛔ WHY RAISING IT CANNOT OVERRUN THE CEILING, and this is the property that made the change small: the
 // execution loop ALREADY sizes itself against its own remaining time. Before every unit it asks
-// `shouldStartAnotherLap(elapsed, maxUnitMs, CAPTURE_BUDGET_MS, UNIT_RESERVATION_FLOOR_MS)`, which admits a
+// `shouldStartAnotherLap(elapsed-since-FIRE-start, maxUnitMs, FIRE_WORK_BUDGET_MS, UNIT_RESERVATION_FLOOR_MS)`, which admits a
 // unit only if the WORST unit observed this fire still fits — so a bite larger than the clock can afford is
 // deferred, not truncated, and a deferred unit opened no attempt and is re-derived next fire. The bite
 // decides how much is OFFERED to that loop; the loop decides how much runs. This change stops the COUNT

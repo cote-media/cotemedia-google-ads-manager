@@ -147,7 +147,7 @@ async function publishGoverned(
 // because `appendAttemptStarted`/`appendAttemptFinished` throw BY DESIGN and the paths most likely to end
 // badly were the paths least likely to record it.
 // ⛔ THE FIRE'S DEADLINE RIDES DOWN THE CALL — LORAMER_QUEUE_REMOVED_INLINE_WALK_V1. The inline fire
-// admits units against CAPTURE_BUDGET_MS; a unit's own ranges (and any mis-size CONTINUATION it spawns)
+// admits units against FIRE_WORK_BUDGET_MS counted from the FIRE's start; a unit's own ranges (and any mis-size CONTINUATION it spawns)
 // must respect the SAME absolute deadline, or a narrowing cascade could run the fire into the platform
 // kill. `deadlineAt` is an epoch-ms ceiling; absent (the drive's single-unit path) only the worker's own
 // WALK_BUDGET_MS applies, exactly as before the cutover.

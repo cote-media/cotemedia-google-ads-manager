@@ -62,7 +62,7 @@ import { appendAttemptStarted, appendAttemptFinished, readAttemptsAtSpan, type A
 import { sizeNextWindow, dayDiff } from '@/lib/backfill/universe-sizing'
 import {
   MAX_ATTEMPTS_AT_MIN_SPAN, LEASE_TTL_S, CONSUMER_MAX_DURATION_S,
-  SCAN_ALLOWANCE_MS, CAPTURE_BUDGET_MS, UNIT_RESERVATION_FLOOR_MS, UNIT_CONCURRENCY,
+  FIRE_WORK_BUDGET_MS, fireDeadlineAt, UNIT_RESERVATION_FLOOR_MS, UNIT_CONCURRENCY,
   type UniverseMessageV2,
 } from '@/lib/backfill/universe-v2-contract'
 // ⛔ LORAMER_QUEUE_REMOVED_INLINE_WALK_V1 — THE FIRE EXECUTES ITS OWN SELECTION. `processMessage` is the
@@ -894,9 +894,16 @@ export async function GET(request: Request) {
   let requestsOpened = 0
   let maxUnitMs = 0
   const captureStartedAt = Date.now()
-  // ⛔ THE DEADLINE IS ABSOLUTE AND SHARED: capture start + CAPTURE_BUDGET_MS. Unit admission here, range
+  // ⛔ THE DEADLINE IS ABSOLUTE AND SHARED, AND IT IS COUNTED FROM `startedAt` — THE FIRE'S OWN START,
+  // NOT FROM CAPTURE START. LORAMER_FIRE_DEADLINE_FROM_FIRE_START_V1. Unit admission here, range
   // admission inside the unit, and every mis-size continuation all reserve against THIS one number.
-  const unitOpts: DeadlineOpts = { deadlineAt: captureStartedAt + CAPTURE_BUDGET_MS }
+  // ⛔ THE BUG THIS CLOSES: `captureStartedAt + CAPTURE_BUDGET_MS` made the deadline FLOAT with the scan,
+  // so a scan that ran long pushed real work past the platform kill. Measured 2026-09-16 (n=157): the
+  // scan reached 139,911 ms, which under the old form authorised work until 374,911 ms against a
+  // 300,000 ms kill. Counting from `startedAt` makes any scan overrun come out of capture automatically.
+  // `captureStartedAt` survives for REPORTING only (capture-phase elapsed in the instrument) and MUST
+  // NOT be used for admission — `fire-deadline-from-fire-start.guard.mjs` fails the build if it is.
+  const unitOpts: DeadlineOpts = { deadlineAt: fireDeadlineAt(startedAt) }
   // ── ⛔ THE LOOKBACK SLOT — LORAMER_LOOKBACK_LANE_V1, OBSERVE-ONLY UNTIL STOP-AND-CONFIRM 2 ─────────────────
   // Every derived window is logged with the boundary it was derived against and where that boundary came from, so
   // a real tick can be read against the docs before anything is sent. The instrument below carries the tallies.
@@ -930,7 +937,7 @@ export async function GET(request: Request) {
   // a surface the descent also selected — so the collision is reachable and the partition is what removes it.
   //
   // ⛔ THE ADMISSION RULE IS UNCHANGED AND STILL CORRECT, and that is a result rather than an omission. The
-  // deadline is ABSOLUTE (`captureStartedAt + CAPTURE_BUDGET_MS`) and units are independent, so a unit admitted
+  // deadline is ABSOLUTE (`fireDeadlineAt(startedAt)`) and units are independent, so a unit admitted
   // when `elapsed + worstUnit <= budget` still lands before the budget whether or not others run beside it —
   // parallel units cost wall time ~worst, not N × worst. `maxUnitMs` is measured LIVE and under the same
   // concurrency, so contention (a unit is ~1.5× slower at width 12 by the probe) feeds back into the reservation
@@ -957,10 +964,11 @@ export async function GET(request: Request) {
       // ⛔ ADMISSION BEFORE EVERY UNIT, per queue — the reservation rule at the fire grain, unchanged. A queue
       // that is refused stops and reports the units it did not reach; the other queues keep going, because a
       // slow surface must not spend another surface's budget.
-      if (!dryRun && !shouldStartAnotherLap(Date.now() - captureStartedAt, maxUnitMs, CAPTURE_BUDGET_MS, UNIT_RESERVATION_FLOOR_MS)) {
+      if (!dryRun && !shouldStartAnotherLap(Date.now() - startedAt, maxUnitMs, FIRE_WORK_BUDGET_MS, UNIT_RESERVATION_FLOOR_MS)) {
         deferredUnits += queue.length - qi
         console.warn(`[universe-resume] FIRE BUDGET STOP: deferred ${queue.length - qi} unit(s) on ${c.entry.resource}${c.entry.segment ? '/' + c.entry.segment : ''} — ` +
-          `${Date.now() - captureStartedAt}ms of ${CAPTURE_BUDGET_MS}ms capture budget, worst unit ${maxUnitMs}ms, width ${UNIT_CONCURRENCY}. ` +
+          `${Date.now() - startedAt}ms of ${FIRE_WORK_BUDGET_MS}ms fire budget (scan ${captureStartedAt - startedAt}ms of that), ` +
+          `worst unit ${maxUnitMs}ms, width ${UNIT_CONCURRENCY}. ` +
           `Nothing lost: deferred units opened no attempt and are re-derived next fire.`)
         return
       }
@@ -1053,6 +1061,9 @@ export async function GET(request: Request) {
     oldestWindowStart: published.reduce<string | null>((m, p) => {
       const s = String(p.window).slice(0, 10); return m === null || s < m ? s : m
     }, null),
+    // LORAMER_FIRE_DEADLINE_FROM_FIRE_START_V1 — the scan is now REPORTED, not assumed. It was never
+    // recorded anywhere durable, which is why the allowance it fed could be a year stale and look fine.
+    scanMs: captureStartedAt - startedAt, fireWorkBudgetMs: FIRE_WORK_BUDGET_MS,
     elapsedMs, maxDurationS: maxDuration,
   }
   console.log(`[universe-resume] FIRE ${clientId}${dryRun ? ' (DRY)' : ''}: ${JSON.stringify(instrument)}`)

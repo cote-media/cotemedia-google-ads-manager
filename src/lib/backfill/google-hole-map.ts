@@ -29,8 +29,8 @@
 // the resumer, whose deciders are pure) and a wall-clock allowance per page — and the caller pages with
 // `fromEntry`. A page that runs out of allowance returns `nextEntry` and everything it proved so far;
 // nothing is inferred about entries it did not reach.
-// ⛔ THE ALLOWANCE IS PASSED IN, NOT IMPORTED, AND THE REASON IS A GUARD THAT FIRED. SCAN_ALLOWANCE_MS lives
-// in the v2 contract module, and universe-stream-consumer.guard.mjs leg (e) names the ONLY files that may
+// ⛔ THE ALLOWANCE IS PASSED IN, NOT IMPORTED, AND THE REASON IS A GUARD THAT FIRED. The fire's time budget lives
+// in the v2 contract module (FIRE_WORK_BUDGET_MS; the caller passes MISSED_ALLOWANCE_MS to THIS function), and universe-stream-consumer.guard.mjs leg (e) names the ONLY files that may
 // touch that module — the consumer, the resumer, the drive, the poll lane — because reaching it is how a
 // module becomes a candidate publisher to the v2 topic. A library that enumerates holes has no business
 // there. So the EXECUTION HOST (a script today, a route when the fill lands — one that is NAMED in leg (e)
