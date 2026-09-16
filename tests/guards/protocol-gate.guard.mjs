@@ -142,6 +142,18 @@ const fixtures = [
     text: `ROUND: SHAPE\n${GOOD_QUESTION}\nBLAST: backend-writer\n${GOOD_RESEARCH}\n${GOOD_ADVERSARY}\nCONSTANTS: FIRST_LAP_MS=90000${PAD}` },
   { name: 'RED writing paste with NO research and NO adversary at all', box: 'RESEARCH-WITH-NO-URLS', expect: 'block',
     text: `ROUND: RUN\n${GOOD_QUESTION}\nBLAST: live-path\n${GOOD_CONSTANTS}${PAD}` },
+  // ⛔ LORAMER_GATE_NONE_FORMS_V1 — THE TWO SPELLINGS OF ONE IDEA, AND THE HOLLOW BOX THAT MUST STILL FAIL.
+  // CONSTANTS took a bare `NONE`; RESEARCH demanded `NONE-APPLICABLE:` and answered a bare `NONE` with a
+  // message about URL counts. Round 18 was refused on exactly that at 2026-09-16T01:13:29Z. The spelling is
+  // now shared; the ten-word floor is NOT, and these three fixtures pin both halves in the same run.
+  { name: 'RED RESEARCH bare NONE is still the hollow box (no reason = no claim)', box: 'RESEARCH-WITH-NO-URLS', expect: 'block',
+    text: `ROUND: SHAPE\n${GOOD_QUESTION}\nBLAST: backend-writer\nRESEARCH: NONE\n${GOOD_ADVERSARY}\n${GOOD_CITED}\n${GOOD_CONSTANTS}${PAD}` },
+  { name: 'RED RESEARCH NONE with a reason under the floor still fails', box: 'RESEARCH-WITH-NO-URLS', expect: 'block',
+    text: `ROUND: SHAPE\n${GOOD_QUESTION}\nBLAST: backend-writer\nRESEARCH: NONE — nothing external here\n${GOOD_ADVERSARY}\n${GOOD_CITED}\n${GOOD_CONSTANTS}${PAD}` },
+  { name: 'GREEN RESEARCH takes the CONSTANTS spelling when the reason carries the floor', expect: 'allow',
+    text: `ROUND: SHAPE\n${GOOD_QUESTION}\nBLAST: backend-writer\nINFLIGHT: clear\nRESEARCH: NONE — this flight re-derives a constant from measurements taken on our own shipped code tonight, so no vendor page is load-bearing\n${GOOD_ADVERSARY}\n${GOOD_CITED}\n${GOOD_CONSTANTS}${PAD}` },
+  { name: 'GREEN the legacy NONE-APPLICABLE spelling still passes (regression)', expect: 'allow',
+    text: `ROUND: SHAPE\n${GOOD_QUESTION}\nBLAST: backend-writer\nINFLIGHT: clear\nRESEARCH: NONE-APPLICABLE: every figure in this paste was measured on our own fleet tonight and no external vendor fact enters the derivation\n${GOOD_ADVERSARY}\n${GOOD_CITED}\n${GOOD_CONSTANTS}${PAD}` },
   { name: 'GREEN compliant writing paste', expect: 'allow',
     text: `ROUND: SHAPE\n${GOOD_QUESTION}\nBLAST: backend-writer\nINFLIGHT: clear\n${GOOD_RESEARCH}\n${GOOD_ADVERSARY}\n${GOOD_CITED}\n${GOOD_CONSTANTS}${PAD}` },
   { name: 'GREEN BLAST carrying a parenthetical qualifier (how Russ actually writes it)', expect: 'allow',

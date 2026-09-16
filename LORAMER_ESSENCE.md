@@ -57,6 +57,38 @@ and reaches the generated digest. It guards PLACEMENT, never OBEDIENCE.
 
 ⛔ **THIS HALF HAS THE SAME HONEST LIMIT AS THE FIRST AND IT IS STATED RATHER THAN PAPERED OVER: NO GUARD CAN OBSERVE CHAT OUTPUT.** Per the RULE-HOME LAW, a rule broken repeatedly needs an ENFORCER and not another entry — and for chat there is none available, because the output never touches the filesystem, a commit or a build. `one-block-output.guard.mjs` guards PLACEMENT of this law in the three docs the executor reads; obedience has exactly one enforcer and it is Russ saying so again. **That is precisely why the cost is written down here: if the only enforcement is a human repeating himself, the law must at least tell him what it is costing him to do it.**
 
+## ⛔ THE CUSTOMER FRAME — WHAT "DONE" MEANS [LAW — RUSS, banked 2026-09-16]
+
+**PRINT THIS BLOCK EVERY SESSION, BEFORE STATE AND BEFORE QUEUE. It is not history and it does not expire.**
+It rides in GOVERNING LAW precisely so the generated digest carries it into §C of every resume, ahead of the
+session narrative in §E and the queue in §H. Every route decision is measured against it.
+
+- **LoraMer is a commercial product for CUSTOMERS WE DO NOT HAVE YET.** Russ's 17 accounts are the TEST RIG,
+  not the goal. Walking them to the floor is not "done" — done is a stranger connecting an account and
+  getting their data.
+- **THE MEASURE OF FINISHED IS A NEW CUSTOMER'S FIRST HOUR:** connect → usable data → Lora answering
+  correctly. No manual step. Nobody clicking anything.
+- **PLATFORM-AGNOSTIC PIPES.** Google was the test case, not the product. GA4, Meta, Shopify and the rest must
+  land and backfill the same way. Anything built Google-only is built wrong and will be rebuilt four times.
+- **WORK THAT ONLY SERVES RUSS'S EXISTING ACCOUNTS IS MAINTENANCE** and does not count as progress toward done.
+- **WHEN A ROUTE CHOICE IS BETWEEN RUSS'S FLEET AND A NEW CUSTOMER'S EXPERIENCE, THE CUSTOMER WINS.**
+
+⛔ **HOW THIS INTERACTS WITH THE PRIORITY LAW, because the two can look like they disagree and they do not.**
+CAPTURE FIRST still governs WHAT is built — a thin slice is still a violation. This frame governs WHOSE
+capture is being built for. Capturing Russ's fleet more completely is the same work as capturing a stranger's,
+only when the pipe is platform-agnostic and starts itself; where it is not, the fleet work is maintenance and
+this law demotes it.
+
+⚠ **THE HONEST LIMIT, stated so nobody mistakes placement for obedience:** no build guard can read a route
+decision. `resume-digest-freshness.guard.mjs` asserts §C is present and matches ESSENCE, so the BLOCK cannot
+silently stop being printed — that is placement, exactly as the one-block-output law is guarded. Whether a
+flight was actually chosen by this frame has one enforcer and it is Russ reading the plan.
+
+⚠ **WHY THIS SITS HERE AND NOT AT THE HEAD OF THE SECTION:** `one-block-output.guard.mjs` requires
+LORAMER_ONE_BLOCK_OUTPUT_V1 to stay within the first 40 lines of this file, and putting this block above it
+pushed it to line 64 and failed the build. “Before state, before queue” is satisfied by being in GOVERNING
+LAW at all — §C is emitted ahead of §E (the session narrative) and §H (the queue) in every digest.
+
 ## ⛔ THE RESUMABLE UNIT IS THE DAY BECAUSE THE WAREHOUSE IS KEYED BY DAY [LAW — RUSS, banked 2026-08-08]
 **THE RESUMABLE UNIT IS THE DAY BECAUSE THE WAREHOUSE IS KEYED BY DAY. THE VENDOR'S FETCH UNIT IS AN ADAPTER
 CONCERN.**

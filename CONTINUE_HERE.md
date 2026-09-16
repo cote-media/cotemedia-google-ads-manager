@@ -1,4 +1,91 @@
-╔═══ SESSION CLOSE 2026-09-14 (LATE) — FIRE-7621 CLOSED (9f7ec28 · 9ff445c) · SEVEN INSTRUMENTS SHIPPED (e83b2db · fb0a457 · 094+190e5cd · 0d07bc6 · 824e389) · CONDITION 6 RE-SCOPED: BATCH A 2cd81e5 (four re-specs) + BATCH B 89ad90a (five instruments fleet-shaped, top-edge → the three-lane seam) · THE HARDWIRE ROOT CAUSE NAMED (158c608 widened the producer, no reader walked). NEXT: MORNING READ 09-15 → B6 LITERAL GUARD → ALIAS (v) READ → REMAINING REDS → VET SEAL PROOF (condition 6 now read on Vet's rows) ═══╗
+╔═══ SESSION CLOSE 2026-09-15 (OVERNIGHT) — THE FIRE GOT WIDER AND THEN GOT A BIGGER BITE: CONCURRENCY a2b6f0f (units run 12 wide, partitioned by surface) · BITE e0ef6e2 (71 → 360, re-derived from the CONCURRENT cycle) · PUSH GATE c95258f + 00e019a (its suite budget was stale and refused a green run) · THE CUSTOMER FRAME BANKED AS GOVERNING LAW · THE GATE'S TWO SPELLINGS OF "NONE" MADE ONE. NEXT: THE SCAN ALLOWANCE, THEN THE ENTRY CAP, THEN THE CONNECT PATH ═══╗
+
+⛔ **THE CUSTOMER FRAME GOVERNS (ESSENCE GOVERNING LAW, banked 2026-09-16, printed in §C every session).**
+Russ's 17 accounts are the TEST RIG, not the goal. Done is a stranger connecting an account and getting their
+data inside their first hour. Work that only serves the existing fleet is MAINTENANCE.
+⛔ **THE PRIORITY LAW STILL GOVERNS WHAT IS BUILT (ESSENCE, Russ): CAPTURE FIRST, LORA SECOND, EVERYTHING ELSE
+THIRD.** The frame decides WHOSE capture; the priority law decides HOW COMPLETE. Neither relaxes the other.
+Recompute days-to-2026-09-30 at resume from the clock; never read it off this block.
+
+── THE ARC 2026-09-15 17:00Z → 2026-09-16 04:00Z (newest-first) ──
+· `e0ef6e2` (READY 02:51Z) LORAMER_FIRE_BITE_FOLLOWS_CONCURRENCY_V1 — MAX_REQUESTS_PER_RUN 71 → 360. Derived on
+  the SHIPPED concurrent code: worst per-unit cycle 608 ms (n=16 full-bite fires) · worst scan 70,982 ms (n=19)
+  · real room 300,000 − 70,982 − 10,000 = 219,018 ÷ 608 = 360. NOT 386 (the CAPTURE_BUDGET_MS figure), which
+  would authorise 305,982 ms against a 300,000 ms kill. Four reds shown first. Measured effect is MODEST and
+  said so: full-bite fires 68 → 78.5 requests, because five in six are capped by the SCAN, not the bite.
+· `00e019a` + `c95258f` (READY 00:01Z / 02:5xZ) LORAMER_PUSH_GATE_V1 — the gate refused a run that had just
+  printed ALL GREEN 190/190: its budget was 2 × 209 s measured at 163 guards, and the suite is 190 now.
+  MEASURED_SUITE_MS ⇐ 540,000 (2× the WORST observed healthy run, both samples on the line), hook timeout
+  stated at 1200 s because 2× measured now exceeds the vendor's 600 s default and a cancelled hook fails OPEN.
+· `a2b6f0f` (READY 00:01Z) LORAMER_FIRE_UNITS_CONCURRENT_V1 — units run UNIT_CONCURRENCY=12 wide, PARTITIONED BY
+  SURFACE so two units of one surface can never be in flight together (that partition, not the width, is the
+  safety property: concurrent same-surface attempts would manufacture the no-progress count and abandon real
+  ground). Width IS the measured write-path peak (7,521 rows/s at 12; falls at 16). Capture 96 s → 15 s median.
+· READS, in order: legacy census · walk-vs-legacy parity (0/72 pairs exact) · value adjudication (walk matches
+  the vendor on 110 of 130 disputed days, legacy on 2) · serving-cutover scope (8 read sites) · walk entity
+  names · coverage triage · throughput headroom · onboarding path · Google concurrency probe (32 concurrent
+  against one account, 59 req/s, ZERO refusals).
+
+── ⚠ ALSO REQUIRED IN THE MORNING READ (Russ, 2026-09-16 — print these with the frame) ──
+· PRODUCTION TARGET: a customer who connects waits HOURS, not weeks.
+· Standard Access is GRANTED; the vendor is no longer the constraint (★CAP-FOLLOWS-GRANT closed).
+· THE WRITE PATH IS THE CEILING, NOT GOOGLE — Google served 32 concurrent reads against ONE account with zero
+  refusals and LOWER latency than at width 1; we run about 1 per account.
+· CONNECT DOES NOT START THE WALK. The button is a workaround, not the design (★CONNECT-KICK-FIRES-LEGACY-DRAIN).
+· LEGACY'S STORED NUMBERS ARE STALE — it re-reads only 30 days. On the disputed days the walk matched the
+  vendor 110 times and legacy 2, with legacy overstating spend by up to 18% on a live client.
+· LEGACY STORES A ZERO ROW for a dormant day; the walk ATTESTS the day empty. Same facts, and the difference
+  makes walk coverage look far worse than it is.
+· THE EIGHT READ SITES hard-coded to the legacy spelling are what keep the old writers alive. Repointing them
+  is a CORRECTNESS fix, not a migration chore.
+· DELETING AND RE-RUNNING any of Russ's own clients to test a full run end-to-end is AUTHORISED.
+
+── ▶▶ NEXT STEP, IN ORDER ──
+(1) THE SCAN ALLOWANCE — ★SCAN-ALLOWANCE-IS-16S-SHORT. SCAN_ALLOWANCE_MS = 55,000 and the scan exceeded it on
+    16 of 19 fires (p50 63,240 · worst 70,982). `captureStartedAt` is taken AFTER the scan, so the admission
+    rule's 235,000 ms budget is measured from a clock that cannot see the overshoot: a fire that actually
+    spends its capture budget runs 305,982 ms against a 300,000 ms kill. FIX: SCAN_ALLOWANCE_MS ⇐ 71,000 ⇒
+    CAPTURE_BUDGET_MS 219,000, at which point the bite guard's max(allowance, measured) charge collapses back
+    to the allowance and there is ONE source of truth again. ⛔ THIS IS A PRECONDITION FOR (2), NOT A TIDY-UP.
+(2) THE ENTRY CAP — MAX_ENTRIES_SCANNED_PER_RUN = 60 is what OFFERS work to the bite, and it offered exactly 60
+    candidates on every full-bite fire. It is the binding constraint now. Raising it costs scan time LINEARLY
+    against the allowance fixed in (1), and the scan is already 63 s of an 80 s fire. Measure the per-entry
+    scan cost first (~1.05 s/entry today, ~30 indexed reads each) and decide whether the fix is a bigger cap
+    or a cheaper probe (★COVERAGE-DAY-SET-RPC).
+(3) THE CONNECT PATH AND THE ONBOARDING LANE — deferred twice by Russ and now the frame's own priority. Connect
+    does not start the walk; a new account gets nothing until the rotation reaches it. With (1) and (2) done
+    the fleet is no longer the constraint, and this is what "a stranger's first hour" actually needs.
+(4) ★PRIORITY-FIRST-IS-THE-SHIPPING-SHAPE — establish the competitive claim with real sources FIRST (it is
+    banked as Russ's assertion, unverified), then design the recent-window first lap if it holds.
+(5) THE SERVING CUTOVER — the eight read sites onto the walk's spelling; the adjudication that justifies it is
+    already banked (110 vs 2). ★LEGACY-RETIREMENT stays owner-gated.
+
+── CLOCKS ──
+· Rotation lap = 17 fires × 5 min = 85 min. Fires now run 70–105 s of a 300 s ceiling; the closest any came was
+  104,814 ms, 35% of the ceiling.
+· Per-client rate at the measured 78.5 requests/full-bite fire: ~1,330 requests/client/day, up from ~1,152.
+· Floor dates at that rate (Σ frontier − inception over walked surfaces, 30 days per request): Tri-Copy 32.7 d
+  · Influential Drones 30.2 · skinregimen 26.7 · BusyBee 21.0 · Bath Fitter 20.8 · Glass Plus 20.0 · Champion
+  14.4 · Ogmentor 11.7 · Glenn Stearns 10.1 · Marathon 9.0 · My Vacation Network 6.8 · Ennis 4.7 · Thought
+  Streams 4.0 · Inside 3.3 · Veterinary mastermind 1.0. AT FLOOR: The Escential Group, Foam OH (349/349 sealed).
+  ⚠ At the full 360-request bite those same floors are ~7.1 d for the worst client — that is the size of the
+  prize behind (1) and (2), and it is the only reason they are ranked above the connect path.
+
+── STANDING ──
+· ⛔ LEGACY IS FROZEN (DECISIONS:2461) — the '' writers stay byte-identical; ★LEGACY-RETIREMENT names the gates.
+· check:data's standing reds, unchanged tonight and none introduced by any of tonight's pushes:
+  completion-claims · drain-alias-coverage · coverage-density · anchor (C) · no-owed-day · device-respell-scope
+  (CRASH: `Prefer: count=exact` forces a full filtered count, 1.3–2.3 s of an 8 s statement timeout).
+· Do not run check:data beside a press or a proof read (★CHECKDATA-EVICTS-THE-CACHE).
+· The protocol gate now spells "not applicable" ONE way across boxes (LORAMER_GATE_NONE_FORMS_V1). A bare
+  `RESEARCH: NONE` still fails — the ten-word reason is the auditable part and it stayed.
+· ⚠ protocol-gate.guard.mjs reports 230 overrides taken since OVERRIDE_COUNT_BASELINE was set. It PASSES; the
+  nudge to raise the baseline is NOT taken here, because raising it would acknowledge overrides nobody resolved.
+· Pushes gated; deploy-poll-until-terminal; one-block output; CITED gate — all bind.
+
+╚═══════════════════════════════════════════════════════════════════════════════════════════════════════════════╝
+
+╔═══ ⛔ SUPERSEDED 2026-09-16 · HISTORY · DO NOT ACT ON ITS DATES — SESSION CLOSE 2026-09-14 (LATE) — FIRE-7621 CLOSED (9f7ec28 · 9ff445c) · SEVEN INSTRUMENTS SHIPPED (e83b2db · fb0a457 · 094+190e5cd · 0d07bc6 · 824e389) · CONDITION 6 RE-SCOPED: BATCH A 2cd81e5 (four re-specs) + BATCH B 89ad90a (five instruments fleet-shaped, top-edge → the three-lane seam) · THE HARDWIRE ROOT CAUSE NAMED (158c608 widened the producer, no reader walked). NEXT: MORNING READ 09-15 → B6 LITERAL GUARD → ALIAS (v) READ → REMAINING REDS → VET SEAL PROOF (condition 6 now read on Vet's rows) ═══╗
 
 ⛔ **THE PRIORITY LAW GOVERNS (ESSENCE, Russ): CAPTURE FIRST, LORA SECOND, EVERYTHING ELSE THIRD.** All GET.
 Recompute days-to-2026-09-30 at resume from the clock; never read it off this block.

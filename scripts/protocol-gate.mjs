@@ -198,15 +198,28 @@ export function inFlightVerdict(transcriptPath) {
 // at least one hostname must NOT already appear in LORAMER_DECISIONS.md. Re-citing URLs this repo has already
 // banked is the cheapest possible fake research, and a bare "≥2 URLs" test rewards it. The ADR-enforcement
 // literature's warning is precisely this — a rubber-stamped record that a later agent then cites as prior art.
+// ⛔ ONE SPELLING OF "NOT APPLICABLE" ACROSS BOXES — LORAMER_GATE_NONE_FORMS_V1, 2026-09-16 (Russ). The gate
+// shipped TWO spellings of the same idea: CONSTANTS accepted a bare `NONE` (and `NONE — reason`) through
+// NONE_RE, while RESEARCH demanded the literal `NONE-APPLICABLE:` and answered a bare `NONE` with "only 0
+// URL(s) present; 2 distinct sources are required" — a message about URLs for a paste that was saying it had
+// no external fact to cite. MEASURED COST: round 18 was refused on this box at 2026-09-16T01:13:29Z and the
+// flight did not reach the model at all. A gate whose two halves spell one concept differently teaches the
+// operator that the gate is arbitrary, and an arbitrary gate gets overridden.
+// ⛔ WHAT DOES **NOT** CHANGE, and the asymmetry that remains is deliberate: CONSTANTS may be a BARE `NONE`
+// because "this paste carries no numbers" is verifiable by reading the paste. RESEARCH may not, because "no
+// external fact is load-bearing" is a CLAIM about the work, and the reason is the only thing that makes it
+// auditable. So the SPELLING is unified and the ten-word floor stays — `NONE` alone still fails here.
+const RESEARCH_NONE_RE = /^NONE(?:-APPLICABLE)?\b\s*(?:[—–\-:,.]\s*(?<reason>[\s\S]*))?$/i
 export function researchVerdict(value, decisionsText) {
   const raw = String(value || '').trim()
   if (!raw) return { ok: false, why: 'RESEARCH: is absent' }
-  const na = raw.match(/^NONE-APPLICABLE\s*:\s*(.+)$/is)
+  const na = raw.match(RESEARCH_NONE_RE)
   if (na) {
-    const n = words(na[1])
+    const reason = (na.groups?.reason || '').trim()
+    const n = words(reason)
     return n >= MIN_NONE_APPLICABLE_WORDS
-      ? { ok: true, why: `NONE-APPLICABLE with a ${n}-word reason`, noneApplicable: true }
-      : { ok: false, why: `NONE-APPLICABLE carries only ${n} word(s); ${MIN_NONE_APPLICABLE_WORDS} are required — say why no external fact is load-bearing` }
+      ? { ok: true, why: `NONE with a ${n}-word reason`, noneApplicable: true }
+      : { ok: false, why: `RESEARCH: NONE carries only ${n} word(s) of reason; ${MIN_NONE_APPLICABLE_WORDS} are required — say why no external fact is load-bearing. (CONSTANTS accepts a bare NONE because "no numbers" can be checked by reading the paste; "no external fact matters" cannot, so it is the one that needs the sentence.)` }
   }
   const urls = [...raw.matchAll(/https?:\/\/[^\s<>()\[\]"']+/g)].map((m) => m[0])
   if (urls.length < 2) return { ok: false, why: `only ${urls.length} URL(s) present; 2 distinct sources are required` }
@@ -458,7 +471,7 @@ export function evaluate({ text, transcriptPath, decisionsText, queueText = '', 
   // THE PROPORTIONALITY RULE. Both rounds are demanded by CONSEQUENCE, never by question-shape.
   if (writesSomething(blast)) {
     const r = researchVerdict(h.RESEARCH, decisionsText)
-    if (!r.ok) failures.push({ box: 'RESEARCH-WITH-NO-URLS', why: r.why, fix: `TWO accepted forms: (1) \`RESEARCH: <url> · <url>\` — at least 2 URLs on at least 2 DIFFERENT hostnames, at least one hostname not already cited in LORAMER_DECISIONS.md · (2) \`RESEARCH: NONE-APPLICABLE: <at least ${MIN_NONE_APPLICABLE_WORDS} words saying why no external fact is load-bearing>\`` })
+    if (!r.ok) failures.push({ box: 'RESEARCH-WITH-NO-URLS', why: r.why, fix: `TWO accepted forms: (1) \`RESEARCH: <url> · <url>\` — at least 2 URLs on at least 2 DIFFERENT hostnames, at least one hostname not already cited in LORAMER_DECISIONS.md · (2) \`RESEARCH: NONE — <at least ${MIN_NONE_APPLICABLE_WORDS} words saying why no external fact is load-bearing>\` (the CONSTANTS spelling; \`NONE-APPLICABLE:\` is accepted too, and a BARE \`NONE\` is not — the reason is the whole point here)` })
     const a = adversaryVerdict(h.ADVERSARY)
     if (!a.ok) failures.push({ box: 'ADVERSARY-THAT-NEVER-COLLIDED', why: a.why, fix: `ONE accepted form, all three parts on one line: \`ADVERSARY: mine=<your position> | other=<the opposing position> | collision=<what actually changed, ${MIN_COLLISION_WORDS}+ words>\`. mine= and other= must differ. There is NO compressed form on a writing blast radius.` })
   }
