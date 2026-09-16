@@ -7,8 +7,8 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-09-16T04:04:50.047Z
-- built_from HEAD: e0ef6e2c6822fefdccb4782653c68dd42ef655ec  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-09-16T18:18:35.587Z
+- built_from HEAD: b967ccba7db33487a55e11f2a3c80f5367452226  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
@@ -18,7 +18,7 @@
     - LORAMER_HANDOFF.md: 9f349d7d232366b1bb0b29f797f7225540b3ff6c8b43fbbea32eb0db4e761680
     - CONTINUE_HERE.md: b5b87f52b3d2fbfdb88331f09b067ea3b473419f5967e996114bccdcfe8a8505
     - LORAMER_DECISIONS.md: 7ce87cb385915cf688908894d41124c299299f06d50ea405571781a5b30ec6be
-    - LORAMER_QUEUE_OF_RECORD.md: 30aecbc90fab2daaace643c8b40c4d9095d8beb19b5ee5e2f344375997ac0abd
+    - LORAMER_QUEUE_OF_RECORD.md: a707f623175f37f8a58e59d0afd30c53c08abb23a46766d44f3ce4c82d62d26e
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: f4bef31497a46984a3a54acc5be044d48000688ba74ed59689e7c4bfafca21a1
     - RESUME_INSTRUCTIONS.md: 2f317be8a48fcd7767dad447cebcaa417cae0e8d8cd5bc5a01cc3939fb9f994a
     - docs/LORAMER_ASSET_LAYER_SCOPE_V1.md: 5550c754b2bf30624360a47cb54bbfd190bf8fc3cda958ab9b843497eb61050d
@@ -1724,7 +1724,6 @@ The 2026-06-29 inventory pre-dates 6 shipped writers and was NOT trusted. | do n
 - ★ALIAS-EQUALITY-IS-THE-WRONG-TEST — ⚠ **NEW 2026-09-15 (alias (v) read, round 4 — the finding under the red).** The alias asserts that `campaign/geo_city` IS the same fact as `geographic_view/geo_target_city`. It is not: it is the same fact ASKED AT A DIFFERENT GRANULARITY. Proven in source, not inferred — the drain's GAQL is `SELECT campaign.id, campaign.name, <grain>, metrics… FROM geographic_view` (google-geo.ts:123, GEO_ENTITIES campaign + ad_group) while the walk's is `SELECT segments.date, <segment>, metrics… FROM <resource>` with no campaign term (google-ads-universe-writer.ts:679-710). Splitting by campaign changes the row set Google returns at the margin, and summing the split rows back up need not reproduce the unsplit total. Every measured delta is impressions-only, ±1 or ±2, with CLICKS IDENTICAL ON ALL TWELVE differing days, and the rows involved are 1 impression / 0 clicks / 0 spend. ⛔ **90 IS NOT IMPLICATED AND MOVING IT WOULD FIX NOTHING** — the postal pair's two copies were both taken past T−B and still differ, and the county deltas run the opposite direction, which a settling restatement does not do. THE OPEN QUESTION IS THE VENDOR'S RULE for which low-volume rows survive a campaign split, and ONE re-ask of both query shapes for a single day settles it. open [LC]
 - ★UNLEDGERED-PRODUCER-WROTE-6649-ROWS — ⚠ **NEW 2026-09-15 (alias (v) read, round 4).** 6,649 `geographic_view/geo_target_city` rows for Foam OH 2026-04-05 carry an insert stamp of 2026-08-03 20:27–20:28Z, and there is **no row in `universe_attempt_log` OR `universe_window_log`** for that surface and hour. Something wrote 6,649 rows to a live client's warehouse and left no ledger entry anywhere. ⛔ IT IS NOT AN ACCOUNTING ROUNDING ERROR — it is a PRODUCER THIS SYSTEM CANNOT NAME, and every completeness argument the repo makes (coverage derived from the warehouse, spend derived from the ledgers, the fleet meter's witness) assumes the two agree about who wrote what. A writer outside both ledgers is invisible to all three at once. Candidates not yet eliminated: `scripts/google-ads-capture-universe.mjs`, an earlier engine, or a manual run. THE WORK: identify it, then decide whether it still exists and whether it can still run. open [LC]
 - ★PRIORITY-FIRST-IS-THE-SHIPPING-SHAPE — ⚠ **NEW 2026-09-16 (Russ, session wrap — RUSS'S ASSERTION, NOT A MEASUREMENT I TOOK, and it is recorded that way on purpose).** Russ's read of the market: **every competitor ships PRIORITY-FIRST — recent data usable within minutes of connecting, history filling in behind it.** We do not do that. Our walk descends from the frontier and a new account is not usefully queryable until enough of it has landed, which is why the hours target reads as hard. ⛔ WHY IT IS BANKED AS A SHAPE RATHER THAN A TASK: it is not a defect in the walk — the walk is correct and it is the thing that reaches the retention floor. It is a MISSING FIRST LAP. The shape it implies is a bounded recent window captured ahead of everything else on connect (yesterday, then the last week, then the last quarter), with the descend lane unchanged behind it. ⚠ WHAT IS NOT ESTABLISHED, and nobody may cite this entry as if it were: I have verified NOTHING about any competitor's product. No vendor page was read, no product was trialled, no timing was measured. Treating a competitive claim as a measured fact is the class this repo refuses everywhere else, and it does not get an exemption for being about someone else's software. **BEFORE THIS SHAPES A FLIGHT: name the competitors, read what they actually publish about first-data latency, and record the URLs — that is a RESEARCH round with real sources, and the protocol gate will demand exactly that.** THE WORK, in order: (1) establish the claim or drop it; (2) if it holds, design the first lap against the connect path, which is already next in line via [[LORAMER_FIRE_BITE_FOLLOWS_CONCURRENCY_V1]]'s successors. Related: the customer frame now in ESSENCE GOVERNING LAW — a new customer's first hour is the measure of finished. open [LC]
-- ★SCAN-ALLOWANCE-IS-16S-SHORT — ⚠ **NEW 2026-09-16 (LORAMER_FIRE_BITE_FOLLOWS_CONCURRENCY_V1, round 18 — measured, deliberately NOT fixed in that flight).** `SCAN_ALLOWANCE_MS = 55_000` (universe-v2-contract.ts:97) is the figure `CAPTURE_BUDGET_MS` is defined as 300,000 minus, and the contract states the invariant `SCAN_ALLOWANCE_MS + CAPTURE_BUDGET_MS + UNIT_RESERVATION_FLOOR_MS ≤ CONSUMER_MAX_DURATION_S × 1000` as an equality. **MEASURED ON THE SHIPPED CONCURRENT CODE (19 completed fires, 2026-09-16T00:02–01:37Z): the scan exceeded 55,000 ms on 16 of 19 fires — min 23,688 · p50 63,240 · p90 69,616 · WORST 70,982, an overshoot of 15,982 ms.** ⛔ WHY IT IS NOT COSMETIC: `captureStartedAt` is taken AFTER the scan, so the admission rule's 235,000 ms budget is measured from a clock that cannot see the scan's overshoot. A fire that actually spends its capture budget therefore runs 70,982 + 235,000 = 305,982 ms against a 300,000 ms platform kill, and it would be killed MID-WORK — the one outcome [[LORAMER_FIRE_BITE_FITS_THE_BUDGET_V1]] exists to prevent. Nothing is killed today only because the concurrent capture finishes in ~15 s of its 235 s. ⛔ WHY IT WAS NOT FIXED IN THE SAME FLIGHT: Russ ruled one change per flight, and the bite could be made safe WITHOUT touching it by charging the scan at max(allowance, worst measured) in the bite's own derivation — which is what shipped. THE WORK, and it is arithmetic plus one guard: SCAN_ALLOWANCE_MS ⇐ 71,000 (worst measured, rounded up), which makes CAPTURE_BUDGET_MS 219,000 and re-derives the bite to 360 from the contract instead of from a measured override; then the guard's max() charge collapses to the allowance and the two sources of truth become one again. ⚠ DO NOT raise MAX_ENTRIES_SCANNED_PER_RUN before this lands — the scan cap is the next throughput constraint and raising it makes this overshoot worse, linearly. open [LC]
 - ★CAMPAIGN-AUDIENCE-VIEW-NEVER-OBSERVED — ⚠ **NEW 2026-09-12 (READ-FIRST 17:55Z item 5).** campaign_audience_view is in the vendor catalogue artifact (docs/google-ads-capture-universe.json:5533, 20 entries; its segment entries carry delivers:false) and has 0 rows EVER in forward_observation_log and universe_attempt_log, while ad_group_audience_view is driver-covered for 17/17 clients (119 rows, 7 segments on 2026-09-10). Whether it is catalogue-ineligible by rule or a surface nobody asks is unresolved — read catalogEligibleEntries against the artifact's base entry (delivers?). Distinct from [[★INTEL-AUDIENCE-SUBFETCH-INVALID-RESOURCE]]: the legacy path's bare `audience_view` is not in the vendor artifact at all (0 hits), which is why its sub-fetch fails on every forward fire ("Error in audience_view: is not a valid resource name" — VERDICT 17:20Z item 4a; one DEGRADED error per google connection). src: READ-FIRST 17:55Z. open [LC]
 - ★FROZEN-PATH-WROTE-67-UNSTAMPED-ROWS — ⚠ **NEW 2026-09-12 (PRE-PRESS 00:07Z item 4), OBSERVED, NOT DIAGNOSED.** metrics_daily · Escential · google · date 2026-09-09 · no grainSource key: 27,669 at ~03:xxZ 09-11 (the 2/2 A Gate-A baseline) → 27,736 at 00:05Z 09-12 (+67), unchanged through the press (27,736 at 03:04Z). Something on the FROZEN legacy path wrote 67 unstamped rows for that date after 03:xxZ 09-11 — the forward google cron's restate window (08:08–09:29Z, LORAMER_GOOGLE_FORWARD_RESTATE_V1) is the candidate writer. A legacy write under the Standard Access freeze is a fact to explain, not a fix to ship: identify the writer from the rows' entity_level/breakdown_type, then rule. src: PRE-PRESS 00:07Z. open [LC]
 - ★CHECKDATA-EVICTS-THE-CACHE — ⚠ **NEW 2026-09-12 (ROTATION-ERROR READ 01:47Z).** check:data's metrics_daily scans (no-owed-day-left-behind 85 s, check-completion-claims 656 s, check-coverage-density 58 s) flush shared_buffers (512 MB) and the next live rotation read of a deep client re-reads ~10k pages cold — the 20:10:55Z 09-11 rotation-error sits inside the 19:56–20:17Z run. Standing rule until ★ROTATION-INDEX-HEAP-FETCH ships: do not run check:data beside a press, a proof read or a deep client's live fires; the push law still requires it, so run it when no live fire matters (the ab48975 run was placed 02:19–02:40Z for exactly this reason). src: ROTATION-ERROR READ 01:47Z. open [LC]
@@ -2478,8 +2477,8 @@ HOW TO USE: before writing "NEW" on any finding, gap or correction, GREP THIS SE
 LORAMER_*_V* marker you are about to mint. A token collision is DECIDABLE; a topic match is not. This is
 ESSENCE law 7 made mechanical — the law is a rule about behaviour, and on 2026-07-31 four already-decided
 topics were discussed as open while it was in force.
-TOTALS: 1132 tokens indexed · 367 resolve to BOTH a decision and a queue item ·
-140 decision-only · 625 queue-only.
+TOTALS: 1133 tokens indexed · 367 resolve to BOTH a decision and a queue item ·
+140 decision-only · 626 queue-only.
 ⛔ UNINDEXABLE — THIS COUNT IS THE BACKLOG, NOT A DISCLAIMER: 164 DECISIONS entries and
 262 QUEUE items carry NO token at all, so they cannot be found this way. An untokened decision
 is invisible to the enforcer; the fix is to mint a token when banking, not to widen the matcher. Samples —
@@ -2617,7 +2616,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★CONV-GET-LIMIT-PARAM-UNUSED — OPEN · decisions 0 · queue 1 · last 2026-07-27
 - ★CONV-WINDOW-EVAL-SLICE — OPEN · decisions 0 · queue 3 · last 2026-09-30
 - ★CONVERSION-ACTION-CAPTURE-DARK — OPEN · decisions 1 · queue 3 · last 2026-11-17
-- ★COVERAGE-DAY-SET-RPC — DONE · decisions 0 · queue 1 · last 2026-09-14
+- ★COVERAGE-DAY-SET-RPC — DONE · decisions 0 · queue 2 · last 2026-09-16
 - ★COVERAGE-INSTRUMENT-8S-CEILING-DIVERGES — OPEN · decisions 0 · queue 1 · last 2026-08-01
 - ★COVERAGE-IS-BASE-GRAIN-ONLY — OPEN · decisions 0 · queue 3 · last 2026-08-15
 - ★COVERAGE-IS-FLOOR-NOT-DENSITY — OPEN · decisions 0 · queue 3 · last 2026-08-15
@@ -2957,7 +2956,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★RPC-GRANT-POSTURE-UNAUDITED — DONE · decisions 0 · queue 1 · last 2026-08-14
 - ★RUN-BACKFILL-268-CLAIM-DEFECT — OPEN · decisions 0 · queue 2 · last 2026-07-30
 - ★SALES-CHANNEL-THREE-SOURCE-CONFLICT — OPEN · decisions 1 · queue 1 · last 2026-08-02
-- ★SCAN-ALLOWANCE-IS-16S-SHORT — OPEN · decisions 0 · queue 1 · last 2026-09-16
+- ★SCAN-ALLOWANCE-IS-16S-SHORT — DONE · decisions 0 · queue 1 · last 2026-09-16
 - ★SCHEDULED-DATA-CHECK — OPEN · decisions 1 · queue 3 · last 2026-09-10
 - ★SCHEMA-SNAPSHOT-DRIFT-CHECK — OPEN · decisions 0 · queue 2 · last 2026-07-27
 - ★SCROLL-FALSE-IS-NOT-A-GLOBAL-GOOD — DONE · decisions 0 · queue 1 · last 2026-08-07
@@ -3242,8 +3241,9 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_FAILURE_IS_NOT_A_FACT_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-23
 - LORAMER_FALSE_ZERO_DIAG_V1 — OPEN · decisions 0 · queue 2 · last 2026-08-15
 - LORAMER_FANOUT_BOUNDED_GUARD_V1 — DONE · decisions 0 · queue 1 · last 2026-09-14
-- LORAMER_FIRE_BITE_FITS_THE_BUDGET_V1 — OPEN · decisions 0 · queue 1 · last 2026-09-16
+- LORAMER_FIRE_BITE_FITS_THE_BUDGET_V1 — DONE · decisions 0 · queue 1 · last 2026-09-16
 - LORAMER_FIRE_BITE_FOLLOWS_CONCURRENCY_V1 — OPEN · decisions 0 · queue 2 · last 2026-09-16
+- LORAMER_FIRE_DEADLINE_FROM_FIRE_START_V1 — DONE · decisions 0 · queue 1 · last 2026-09-16
 - LORAMER_FIRE_LOG_WITNESS_BOTH_SLOTS_V1 — DONE · decisions 0 · queue 3 · last 2026-09-14
 - LORAMER_FIRE_LOG_WITNESSES_OPENED_V1 — DONE · decisions 0 · queue 1 · last 2026-09-14
 - LORAMER_FIRST_CLASS_DIMENSION_DEFAULT_V1 — OPEN · decisions 1 · queue 4 · last 2026-07-18
