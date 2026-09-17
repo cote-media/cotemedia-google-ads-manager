@@ -142,6 +142,23 @@ no button, no schedule. It is deliberately inert until the next piece of work wi
   screens go.**
 - Deleting and re-running any of Russ's own clients is authorised.
 
+**2026-09-17**
+
+- **Pressing a platform's Backfill button while that platform's backfill is already running does NOTHING.**
+  The button shows an accurate progress meter instead, tied to the capture families and to REAL progress —
+  **days no longer owed**, never rows written and never requests spent.
+  The meter counts **349 surfaces** per Google account, and that number is measured rather than chosen: the
+  daily sweep owns 319 of them (50 heavy + 269 rest) and the capture route keeps the other 30, and the data
+  check counts 349 for a real account. Russ said 347; that number appears nowhere in the code or the ledgers,
+  so 349 is what the meter uses.
+- **Daily capture and a backfill always run alongside each other, and neither waits for the other.** Measured:
+  a continuous run and the rotation's own turns interleaved cleanly, both healthy, no collision.
+- Unnamed ads: Claude recommends showing the ad's **first headline**, falling back to its number only when an
+  ad has no text at all — the platform sets no name on most ads and identifies them by their headlines.
+  **Awaiting Russ's yes.**
+- The Shopify reviewer's access is **deferred until the data work is finished**, under the
+  data-completeness-only ruling.
+
 **Earlier, still standing**
 
 - Capture everything, from everywhere, and keep it forever. A thin slice is unfinished work, never a design.
@@ -164,16 +181,13 @@ no button, no schedule. It is deliberately inert until the next piece of work wi
 
 ## OPEN QUESTIONS FOR RUSS
 
-These could not be settled from the code or the documents, and are recorded here rather than guessed.
-
-1. **Which account is reserved for the outside-the-manager proof?** Five reachable accounts outside the
-   manager account were found and read successfully. Russ has said one is reserved; the repo does not say
-   which.
-2. **Should an ad without a name show its number, or something built from its text?** The platform sets no
-   name on any ad we checked, so an ad has no name of its own to show. Campaigns and ad groups do.
-3. **When the old screens are retired, how does the Shopify reviewer get in?** Their login is pinned to the
-   old screens today, and their access is a live obligation.
-4. **Should a backfill that is already running be restartable by pressing the button again**, or should the
-   button show progress and refuse to start a second run?
-5. **How long may a single customer's backfill hold the engine** before other customers' daily capture is
-   allowed to interrupt it? Today nothing interrupts, because nothing runs continuously yet.
+1. **Which account is reserved for the outside-the-manager proof?** OPEN — Russ picks tomorrow. Five
+   reachable accounts outside the manager account were found and read successfully.
+2. **Should an unnamed ad show its first headline or its number?** ANSWERED IN PRINCIPLE, awaiting Russ's
+   yes: first headline, number only when an ad has no text.
+3. **How does the Shopify reviewer get in once the old screens go?** DEFERRED until data completeness is
+   finished, by Russ's ruling.
+4. **Should a second Backfill press restart a running backfill?** ANSWERED 2026-09-17: it does nothing, and
+   the button shows a progress meter instead.
+5. **May a customer's backfill hold up other customers' daily capture?** ANSWERED 2026-09-17: no — they run
+   alongside each other and neither waits.
