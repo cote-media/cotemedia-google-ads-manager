@@ -27,6 +27,7 @@ import { resolve, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { spawnSync } from 'node:child_process'
 import { createRequire } from 'node:module'
+import Module from 'node:module'
 
 const ROOT = process.env.LORAMER_GUARD_ROOT || process.cwd()
 const findings = []
@@ -41,15 +42,29 @@ const MIG = 'migrations/095_google_entity_dimension.sql'
 const out = mkdtempSync(join(tmpdir(), 'loramer-entity-dim-'))
 try {
   const tsc = join(ROOT, 'node_modules', '.bin', 'tsc')
-  const r = spawnSync(tsc, [resolve(ROOT, MOD), '--target', 'es2020', '--module', 'commonjs',
+  // ⛔ THE REAL canonicalEntityId IS COMPILED IN, NOT STUBBED. The whole point of leg (k) is that this module
+  // uses the ENGINE'S spelling rule; a stub would let it pass while spelling ids any way it liked.
+  const SURFACES = 'src/lib/backfill/universe-surfaces.ts'
+  const r = spawnSync(tsc, [resolve(ROOT, MOD), resolve(ROOT, SURFACES), '--target', 'es2020', '--module', 'commonjs',
     '--moduleResolution', 'node', '--skipLibCheck', '--noResolve', '--rootDir', resolve(ROOT), '--outDir', out], { encoding: 'utf8' })
   if (r.error) findings.push(`could not run tsc — ${r.error.message}`)
-  const M = createRequire(import.meta.url)(join(out, 'src/lib/backfill/entity-dimension.js'))
+  const origResolve = Module._resolveFilename
+  Module._resolveFilename = function (request, ...rest) {
+    if (request === '@/lib/backfill/universe-surfaces') return join(out, 'src/lib/backfill/universe-surfaces.js')
+    return origResolve.call(this, request, ...rest)
+  }
+  let M
+  try { M = createRequire(import.meta.url)(join(out, 'src/lib/backfill/entity-dimension.js')) }
+  finally { Module._resolveFilename = origResolve }
 
   const CID = '1234567890' // fixture: synthetic — the id shape only; the vendor's own doc uses this exact placeholder
-  const CAMPAIGN = `customers/${CID}/campaigns/111`
-  const ADGROUP = `customers/${CID}/adGroups/222`
+  // The VENDOR's spellings, as the dimension read receives them...
+  const CAMPAIGN_RN = `customers/${CID}/campaigns/111`
+  const ADGROUP_RN = `customers/${CID}/adGroups/222`
   const AD = `customers/${CID}/adGroupAds/222~333`
+  // ...and the spellings metrics_daily uses, which is what the dimension must STORE (canonicalEntityId).
+  const CAMPAIGN = '111'
+  const ADGROUP = '222'
 
   // The vendor's three dimension reads, as they actually come back.
   const observed = [
@@ -62,9 +77,9 @@ try {
 
   // ── (f) the tilde parse ────────────────────────────────────────────────────────────────────────────
   if (M.parentFromResourceName(AD) !== ADGROUP) {
-    findings.push(`(f) the ad's own id did not yield its ad group. Google documents that parsing the id gives the ad group, and the id is already in the warehouse — got ${M.parentFromResourceName(AD)}.`)
+    findings.push(`(f) the ad's own id did not yield its ad group IN THE SPELLING metrics_daily USES. Expected the BARE id "${ADGROUP}" (canonicalEntityId), got "${M.parentFromResourceName(AD)}". A parent spelled as a resource path points at no row this warehouse holds — Round 8 measured that exact miss.`)
   }
-  for (const shape of [ADGROUP, CAMPAIGN, `customers/${CID}/adGroupCriteria/222~333`, 'nonsense', '']) {
+  for (const shape of [ADGROUP_RN, CAMPAIGN_RN, `customers/${CID}/adGroupCriteria/222~333`, 'nonsense', '']) {
     if (M.parentFromResourceName(shape) !== null) {
       findings.push(`(f) parentFromResourceName invented a parent for "${shape}" (${M.parentFromResourceName(shape)}). An ad group's PATH parent is the customer while its LOGICAL parent is the campaign — a confident wrong answer there is worse than none.`)
     }
@@ -215,6 +230,18 @@ if (mig) {
   }
   if (cap && !/onConflict: 'client_id,platform,entity_level,entity_id'/.test(cap)) {
     findings.push(`(j) the dimension upsert does not target the natural key, so a re-run could create a second copy — the one thing a re-capture may never do.`)
+  }
+}
+
+
+// ── (k) THE DIMENSION SPELLS IDS THE WAY metrics_daily DOES — NO BRIDGE AT THE READER ───────────────
+{
+  const mod2 = read(MOD)
+  if (!/canonicalEntityId/.test(mod2)) {
+    findings.push(`(k) ${MOD} does not use canonicalEntityId. The engine has spelled campaign/ad_group/ad as BARE ids since 2026-08-09 (LORAMER_CANONICAL_KEY_SPELLING_V1); a dimension that stores resource paths against those rows resolves 0% — Round 8 measured exactly that, 100% only via a hand-written SQL bridge.`)
+  }
+  if (/`customers\/\$\{[^}]+\}\/adGroups\/\$\{[^}]+\}`\s*$/m.test(mod2) && !/canonicalEntityId\('ad_group'/.test(mod2)) {
+    findings.push(`(k) parentFromResourceName returns a raw resource path. An ad's parent must be spelled the way its parent's own rows are spelled.`)
   }
 }
 

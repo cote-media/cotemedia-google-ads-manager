@@ -32,8 +32,24 @@
 // already has the transition invariant that keeps it from inflating. Recording history here too would be a
 // second owner of one fact. See migration 095's header for the governing-law half of that argument.
 //
+// ⛔ THE SPELLING RULE IS NOT INVENTED HERE — IT IS THE ONE THE ENGINE ALREADY HAS, AND ROUND 8 MEASURED WHAT
+// IT COST TO BYPASS IT. `canonicalEntityId` (universe-surfaces.ts) has existed since 2026-08-09 under
+// LORAMER_CANONICAL_KEY_SPELLING_V1: for the three resources whose NAME IS a legacy entity_level — campaign,
+// ad_group, ad — the id is the BARE vendor id, and every other resource keeps its resource_name unchanged.
+// metrics_daily obeys it. The first cut of this dimension did not, so it stored
+// `customers/7688521852/campaigns/16473849753` against rows spelling the same campaign `16473849753`, and the
+// shipped code resolved 0% at two of three levels while a hand-written SQL bridge resolved 100%.
+// ⇒ THE DIMENSION NOW SPELLS IDS EXACTLY AS THE ROWS DO, so a reader joins on entity_id and nothing else.
+// ⛔ AND THE REASON THE ROWS DO NOT MOVE INSTEAD: metrics_daily's conflict key CONTAINS entity_id. Re-spelling
+// the rows would make a re-capture of an already-captured day insert a second row rather than update the
+// first — the exact defect LORAMER_CANONICAL_KEY_SPELLING_V1 was written for, measured at 67,455 duplicate
+// rows on one client. ~184.5M rows are already written in the current spelling; the dimension is 136 rows.
+// The small side moves.
+//
 // PURE BY CONSTRUCTION: every function below is input → output with no database and no network, so the guard
 // can prove the parent chain and the rename behaviour without spending a request.
+
+import { canonicalEntityId } from '@/lib/backfill/universe-surfaces'
 
 /** One entity as the vendor described it on a dimension read. */
 export type ObservedEntity = {
@@ -59,7 +75,10 @@ export type DimensionRow = ObservedEntity & { clientId: string; platform: string
 export function parentFromResourceName(entityId: string): string | null {
   const m = /^customers\/(\d+)\/adGroupAds\/(\d+)~(\d+)$/.exec(entityId)
   if (!m) return null
-  return `customers/${m[1]}/adGroups/${m[2]}`
+  // ⛔ THE BARE AD GROUP ID, NOT THE RESOURCE PATH. `ad_group` is one of the three colliding resources, so
+  // metrics_daily spells it bare — and an ad's parent must be spelled the way its parent's own rows are, or
+  // the link points at nothing. Round 8 measured the first cut emitting the path form.
+  return canonicalEntityId('ad_group', `customers/${m[1]}/adGroups/${m[2]}`)
 }
 
 /**
@@ -168,7 +187,7 @@ export function resolveChain(
  * ⛔ NO `if (resource === …)` AND NO NEW GOOGLE CONSTANT IN CODE: this is DATA, the same posture
  * `universe-surfaces.ts` takes for every other per-resource fact.
  */
-export const DIMENSION_READS: Array<{ entityLevel: string; gaql: string; idField: string; nameField: string; parentField: string | null }> = [
+export const DIMENSION_READS: Array<{ entityLevel: string; gaql: string; idField: string; nameField: string; parentField: string | null; parentLevel?: string }> = [
   {
     entityLevel: 'campaign',
     gaql: 'SELECT campaign.resource_name, campaign.name FROM campaign',
@@ -177,12 +196,12 @@ export const DIMENSION_READS: Array<{ entityLevel: string; gaql: string; idField
   {
     entityLevel: 'ad_group',
     gaql: 'SELECT ad_group.resource_name, ad_group.name, campaign.resource_name FROM ad_group',
-    idField: 'ad_group.resource_name', nameField: 'ad_group.name', parentField: 'campaign.resource_name',
+    idField: 'ad_group.resource_name', nameField: 'ad_group.name', parentField: 'campaign.resource_name', parentLevel: 'campaign',
   },
   {
     entityLevel: 'ad_group_ad',
     gaql: 'SELECT ad_group_ad.resource_name, ad_group_ad.ad.name, ad_group.resource_name FROM ad_group_ad',
-    idField: 'ad_group_ad.resource_name', nameField: 'ad_group_ad.ad.name', parentField: 'ad_group.resource_name',
+    idField: 'ad_group_ad.resource_name', nameField: 'ad_group_ad.ad.name', parentField: 'ad_group.resource_name', parentLevel: 'ad_group',
   },
 ]
 
@@ -203,11 +222,16 @@ export function observedFromRows(read: (typeof DIMENSION_READS)[number], rows: a
   for (const r of rows) {
     const id = pluck(r, read.idField)
     if (!id) continue
+    // ⛔ BOTH SIDES CANONICALISED HERE, AT THE ONE PLACE THE VENDOR'S WORDS ENTER THIS MODULE. The parent is
+    // canonicalised against the PARENT'S level, never the child's — an ad's parent is an ad_group, and asking
+    // the wrong level would leave a path where a bare id belongs.
+    const parentLevel = read.parentLevel ?? null
+    const rawParent = read.parentField ? pluck(r, read.parentField) : null
     out.push({
       entityLevel: read.entityLevel,
-      entityId: id,
+      entityId: canonicalEntityId(read.entityLevel, id) as string,
       entityName: pluck(r, read.nameField),
-      parentEntityId: read.parentField ? pluck(r, read.parentField) : null,
+      parentEntityId: parentLevel && rawParent ? canonicalEntityId(parentLevel, rawParent) : rawParent,
     })
   }
   return out
