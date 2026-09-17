@@ -29,6 +29,8 @@ export type DimensionCaptureReport = {
   unchanged: number
   errors: string[]
   elapsedMs: number
+  /** LORAMER_ENTITY_DIMENSION_DAILY_V1 — true when the gate short-circuited; 0 vendor requests were made. */
+  skippedAlreadyToday?: boolean
 }
 
 /**
@@ -45,7 +47,7 @@ export async function captureEntityDimension(a: {
   customerId: string
   platform?: string
   log?: (s: string) => void
-}): Promise<DimensionCaptureReport> {
+}, opts?: { force?: boolean }): Promise<DimensionCaptureReport> {
   const platform = a.platform ?? 'google'
   const started = Date.now()
   const log = a.log ?? (() => {})
@@ -61,6 +63,35 @@ export async function captureEntityDimension(a: {
     rep.errors.push(`no google refresh token for ${a.userEmail}`)
     rep.elapsedMs = Date.now() - started
     return rep
+  }
+
+  // ⛔ ONCE PER CLIENT PER DAY — LORAMER_ENTITY_DIMENSION_DAILY_V1, and the number it replaces was MEASURED,
+  // not guessed. The forward driver fires 38 times a day (*/10 across 11-16 UTC, plus 17:30 and 21:30), so the
+  // first cut of this refresh cost 38 × 17 clients × 3 reads = 1,938 vendor requests a day to re-read a set of
+  // names that changes maybe once a week. 51 does the same job.
+  // ⛔ THE GATE READS THE DIMENSION ITSELF RATHER THAN A SEPARATE MARKER. A second table saying when we last
+  // refreshed would be a second owner of a fact the dimension already carries in `updated_at`, and the two
+  // would drift the first time a write failed halfway.
+  // ⚠ AN UNREADABLE GATE REFRESHES. If we cannot tell whether today's refresh happened, doing it is cheap and
+  // skipping it is a silent hole — the asymmetry runs the other way from a spend gate, because the cost here
+  // is three reads and the risk is a day with no names.
+  if (!opts?.force) {
+    try {
+      const { data: last } = await supabaseAdmin
+        .from('google_entity_dimension')
+        .select('updated_at')
+        .eq('client_id', a.clientId).eq('platform', platform)
+        .order('updated_at', { ascending: false }).limit(1)
+      const lastAt = (last?.[0] as { updated_at?: string } | undefined)?.updated_at
+      if (lastAt && lastAt.slice(0, 10) === new Date().toISOString().slice(0, 10)) {
+        rep.skippedAlreadyToday = true
+        rep.elapsedMs = Date.now() - started
+        log(`[entity-dimension] ${a.clientId}: already refreshed today (${lastAt}) — 0 vendor requests`)
+        return rep
+      }
+    } catch (e: any) {
+      rep.errors.push(`freshness gate unreadable, refreshing anyway: ${e?.message ?? e}`)
+    }
   }
 
   const observed: ObservedEntity[] = []

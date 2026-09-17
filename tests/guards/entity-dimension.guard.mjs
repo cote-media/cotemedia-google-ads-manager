@@ -245,6 +245,24 @@ if (mig) {
   }
 }
 
+// ── (l) THE REFRESH IS ONCE PER CLIENT PER DAY ──────────────────────────────────────────────────────
+{
+  const cap = read('src/lib/backfill/entity-dimension-capture.ts')
+  if (cap) {
+    if (!/skippedAlreadyToday/.test(cap)) {
+      findings.push(`(l) the refresh has no already-today gate. MEASURED: the forward driver fires 38 times a day, so an ungated refresh costs 38 x 17 x 3 = 1,938 vendor requests to re-read names that change weekly.`)
+    }
+    const gateIdx = cap.indexOf('skippedAlreadyToday')
+    const readIdx = cap.indexOf('for (const read of DIMENSION_READS)')
+    if (gateIdx === -1 || readIdx === -1 || gateIdx > readIdx) {
+      findings.push(`(l) the already-today gate does not sit BEFORE the vendor reads. A gate after the spend saves nothing — the requests are already made.`)
+    }
+    if (!/freshness gate unreadable, refreshing anyway/.test(cap)) {
+      findings.push(`(l) an UNREADABLE freshness gate does not fall through to refreshing. Here the cost of doing it is three reads and the cost of skipping is a day with no names, so this asymmetry runs the opposite way from a spend gate and must be explicit.`)
+    }
+  }
+}
+
 if (findings.length) {
   console.error(`[entity-dimension] FAIL — ${findings.length} finding(s):`)
   for (const f of findings) console.error(`  - ${f}`)
