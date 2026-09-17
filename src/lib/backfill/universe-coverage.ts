@@ -474,3 +474,146 @@ export async function derivedTimeIsRecomputable(
   const base = await windowCoverage({ ...k, breakdownType: '' }, from, to)
   return { recomputable: base.uncovered.length === 0, missingBaseDays: base.uncovered }
 }
+
+// ═══ LORAMER_RUN_PROGRESS_SIGNAL_V1 — GROUND GAINED BY ONE STEP, AS DAYS NO LONGER OWED ═══════════════════════
+//
+// ⛔ THE MEASURE IS THE RULING'S, NOT THE PRODUCER'S. LORAMER_MAP §7 (Russ, 2026-09-17): the meter is "measured in
+// days no longer owed, never rows written and never requests spent". The first continuous run counted
+// `day_committed` rows — DAYS WITH ROWS — and on Tri-Copy read 0 while 204 of 384 attempts came back
+// empty-and-attested: dormant ground, genuinely retired, invisible to a counter that only sees rows.
+//
+// A DAY STOPS BEING OWED IN EXACTLY TWO WAYS, both consumer-side facts in the attempt ledger:
+//   · a `day_committed` record — rows durably written for that day;
+//   · an `attempt_finished` terminal with outcome zero|nongrain from an ATTESTING lane — the vendor answered
+//     and named nothing, for every day of the attempt's window.
+// The same two facts `windowCoverage` derives owed-ness from, read the same way (`committedDays`,
+// `attestedEmptyDays`), so the run's progress and the walk's owed set cannot disagree about what "owed" means.
+//
+// ⛔ THE LOOKBACK LANE COUNTS NOTHING. It re-asks days that are already covered (LORAMER_RESTATEMENT_WINDOW_LAW_V1),
+// so its commits restate ground rather than retire it; counting them would be the adjacent number again.
+// ⛔ THE TOP EDGE COUNTS NOTHING ON A ZERO — it never attests (see attestedEmptyDays) — but its commits do:
+// a day with rows is captured whichever lane paid for it.
+// ⚠ THE RESIDUAL, STATED: this counts closures recorded in the step window without subtracting a day that was
+// already closed by an earlier record. The descent and missed lanes ask only owed ground (the fire recomputes
+// owed-ness before publishing, and two fires of a lane cannot overlap under the lease), so a re-closure can only
+// come from ground that was closed between the scan and the ask — bounded by one step's candidates, and stated
+// here rather than hidden.
+
+export type ClosureRecord = { kind: 'committed' | 'attested'; lane: string; days: number }
+
+/** PURE. The counting rule, so it is provable without a ledger. */
+export function daysNoLongerOwedFromClosures(records: ClosureRecord[]): number {
+  let n = 0
+  for (const r of records) {
+    if (r.lane === 'lookback') continue
+    if (r.kind === 'committed') n += r.days
+    else if (ATTESTING_LANES.has(r.lane)) n += r.days
+  }
+  return n
+}
+
+/**
+ * Days no longer owed on ONE lane (client, vendor — the LEDGER's spelling) since `sinceIso`.
+ * ⛔ THROWS on an unreadable ledger. Zero from a failed read would let a broken read end a healthy run through
+ * the no-progress bound; the caller decides what an unknown means (it chains).
+ */
+export async function daysNoLongerOwedSince(k: { clientId: string; vendor: string }, sinceIso: string): Promise<number> {
+  const records: ClosureRecord[] = []
+
+  // (1) Days committed by any lane but the lookback. A head-count: one row per (surface, day) per attempt, so the
+  // count cannot be page-capped the way a row read can (the 1,000-row cap this file's header names).
+  const { count, error: cErr } = await supabaseAdmin
+    .from('universe_attempt_log')
+    .select('id', { count: 'exact', head: true })
+    .eq('client_id', k.clientId).eq('vendor', k.vendor)
+    .eq('phase', 'day_committed')
+    .neq('lane', 'lookback')
+    .gte('recorded_at', sinceIso)
+  if (cErr) throw new Error(`[universe-coverage] progress read (day_committed) failed: ${cErr.message}. ⛔ PROGRESS MUST NOT BE SYNTHESISED FROM A FAILED READ.`)
+  records.push({ kind: 'committed', lane: 'descend', days: count ?? 0 })
+
+  // (2) Terminals that attest — few by construction (one per attempt), lane resolved from the attempt_started row
+  // of the same message, exactly as attestedEmptyDays does, because terminal rows do not carry the lane truthfully.
+  const { data, error: tErr } = await supabaseAdmin
+    .from('universe_attempt_log')
+    .select('window_start, window_end, message_key, invocation_id')
+    .eq('client_id', k.clientId).eq('vendor', k.vendor)
+    .eq('phase', 'attempt_finished').in('outcome', ['zero', 'nongrain'])
+    .gte('recorded_at', sinceIso)
+  if (tErr) throw new Error(`[universe-coverage] progress read (attested) failed: ${tErr.message}. ⛔ PROGRESS MUST NOT BE SYNTHESISED FROM A FAILED READ.`)
+  const terminals = (data ?? []) as Array<{ window_start: string; window_end: string; message_key: string | null; invocation_id: string | null }>
+  const keys = [...new Set(terminals.map((r) => r.message_key).filter((x): x is string => !!x))]
+  const startsByKey = new Map<string, Array<{ invocationId: string | null; lane: string | null }>>()
+  if (keys.length) {
+    const { data: starts, error: sErr } = await supabaseAdmin
+      .from('universe_attempt_log')
+      .select('message_key, invocation_id, lane')
+      .eq('phase', 'attempt_started')
+      .in('message_key', keys)
+    if (sErr) throw new Error(`[universe-coverage] progress read (lane provenance) failed: ${sErr.message}. ⛔ PROGRESS MUST NOT BE SYNTHESISED FROM A FAILED READ.`)
+    for (const s of (starts ?? []) as Array<{ message_key: string; invocation_id: string | null; lane: string | null }>) {
+      const list = startsByKey.get(s.message_key) ?? []
+      list.push({ invocationId: s.invocation_id ?? null, lane: s.lane ?? null })
+      startsByKey.set(s.message_key, list)
+    }
+  }
+  for (const r of terminals) {
+    records.push({ kind: 'attested', lane: resolveTerminalLane(r, startsByKey), days: dayList(String(r.window_start), String(r.window_end)).length })
+  }
+  return daysNoLongerOwedFromClosures(records)
+}
+
+/**
+ * LORAMER_RUN_STOP_LIMITS_ARE_TIME_V1 — how long has this lane been ASKING without gaining, since `sinceIso`?
+ * Derived from the ledger, so it survives a deploy and needs no run column:
+ *   lastProgressAt = the newest closure record (a day_committed by a lane other than the lookback, or an attesting
+ *                    lane's zero|nongrain terminal) at or after `sinceIso`, else null;
+ *   askingSince    = the first attempt_started (lane ≠ lookback) after lastProgressAt (or after `sinceIso` when
+ *                    there has been no progress yet), else null — no unanswered ask, no clock.
+ * A held step opens no attempt, so a hold never starts the clock. ⛔ THROWS on an unreadable ledger.
+ */
+export async function askingWithoutProgressSince(
+  k: { clientId: string; vendor: string }, sinceIso: string,
+): Promise<{ lastProgressAt: string | null; askingSince: string | null }> {
+  const fail = (what: string, msg: string) => new Error(`[universe-coverage] asking-clock read (${what}) failed: ${msg}. ⛔ A STOP DECISION MUST NOT BE SYNTHESISED FROM A FAILED READ.`)
+  // newest committed day by any lane but the lookback
+  const { data: c, error: cErr } = await supabaseAdmin
+    .from('universe_attempt_log').select('recorded_at')
+    .eq('client_id', k.clientId).eq('vendor', k.vendor).eq('phase', 'day_committed').neq('lane', 'lookback')
+    .gte('recorded_at', sinceIso).order('recorded_at', { ascending: false }).limit(1)
+  if (cErr) throw fail('day_committed', cErr.message)
+  let lastProgressAt: string | null = (c?.[0] as { recorded_at?: string } | undefined)?.recorded_at ?? null
+  // newest ATTESTING terminal — few candidates, lanes resolved from their attempt_started rows as attestedEmptyDays does
+  const { data: t, error: tErr } = await supabaseAdmin
+    .from('universe_attempt_log').select('recorded_at, message_key, invocation_id')
+    .eq('client_id', k.clientId).eq('vendor', k.vendor)
+    .eq('phase', 'attempt_finished').in('outcome', ['zero', 'nongrain'])
+    .gte('recorded_at', sinceIso).order('recorded_at', { ascending: false }).limit(50)
+  if (tErr) throw fail('attested', tErr.message)
+  const terms = (t ?? []) as Array<{ recorded_at: string; message_key: string | null; invocation_id: string | null }>
+  const keys = [...new Set(terms.map((r) => r.message_key).filter((x): x is string => !!x))]
+  const startsByKey = new Map<string, Array<{ invocationId: string | null; lane: string | null }>>()
+  if (keys.length) {
+    const { data: starts, error: sErr } = await supabaseAdmin
+      .from('universe_attempt_log').select('message_key, invocation_id, lane').eq('phase', 'attempt_started').in('message_key', keys)
+    if (sErr) throw fail('lane provenance', sErr.message)
+    for (const st of (starts ?? []) as Array<{ message_key: string; invocation_id: string | null; lane: string | null }>) {
+      const list = startsByKey.get(st.message_key) ?? []
+      list.push({ invocationId: st.invocation_id ?? null, lane: st.lane ?? null })
+      startsByKey.set(st.message_key, list)
+    }
+  }
+  for (const r of terms) {
+    if (!ATTESTING_LANES.has(resolveTerminalLane(r, startsByKey))) continue
+    if (lastProgressAt === null || r.recorded_at > lastProgressAt) lastProgressAt = r.recorded_at
+    break // ordered newest-first, so the first attesting terminal is the newest
+  }
+  // first unanswered ask after the last progress (or since the run began)
+  const { data: a, error: aErr } = await supabaseAdmin
+    .from('universe_attempt_log').select('recorded_at')
+    .eq('client_id', k.clientId).eq('vendor', k.vendor).eq('phase', 'attempt_started').neq('lane', 'lookback')
+    .gt('recorded_at', lastProgressAt ?? sinceIso).order('recorded_at', { ascending: true }).limit(1)
+  if (aErr) throw fail('attempt_started', aErr.message)
+  const askingSince = (a?.[0] as { recorded_at?: string } | undefined)?.recorded_at ?? null
+  return { lastProgressAt, askingSince }
+}

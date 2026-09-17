@@ -176,7 +176,16 @@ if (route) {
   // is still a finding, and adding a SECOND lane here would now be caught independently by
   // `one-delivery-lane-per-topic.guard.mjs`, which refuses two live lanes on one topic.
   const POLL_LANE = 'src/app/api/cron/universe-drain-poll/route.ts'
-  const ALLOWED = new Set([ROUTE, CONTRACT, RESUMER, DRIVE, POLL_LANE])
+  // ⛔ LORAMER_RUN_PROGRESS_SIGNAL_V1 (2026-09-17) — A SPELLING MAP, NAMED HERE BECAUSE NAMING IS NOT PUBLISHING.
+  // universe-vendor-spelling.ts imports ONE string from the contract — VENDOR, the attempt ledger's spelling of the
+  // vendor — so the continuous run can read its progress under the spelling the ledger writes (the Tri-Copy false
+  // stop: the run passed the universe's name `google_ads` into a ledger that spells `google`, and matched nothing).
+  // It cannot publish: the clause below pins its contract import to exactly that one symbol and refuses any queue
+  // reference in the file, so adding it here narrows nothing the set protects. The precedent it declines is
+  // universe-attempt-log.ts:45 (a constant MOVED out of the contract rather than imported) — moving VENDOR would
+  // break the guards that compile the contract standalone, and a re-export from a leaf would break them the same way.
+  const SPELLING = 'src/lib/backfill/universe-vendor-spelling.ts'
+  const ALLOWED = new Set([ROUTE, CONTRACT, RESUMER, DRIVE, POLL_LANE, SPELLING])
   // ⛔ QUOTATION IS NOT ASSERTION — banked THREE times now (canonical-client-identity, ga-dim, and here on
   // 2026-08-11). This leg matched the topic literal ANYWHERE in a file, so `capture-adapter.ts` became a
   // "candidate publisher" by NAMING the v2 route in a doc comment explaining why its own charge model exists.
@@ -184,6 +193,14 @@ if (route) {
   // CANNOT PUBLISH. Stripping comments removes FALSE positives only — the leg still fires on any real
   // reference in code, which is proven by red-proof rather than asserted here.
   const nocomment = (s) => s.split('\n').filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n')
+  {
+    const sp = nocomment(readFileSync(resolve(ROOT, SPELLING), 'utf8'))
+    const imports = sp.match(/^import[^\n]*universe-v2-contract[^\n]*$/gm) || []
+    if (imports.length !== 1 || !/^import \{ VENDOR as LEDGER_VENDOR \} from '@\/lib\/backfill\/universe-v2-contract'$/.test(imports[0].trim())) {
+      findings.push(`(e) ${SPELLING} is named in this set for ONE import — \`import { VENDOR as LEDGER_VENDOR } from '@/lib/backfill/universe-v2-contract'\` — and its contract import now reads ${JSON.stringify(imports)}. Anything more is a candidate publisher and needs its own decision here.`)
+    }
+    if (/publish|queue|TOPIC/i.test(sp)) findings.push(`(e) ${SPELLING} references publish/queue/TOPIC. A spelling map must not be able to send anything.`)
+  }
   const suspects = []
   for (const f of walk('src')) {
     if (ALLOWED.has(f)) continue

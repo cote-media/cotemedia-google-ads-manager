@@ -32,8 +32,13 @@
 export type StepOutcome = {
   /** Vendor requests this step actually opened. Spend, not intent. */
   requestsOpened: number
-  /** Days the step committed. THE progress signal — not rows, not published, not "it returned 200". */
-  daysCommitted: number
+  /**
+   * Days NO LONGER OWED after this step — committed with rows, or attested empty by an attesting lane. THE progress
+   * signal (LORAMER_MAP §7: "days no longer owed, never rows written and never requests spent") — not rows, not
+   * published, not "it returned 200", and not days-with-rows either: the first run counted those and read 0 on a
+   * lane that retired 204 dormant windows (LORAMER_RUN_PROGRESS_SIGNAL_V1).
+   */
+  daysNoLongerOwed: number
   /** True when the lane has nothing left to ask for: the floor is reached or every surface is sealed. */
   atFloor: boolean
   /** Set when the step refused to work for a reason that will still hold next step (quota hold, meter held). */
@@ -45,7 +50,16 @@ export type StepOutcome = {
 export type RunState = {
   status: 'running' | 'stopping' | 'done' | 'failed'
   steps: number
+  /** Consecutive steps that ASKED and retired nothing — informational (the universe_run column); the stop is time. */
   stepsWithoutProgress: number
+  /** Wall time since the run started. THE CEILING is measured on this, never on `steps`. */
+  runElapsedMs: number
+  /**
+   * Wall time since the first unanswered ask after the run's last progress, derived from the attempt ledger
+   * (universe-coverage.ts askingWithoutProgressSince) — null when there is no unanswered ask. A hold opens no
+   * attempt, so held time before the first ask never starts this clock (LORAMER_RUN_STOP_LIMITS_ARE_TIME_V1).
+   */
+  askingWithoutProgressMs: number | null
 }
 
 export type ChainVerdict =
@@ -53,29 +67,35 @@ export type ChainVerdict =
   | { chain: false; status: 'done' | 'failed' | 'stopping'; reason: string }
 
 /**
- * ⛔ HOW MANY CONSECUTIVE NO-PROGRESS STEPS END A RUN. DERIVED, and the derivation is the point rather than
- * the number: a step commits no days when (a) the lane is genuinely finished, (b) every candidate it was
- * offered was refused, or (c) it is held. (a) is caught by `atFloor` and (c) by `held`, so a no-progress step
- * that is NEITHER is case (b) — real ground offered and not taken.
- * MEASURED on the shipped rotation (24 h, 287 fires): every wet fire committed days, so a single no-progress
- * step is already abnormal. THREE is chosen as the smallest bound that tolerates a transient vendor refusal
- * on two consecutive surfaces without letting a genuine loop run: at ~90 s/step a runaway costs at most
- * ~4.5 minutes before it is ended, against the ~85 minutes the rotation used to take to notice nothing.
- * ⛔ THIS BOUND MATTERS MORE IN A CHAIN THAN IT EVER DID ON A CRON. The 5-minute wait used to hide a
- * no-progress loop behind its own slowness; a chain removes the wait, so the loop would spin as fast as the
- * engine can go. The bound is the thing that makes removing the wait safe.
+ * ⛔ THE NO-PROGRESS STOP IS A WINDOW OF TIME SPENT ASKING — LORAMER_RUN_STOP_LIMITS_ARE_TIME_V1 (Russ, 2026-09-17).
+ * The first cut was a STEP COUNT, MAX_STEPS_WITHOUT_PROGRESS = 3, and its own derivation priced it in time:
+ *   "MEASURED on the shipped rotation (24 h, 287 fires): every wet fire committed days, so a single no-progress
+ *    step is already abnormal. THREE is chosen as the smallest bound that tolerates a transient vendor refusal
+ *    on two consecutive surfaces without letting a genuine loop run: at ~90 s/step a runaway costs at most
+ *    ~4.5 minutes before it is ended, against the ~85 minutes the rotation used to take to notice nothing."
+ * The chain then measured 2 s/step, and three steps became SIX SECONDS of tolerance — one vendor hiccup would end
+ * a healthy run as failed. The tolerance the derivation actually chose was 3 × 90 s; that is the constant, in
+ * the unit it was always about. A step count is the adjacent number.
+ * ⛔ WHAT COUNTS: only a step that OPENED requests and retired no owed days. A held step never counts (a hold
+ * clears on its own and opens no attempt); a step that asked nothing never counts. The clock runs from the first
+ * unanswered ask after the last progress, read from the ledger, so held time before the ask is not charged.
+ * ⚠ THE RESIDUAL, STATED: a lane whose every step asks nothing and is not held (candidates offered, every unit
+ * deferred for bound) never trips this window; only the ceiling below ends it.
  */
-export const MAX_STEPS_WITHOUT_PROGRESS = 3
+export const NO_PROGRESS_WINDOW_MS = 270_000
 
 /**
- * ⛔ AN ABSOLUTE CEILING ON STEPS PER RUN, so a defect in the stop conditions cannot spend forever.
- * DERIVED from the measurement this flight exists to fix: a client's deepest floor was 32.7 days at ~17
- * fires/day = ~556 fires. 2,000 is that worst case with ~3.6x headroom, and at ~90 s/step it is ~50 hours —
- * longer than any measured client needs and short enough that a runaway is bounded by a number rather than by
- * someone noticing. A run that hits it ends as `failed`, never silently as `done`: reaching a safety bound is
- * not the same as arriving.
+ * ⛔ AN ABSOLUTE CEILING ON A RUN'S ELAPSED TIME, so a defect in the stop conditions cannot spend forever.
+ * The first cut was MAX_STEPS_PER_RUN = 2,000, and its derivation priced it in time too:
+ *   "DERIVED from the measurement this flight exists to fix: a client's deepest floor was 32.7 days at ~17
+ *    fires/day = ~556 fires. 2,000 is that worst case with ~3.6x headroom, and at ~90 s/step it is ~50 hours —
+ *    longer than any measured client needs and short enough that a runaway is bounded by a number rather than
+ *    by someone noticing."
+ * At 2 s/step, 2,000 steps is 67 minutes — a run to the floor would hit the SAFETY BOUND and end as failed
+ * while gaining ground. 2,000 × 90 s = 50 hours is the ceiling that was chosen; it is kept as elapsed time.
+ * A run that hits it ends as `failed`, never silently as `done`: reaching a safety bound is not an arrival.
  */
-export const MAX_STEPS_PER_RUN = 2_000
+export const RUN_CEILING_MS = 180_000_000
 
 /**
  * THE CHAIN RULE. Given the run's state and what the step just reported, say whether another step follows.
@@ -93,32 +113,36 @@ export function decideChain(state: RunState, out: StepOutcome): ChainVerdict {
   if (out.atFloor) {
     return { chain: false, status: 'done', reason: 'the lane reached its floor — nothing is owed above inception' }
   }
-  if (state.steps >= MAX_STEPS_PER_RUN) {
-    return { chain: false, status: 'failed', reason: `hit MAX_STEPS_PER_RUN (${MAX_STEPS_PER_RUN}). This is a SAFETY BOUND, not an arrival — the lane still owes ground and the stop conditions did not fire.` }
+  if (state.runElapsedMs >= RUN_CEILING_MS) {
+    return { chain: false, status: 'failed', reason: `hit RUN_CEILING_MS (${RUN_CEILING_MS} ms elapsed, ${state.steps} steps). This is a SAFETY BOUND, not an arrival — the lane still owes ground and the stop conditions did not fire.` }
   }
-  // ⛔ A HELD STEP STILL CHAINS, AND THAT IS DELIBERATE. A quota or meter hold is a condition that CLEARS on
-  // its own, and the next step re-reads it; ending the run would turn a pause into an abandonment the button
-  // would then report as finished. It counts as no progress, so a hold that never clears still ends the run
-  // through the bound below rather than spinning forever.
-  if (out.daysCommitted <= 0) {
-    const n = state.stepsWithoutProgress + 1
-    if (n >= MAX_STEPS_WITHOUT_PROGRESS) {
-      return {
-        chain: false, status: 'failed',
-        reason: `${n} consecutive steps committed no days${out.held ? ` (last held: ${out.held})` : ''} and the lane is NOT at its floor. Ground was offered and not taken — ending rather than spinning.`,
-      }
+  if (out.daysNoLongerOwed > 0) {
+    return { chain: true, reason: `retired ${out.daysNoLongerOwed} owed day(s), ${out.requestsOpened} request(s) opened` }
+  }
+  // ⛔ A HELD STEP STILL CHAINS AND NEVER COUNTS. A quota or meter hold is a condition that CLEARS on its own,
+  // and the next step re-reads it; ending the run would turn a pause into an abandonment the button would then
+  // report as finished. It opens no attempt, so it does not start the asking clock either.
+  if (out.held) return { chain: true, reason: `held: ${out.held} — a hold clears on its own; not counted as no progress` }
+  if (out.requestsOpened <= 0) return { chain: true, reason: 'nothing asked this step (no requests opened) — not counted as no progress' }
+  // A step that ASKED and retired nothing: the clock is how long the lane has been asking since its last progress.
+  const asking = state.askingWithoutProgressMs ?? 0
+  if (asking >= NO_PROGRESS_WINDOW_MS) {
+    return {
+      chain: false, status: 'failed',
+      reason: `retired no owed days for ${Math.round(asking / 1000)} s of asking (window ${NO_PROGRESS_WINDOW_MS} ms, ${state.stepsWithoutProgress + 1} asking step(s)) and the lane is NOT at its floor. Ground was offered and not taken — ending rather than spinning.`,
     }
-    return { chain: true, reason: `no days committed (${n}/${MAX_STEPS_WITHOUT_PROGRESS} without progress)${out.held ? ` — held: ${out.held}` : ''}` }
   }
-  return { chain: true, reason: `committed ${out.daysCommitted} day(s), ${out.requestsOpened} request(s) opened` }
+  return { chain: true, reason: `no owed days retired (asking ${Math.round(asking / 1000)} s of ${NO_PROGRESS_WINDOW_MS / 1000} s window)` }
 }
 
 /** Fold a step's outcome into the run's counters. Pure, so the counters cannot drift from the rule above. */
 export function applyStep(state: RunState, out: StepOutcome): RunState {
+  const counted = out.daysNoLongerOwed <= 0 && !out.held && out.requestsOpened > 0
   return {
-    status: state.status,
+    ...state,
     steps: state.steps + 1,
-    stepsWithoutProgress: out.daysCommitted > 0 ? 0 : state.stepsWithoutProgress + 1,
+    // progress resets the streak; a counted no-progress step extends it; a held or ask-nothing step leaves it alone
+    stepsWithoutProgress: out.daysNoLongerOwed > 0 ? 0 : counted ? state.stepsWithoutProgress + 1 : state.stepsWithoutProgress,
   }
 }
 
@@ -129,4 +153,16 @@ export function applyStep(state: RunState, out: StepOutcome): RunState {
  */
 export function runKey(clientId: string, vendor: string): string {
   return `${clientId}|${vendor}`
+}
+
+/**
+ * LORAMER_RUN_PROGRESS_SIGNAL_V1 — A HOLD IS WHAT THE FIRE SAYS IS A HOLD, NEVER ITS METER LINE.
+ * The fire returns `held: <reason>` only on a held or refused fire (lease held, quota paused, rotation unreadable,
+ * meter held). Its `meter` field is the budget line and is present on EVERY completed fire; the first cut read
+ * `body.held ?? body.meter`, so every healthy step reported "held: google: 19103 + 68 …" and the run's stop
+ * reason blamed a hold that never existed. Pure, so the rule is provable without a fire.
+ */
+export function heldFromFireBody(body: unknown): string | null {
+  const h = (body as { held?: unknown } | null | undefined)?.held
+  return typeof h === 'string' && h.length > 0 ? h : null
 }

@@ -10,10 +10,12 @@
 // no rotation turn. Round 8 measured the cost of the old regime — 17 fires per client per day, average gap
 // 85.3 minutes, each fire ~90 s of a 300 s ceiling, so the lane sat idle for most of every slot.
 //
-// ⛔ PROGRESS IS COUNTED FROM `universe_attempt_log.phase = 'day_committed'`, NOT FROM THE STEP'S OWN REPORT.
-// That is the CONSUMER-side fact — ground actually gained — and choosing it is LORAMER_ADJACENT_NUMBER_V1
-// applied on purpose: `published` is the producer's count and is exactly the number `check-walk-liveness` read
-// while the consumer had been dead for eleven hours. A run must never chain on "I sent something".
+// ⛔ PROGRESS IS DAYS NO LONGER OWED, COUNTED FROM `universe_attempt_log` (day_committed rows + attesting-lane
+// zero|nongrain terminals), NOT FROM THE STEP'S OWN REPORT. That is the CONSUMER-side fact — ground actually gained
+// — and choosing it is LORAMER_ADJACENT_NUMBER_V1 applied on purpose: `published` is the producer's count and is
+// exactly the number `check-walk-liveness` read while the consumer had been dead for eleven hours. A run must never
+// chain on "I sent something". And it is read under the LEDGER's spelling of the vendor (ledgerVendorFor), never
+// the run's — LORAMER_RUN_PROGRESS_SIGNAL_V1, the Tri-Copy false stop.
 //
 // ⛔ ONE RUN PER LANE, ENFORCED TWICE. The fire lease (migration 085) already stops two FIRES of a lane
 // overlapping; this route adds a compare-and-set on the run's own step counter, so two chains that somehow
@@ -25,7 +27,9 @@
 import { NextResponse } from 'next/server'
 import { waitUntil } from '@vercel/functions'
 import { supabaseAdmin } from '@/lib/supabase'
-import { decideChain, applyStep, MAX_STEPS_WITHOUT_PROGRESS, MAX_STEPS_PER_RUN, type StepOutcome, type RunState } from '@/lib/backfill/continuous-run'
+import { decideChain, applyStep, heldFromFireBody, NO_PROGRESS_WINDOW_MS, RUN_CEILING_MS, type StepOutcome, type RunState } from '@/lib/backfill/continuous-run'
+import { daysNoLongerOwedSince, askingWithoutProgressSince } from '@/lib/backfill/universe-coverage'
+import { ledgerVendorFor } from '@/lib/backfill/universe-vendor-spelling'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -40,6 +44,7 @@ export const maxDuration = 800
 
 type RunRow = {
   status: 'running' | 'stopping' | 'done' | 'failed'
+  started_at: string
   steps: number
   requests_opened: number
   days_committed: number
@@ -52,21 +57,20 @@ const auth = (request: Request): boolean => {
   return !!secret && got === secret
 }
 
-/** Count the ground this step actually gained. The consumer's own ledger, never the producer's count. */
-async function daysCommittedSince(clientId: string, vendor: string, sinceIso: string): Promise<number> {
-  const { count, error } = await supabaseAdmin
-    .from('universe_attempt_log')
-    .select('id', { count: 'exact', head: true })
-    .eq('client_id', clientId).eq('vendor', vendor)
-    .eq('phase', 'day_committed')
-    .gte('recorded_at', sinceIso)
-  if (error) {
+/**
+ * Count the ground this step actually gained: DAYS NO LONGER OWED, from the consumer's own ledger, read under the
+ * ledger's own spelling (LORAMER_RUN_PROGRESS_SIGNAL_V1 — the rule and the reader live in universe-coverage.ts, beside
+ * the owed-set derivation they must agree with). -1 means UNREADABLE, and an unreadable read is not zero progress.
+ */
+async function daysNoLongerOwedThisStep(clientId: string, vendor: string, sinceIso: string): Promise<number> {
+  try {
+    return await daysNoLongerOwedSince({ clientId, vendor: ledgerVendorFor(vendor) }, sinceIso)
+  } catch (e: any) {
     // ⚠ UNREADABLE PROGRESS IS NOT ZERO PROGRESS. Returning 0 would let a broken read end a healthy run
     // through the no-progress bound; returning -1 tells the caller it does not know, and the caller chains.
-    console.error(`[universe-run] progress unreadable for ${clientId}: ${error.message}`)
+    console.error(`[universe-run] progress unreadable for ${clientId}: ${e?.message ?? e}`)
     return -1
   }
-  return count ?? 0
 }
 
 export async function GET(request: Request) {
@@ -115,7 +119,7 @@ export async function GET(request: Request) {
 
   // ── STEP ──────────────────────────────────────────────────────────────────────────────────────────
   const { data: row } = await supabaseAdmin.from('universe_run')
-    .select('status, steps, requests_opened, days_committed, steps_without_progress')
+    .select('status, started_at, steps, requests_opened, days_committed, steps_without_progress')
     .eq('client_id', clientId).eq('vendor', vendor).maybeSingle()
   const run = row as RunRow | null
   if (!run) return NextResponse.json({ ok: false, reason: 'no run for this lane' }, { status: 404 })
@@ -140,7 +144,7 @@ export async function GET(request: Request) {
   }
   const stepMs = Date.now() - t0
 
-  const committed = fatal ? 0 : await daysCommittedSince(clientId, vendor, stepStartedAt)
+  const committed = fatal ? 0 : await daysNoLongerOwedThisStep(clientId, vendor, stepStartedAt)
   const inst = body?.instrument ?? {}
   // ⛔ AT FLOOR = NOTHING OWED ON ANY LANE. All three slots must be empty; one empty slot is a lane that had
   // nothing this step, which is not the same as a lane with nothing left.
@@ -149,13 +153,27 @@ export async function GET(request: Request) {
   const out: StepOutcome = {
     requestsOpened: Number(inst.requestsSelected ?? 0),
     // -1 means UNREADABLE, and an unreadable progress read must not be counted as no progress.
-    daysCommitted: committed < 0 ? 1 : committed,
+    daysNoLongerOwed: committed < 0 ? 1 : committed,
     atFloor,
-    held: body?.held ?? body?.meter ?? null,
+    held: heldFromFireBody(body),
     fatal,
   }
 
-  const state: RunState = { status: run.status, steps: run.steps, stepsWithoutProgress: run.steps_without_progress }
+  // LORAMER_RUN_STOP_LIMITS_ARE_TIME_V1 — both clocks are wall time: the ceiling from the run row's started_at,
+  // the asking clock from the ledger (first unanswered ask after the last progress). An unreadable asking clock
+  // reads as null (no clock), which chains — a broken read must not end a healthy run.
+  let askingWithoutProgressMs: number | null = null
+  try {
+    const clock = await askingWithoutProgressSince({ clientId, vendor: ledgerVendorFor(vendor) }, run.started_at)
+    askingWithoutProgressMs = clock.askingSince ? Math.max(0, Date.now() - Date.parse(clock.askingSince)) : null
+  } catch (e: any) {
+    console.error(`[universe-run] asking clock unreadable for ${clientId}: ${e?.message ?? e} — treating as no clock`)
+  }
+  const state: RunState = {
+    status: run.status, steps: run.steps, stepsWithoutProgress: run.steps_without_progress,
+    runElapsedMs: Math.max(0, Date.now() - Date.parse(run.started_at)),
+    askingWithoutProgressMs,
+  }
   const next = applyStep(state, out)
   const verdict = decideChain(state, out)
 
@@ -167,6 +185,8 @@ export async function GET(request: Request) {
       steps: next.steps,
       steps_without_progress: next.stepsWithoutProgress,
       requests_opened: run.requests_opened + out.requestsOpened,
+      // ⚠ COLUMN NAME OUTLIVES ITS MEANING: `days_committed` now holds DAYS NO LONGER OWED (migration 096 predates
+      // LORAMER_RUN_PROGRESS_SIGNAL_V1). Renaming it is a migration and is not this round's; the JSON below is honest.
       days_committed: run.days_committed + Math.max(0, committed),
       updated_at: new Date().toISOString(),
       last_step_at: new Date().toISOString(),
@@ -186,12 +206,12 @@ export async function GET(request: Request) {
       { headers: { Authorization: `Bearer ${secret}` }, signal: AbortSignal.timeout(8000) }).catch(() => {}))
   }
 
-  console.log(`[universe-run] ${clientId}/${vendor} step ${next.steps}: ${stepMs}ms · scan ${inst.scanMs ?? '?'}ms · committed ${committed} · opened ${out.requestsOpened} · ${verdict.chain ? 'CHAINING' : `ENDED (${verdict.status})`} — ${verdict.reason}`)
+  console.log(`[universe-run] ${clientId}/${vendor} step ${next.steps}: ${stepMs}ms · scan ${inst.scanMs ?? '?'}ms · retired ${committed} owed day(s) · opened ${out.requestsOpened} · ${verdict.chain ? 'CHAINING' : `ENDED (${verdict.status})`} — ${verdict.reason}`)
   return NextResponse.json({
     ok: true, clientId, vendor, step: next.steps, stepMs,
     scanMs: inst.scanMs ?? null, fireElapsedMs: inst.elapsedMs ?? null,
-    daysCommitted: committed, requestsOpened: out.requestsOpened, atFloor,
+    daysNoLongerOwed: committed, requestsOpened: out.requestsOpened, atFloor,
     chained: verdict.chain, status: verdict.chain ? run.status : verdict.status, reason: verdict.reason,
-    bounds: { maxStepsWithoutProgress: MAX_STEPS_WITHOUT_PROGRESS, maxStepsPerRun: MAX_STEPS_PER_RUN },
+    bounds: { noProgressWindowMs: NO_PROGRESS_WINDOW_MS, runCeilingMs: RUN_CEILING_MS, runElapsedMs: state.runElapsedMs, askingWithoutProgressMs },
   })
 }
