@@ -19,9 +19,11 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { NO_PROGRESS_WINDOW_MS, RUN_CEILING_MS } from '@/lib/backfill/continuous-run'
 import { runOneStep } from '@/lib/backfill/universe-run-step'
+import { inProcessFire } from '@/lib/backfill/universe-run-fire'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+export const fetchCache = 'force-no-store' // the in-process fire reads google_tokens; a cached read of a credential is the 2026-07-30 class
 
 // ⛔ DERIVED, NOT CHOSEN. This route AWAITS a step, and a step is the fire, whose own ceiling is
 // CONSUMER_MAX_DURATION_S = 300 s. The orchestrator must outlive the thing it waits on or it would be killed
@@ -48,7 +50,6 @@ export async function GET(request: Request) {
   const action = url.searchParams.get('action') || 'status'
   if (!clientId || !vendor) return NextResponse.json({ error: 'clientId and vendor are required' }, { status: 400 })
 
-  const origin = new URL(request.url).origin
 
   // ── STATUS — what build 3b's per-platform button reads ────────────────────────────────────────────
   if (action === 'status') {
@@ -82,7 +83,7 @@ export async function GET(request: Request) {
 
   // ── STEP — ONE step, for an operator. The pump is what chains steps; this never kicks anything. ───────
   const secret = process.env.CRON_SECRET!
-  const rep = await runOneStep({ clientId, vendor, origin, secret })
+  const rep = await runOneStep({ clientId, vendor, fire: () => inProcessFire(clientId, secret) })
   if (rep.noRun) return NextResponse.json({ ok: false, reason: 'no run for this lane' }, { status: 404 })
   return NextResponse.json({
     ok: true, clientId, vendor, step: rep.step, stepMs: rep.stepMs, scanMs: rep.scanMs,

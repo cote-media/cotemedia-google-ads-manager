@@ -166,3 +166,16 @@ export function heldFromFireBody(body: unknown): string | null {
   const h = (body as { held?: unknown } | null | undefined)?.held
   return typeof h === 'string' && h.length > 0 ? h : null
 }
+
+/**
+ * LORAMER_RUN_PUMP_V1 — WHAT THE FIRE'S ANSWER MEANS. Pure. A fire that did not answer as the fire is FATAL, never
+ * "nothing asked": on 2026-09-17 an SSO login page (HTTP 200, HTML) was read as a fire that opened no requests, and
+ * 159 steps chained on it. The fire always returns a JSON object; anything else is not the fire.
+ */
+export function classifyFireAnswer(ok: boolean, status: number, body: unknown): string | null {
+  if (!ok) return `step returned HTTP ${status}: ${JSON.stringify(body).slice(0, 200)}`
+  if (body === null || typeof body !== 'object' || Array.isArray(body)) {
+    return `fire answered HTTP ${status} without a JSON object — this is not the fire (a redirect, a login page, or an empty body)`
+  }
+  return null
+}

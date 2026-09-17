@@ -1,7 +1,9 @@
 // LORAMER_CONTINUOUS_RUN_V1 / LORAMER_RUN_PUMP_V1 — ONE STEP OF A RUN, AS A FUNCTION. The route used to hold this inline
 // and kick itself for the next step; the pump (universe-run-pump.ts) now calls it in a loop inside one invocation, and
-// the route keeps a single-step action for an operator. Nothing here requests our own deployment except THE FIRE, which
-// is the existing `/api/cron/universe-resume` (depth 1 — the same call the driver and the button have always made).
+// the route keeps a single-step action for an operator. NOTHING HERE MAKES AN HTTP REQUEST: the fire is injected and
+// called in-process (universe-run-fire.ts). A fetch of our own deployment URL from a cron-invoked function met Vercel
+// Authentication on the *.vercel.app origin and answered an SSO page (measured 2026-09-17 20:32Z, 159 steps read as
+// "nothing asked"); a fetch of our own run route met the loop detector's 508 at the fourth hop (round 9).
 //
 // ⛔ PROGRESS IS DAYS NO LONGER OWED, COUNTED FROM `universe_attempt_log` under the LEDGER's spelling of the vendor
 // (ledgerVendorFor), NOT from the step's own report — LORAMER_RUN_PROGRESS_SIGNAL_V1. A hold is only what the fire
@@ -11,10 +13,11 @@
 // ⛔ ONE RUN PER LANE, ENFORCED TWICE. The fire lease stops two FIRES of a lane overlapping; the compare-and-set on the
 // run's step counter stops two PUMPS from both advancing one run — the loser reports casLost and its pump exits.
 import { supabaseAdmin } from '@/lib/supabase'
-import { decideChain, applyStep, heldFromFireBody, type StepOutcome, type RunState } from '@/lib/backfill/continuous-run'
+import { decideChain, applyStep, heldFromFireBody, classifyFireAnswer, type StepOutcome, type RunState } from '@/lib/backfill/continuous-run'
 import { daysNoLongerOwedSince, askingWithoutProgressSince } from '@/lib/backfill/universe-coverage'
 import { ledgerVendorFor } from '@/lib/backfill/universe-vendor-spelling'
 import type { PumpStepResult } from '@/lib/backfill/universe-run-pump'
+import type { FireAnswer } from '@/lib/backfill/universe-run-fire'
 
 export type RunRow = {
   status: 'running' | 'stopping' | 'done' | 'failed'
@@ -46,10 +49,10 @@ async function daysNoLongerOwedThisStep(clientId: string, vendor: string, sinceI
 }
 
 /**
- * Run one step of the lane's run. Never throws. `origin` + `secret` are how the fire is reached (the existing
- * CRON_SECRET kick); the fire's own lease refuses a second fire of the lane while one runs.
+ * Run one step of the lane's run. Never throws. `fire` runs the existing fire for this client in-process and returns
+ * its answer; the fire's own lease refuses a second fire of the lane while one runs.
  */
-export async function runOneStep(a: { clientId: string; vendor: string; origin: string; secret: string; log?: (s: string) => void }): Promise<StepReport> {
+export async function runOneStep(a: { clientId: string; vendor: string; fire: () => Promise<FireAnswer>; log?: (s: string) => void }): Promise<StepReport> {
   const log = a.log ?? ((l: string) => console.log(l))
   const { clientId, vendor } = a
   const base: Omit<StepReport, 'chained' | 'status' | 'reason' | 'casLost'> = {
@@ -70,14 +73,14 @@ export async function runOneStep(a: { clientId: string; vendor: string; origin: 
   const t0 = Date.now()
   const invocation = `${t0}-${Math.random().toString(36).slice(2, 8)}`
 
-  // THE STEP IS THE EXISTING FIRE, UNCHANGED — the one outbound request, depth 1.
+  // THE STEP IS THE EXISTING FIRE, UNCHANGED, called in-process. Its answer is CLASSIFIED, never assumed: a non-JSON
+  // answer is FATAL (it is not the fire), so a login page can never read as "nothing asked" again.
   let body: any = null
   let fatal: string | null = null
   try {
-    const r = await fetch(`${a.origin}/api/cron/universe-resume?clientId=${encodeURIComponent(clientId)}&dryRun=0`,
-      { headers: { Authorization: `Bearer ${a.secret}` } })
-    body = await r.json().catch(() => null)
-    if (!r.ok) fatal = `step returned HTTP ${r.status}: ${JSON.stringify(body).slice(0, 200)}`
+    const ans = await a.fire()
+    body = ans.body
+    fatal = classifyFireAnswer(ans.ok, ans.status, ans.body)
   } catch (e: any) {
     fatal = `step threw: ${e?.message ?? e}`
   }
@@ -114,9 +117,11 @@ export async function runOneStep(a: { clientId: string; vendor: string; origin: 
 
   // ⛔ COMPARE-AND-SET ON `steps`. If another pump advanced this run while we were stepping, our update matches zero
   // rows and we report casLost — two pumps cannot both drive one lane.
+  // ⛔ A CHAINING STEP NEVER WRITES `status`. Writing the status it READ at its start back at its end erased an
+  // operator's `stopping` that landed in between (measured 2026-09-17 20:37Z: `?action=stop` returned ok and the row
+  // read `running` a second later). Only an ENDING step writes status, and it writes the verdict's.
   const { data: updated, error: updErr } = await supabaseAdmin.from('universe_run')
     .update({
-      status: verdict.chain ? run.status : verdict.status,
       steps: next.steps,
       steps_without_progress: next.stepsWithoutProgress,
       requests_opened: run.requests_opened + out.requestsOpened,
@@ -126,7 +131,7 @@ export async function runOneStep(a: { clientId: string; vendor: string; origin: 
       updated_at: new Date().toISOString(),
       last_step_at: new Date().toISOString(),
       last_invocation: invocation,
-      ...(verdict.chain ? {} : { finished_at: new Date().toISOString(), stop_reason: verdict.reason }),
+      ...(verdict.chain ? {} : { status: verdict.status, finished_at: new Date().toISOString(), stop_reason: verdict.reason }),
     })
     .eq('client_id', clientId).eq('vendor', vendor).eq('steps', run.steps)
     .select('steps')

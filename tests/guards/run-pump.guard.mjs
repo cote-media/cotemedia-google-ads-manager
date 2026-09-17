@@ -78,6 +78,17 @@ try {
     check(!f.urls.some((u) => /universe-run/.test(u)), `(i) ⛔ A REQUEST IN THE CHAIN TARGETS THE RUN OR PUMP ROUTE: ${f.urls.find((u) => /universe-run/.test(u))}. Vercel refuses the fourth self-request with 508; the chain must never request its own deployment's run path.`)
     check(res.stoppedBecause === 'deadline', `(i) a healthy run stopped for "${res.stoppedBecause}", not the deadline reserve.`)
   }
+  // (i-b) a run SURVIVES THREE SLICE BOUNDARIES: three invocations over one shared run, each ending at its deadline
+  // reserve, the run still chaining, and not one request in any of them
+  {
+    let shared = 0; const urls = []
+    const invocation = () => { let now = 0; return { step: async () => { shared++; urls.push('https://app.example/api/cron/universe-resume?clientId=c&dryRun=0'); now += 30_000; return { chained: true, status: 'running', reason: 'retired 2 owed day(s), 40 request(s) opened', casLost: false } }, now: () => now, deadlineMs: 800_000, reserveMs: 320_000, log: () => {} } }
+    const outs = []
+    for (let i = 0; i < 3; i++) outs.push(await M.pumpLane(invocation()))
+    check(outs.every((o) => o.stoppedBecause === 'deadline' && o.status === 'running'), `(i-b) a slice did not end on its deadline reserve with the run still chaining: ${JSON.stringify(outs)}`)
+    check(shared >= 30, `(i-b) only ${shared} steps across three slices — the run did not carry across slice boundaries.`)
+    check(!urls.some((u) => /universe-run/.test(u)), '(i-b) a slice requested the run or pump route.')
+  }
   // (ii) ends before the cap: with 100 s steps and a 320 s reserve, the last step starts before 480 s
   {
     const f = mk({ stepMs: 100_000, deadlineMs: 800_000, reserveMs: 320_000 })
@@ -120,10 +131,17 @@ try {
   const pump = stripComments(read(PUMP_ROUTE))
   for (const [name, src] of [[RUN_ROUTE, run], [STEP_LIB, step], [PUMP_ROUTE, pump]]) {
     check(!/waitUntil\s*\(/.test(src), `(vii) ${name} still uses waitUntil — the self-kick is the thing Vercel refuses at the fourth hop.`)
-    // a FETCH whose URL names the run route or the pump is a self-request; a string or an import that names them is not
-    check(!/fetch\s*\([^)]*universe-run/.test(src), `(vii) ${name} requests the run route or the pump route — a request from a function to its own run path is the chain Vercel refuses.`)
+    // ⛔ NO HTTP IN THE CHAIN AT ALL (LORAMER_NO_HTTP_TO_SELF_V1): a fetch of our own run path met the loop detector; a
+    // fetch of our own fire met Vercel Authentication on the deployment-URL origin (an SSO page read as "nothing asked").
+    check(!/\bfetch\s*\(/.test(src), `(vii) ${name} makes an HTTP request. The chain must make none: the fire is called in-process (universe-run-fire.ts), never over the deployment's own URL.`)
   }
   check(/action === 'start'/.test(run) && !/fetch\(`\$\{origin\}\/api\/backfill\/universe-run/.test(run), `(vii) ${RUN_ROUTE}'s start still kicks the first step by fetching itself; the pump picks a started run up within a minute.`)
+  check(/inProcessFire\(/.test(pump) && /inProcessFire\(/.test(run), `(vii) the pump or the run route does not call the fire in-process (inProcessFire). A URL is a second way to be wrong about which code runs.`)
+  // a chaining step must not write status back — an operator's stop landed between a step's read and its write
+  const upd = /\.update\(\{([\s\S]*?)\}\)\s*\n\s*\.eq\('client_id'/.exec(step)?.[1] ?? ''
+  check(upd.length > 0 && !/^\s*status:/m.test(upd) && /verdict\.chain \? \{\} : \{ status: verdict\.status/.test(upd), `(vii) ${STEP_LIB}'s chaining update writes \`status\`. It would write the status it READ back over an operator's stop; only an ending step may write status.`)
+  // the picker skips a lane stepped inside the last reserve window
+  check(/last_step_at\.is\.null,last_step_at\.lt\./.test(pump), `(vii) ${PUMP_ROUTE}'s picker does not skip a lane stepped inside the reserve window; two pumps would race one lane and waste a fire before the CAS settles it.`)
   check(/CRON_SECRET/.test(pump) && /status: 401/.test(pump), `(vii) ${PUMP_ROUTE} is not CRON_SECRET-gated.`)
   check(/no active run/i.test(pump) || /nothing to pump/i.test(pump), `(vii)(vi) ${PUMP_ROUTE} has no quiet path for "no active run" — the trigger must go quiet, not scan.`)
   check(/maxDuration = 800/.test(read(PUMP_ROUTE)), `(vii) ${PUMP_ROUTE} does not declare maxDuration = 800 — the pump must outlive the fire it awaits (300 s) by the same margin the run route did.`)

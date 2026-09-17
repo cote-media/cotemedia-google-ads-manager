@@ -35,6 +35,7 @@ import { createRequire } from 'node:module'
 
 const ROOT = process.env.LORAMER_GUARD_ROOT || process.cwd()
 const findings = []
+const check = (c, m) => { if (!c) findings.push(m) }
 const read = (rel) => {
   try { return readFileSync(resolve(ROOT, rel), 'utf8') }
   catch (e) { findings.push(`UNREADABLE ${rel} — ${e.message}. A guard that cannot read its evidence FAILS.`); return '' }
@@ -114,6 +115,15 @@ try {
   // progress RESETS the streak counter — one good step must clear the path to a long run
   const reset = M.applyStep(S({ stepsWithoutProgress: 2 }), O({ daysNoLongerOwed: 5 }))
   if (reset.stepsWithoutProgress !== 0) findings.push(`(b) a step that gained ground did not reset the no-progress counter (${reset.stepsWithoutProgress}). A long healthy run would then die of old sins.`)
+
+  // (k) LORAMER_NO_HTTP_TO_SELF_V1 — the fire's answer is classified: a non-JSON answer is FATAL, never "nothing asked"
+  if (typeof M.classifyFireAnswer !== 'function') findings.push('(k) classifyFireAnswer is not exported — an SSO login page answered a fire fetch on 2026-09-17 and 159 steps chained on it as "nothing asked".')
+  else {
+    check(M.classifyFireAnswer(true, 200, null) !== null, '(k) an HTTP 200 with no JSON body was not fatal — that is exactly the login page that spun the first pumped run.')
+    check(M.classifyFireAnswer(true, 200, 'Redirecting...') !== null, '(k) a string body was not fatal.')
+    check(M.classifyFireAnswer(true, 200, { ok: true, instrument: {} }) === null, '(k) a real fire answer was classified fatal.')
+    check(/HTTP 401/.test(M.classifyFireAnswer(false, 401, { error: 'unauthorized' }) ?? ''), '(k) a non-OK status did not carry its code into the fatal reason.')
+  }
 
   // (d) operator stop wins even while healthy
   const stopping = M.decideChain(S({ status: 'stopping' }), O())

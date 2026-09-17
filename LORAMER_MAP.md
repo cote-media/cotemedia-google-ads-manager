@@ -79,9 +79,13 @@ frozen onto a dated row. Only one client is populated so far; the daily refresh 
 **The engine's rotation serves one client per turn**, so a client waits roughly **eighty-five minutes**
 between turns. A Backfill press buys one turn, then the wait resumes.
 
-**New, not yet connected to anything:** a continuous run exists that drives one client on one platform step
-after step with about **two seconds** between steps instead of eighty-five minutes. Nothing starts it yet —
-no button, no schedule. It is deliberately inert until the next piece of work wires it up.
+**New, not yet connected to a button:** a continuous run exists that drives one client on one platform step
+after step with no wait between steps instead of eighty-five minutes. It is driven by a **pump** the schedule
+invokes every minute: the pump takes the active run and runs step after step inside its own invocation (about
+eight minutes of stepping, then the next minute's pump resumes). **The run never calls its own web address.**
+This project's Vercel deployment addresses sit behind Vercel's login wall (the custom domain does not), and an
+automated call to one is answered with a login page, not an error; so the run calls the capture code directly
+inside the same process (ruled 2026-09-17). Nothing starts a run yet except an operator — no button.
 
 ---
 
