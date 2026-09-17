@@ -31,7 +31,10 @@ Recompute days-to-2026-09-30 at resume from the clock; never read it off this bl
 · Standard Access is GRANTED; the vendor is no longer the constraint (★CAP-FOLLOWS-GRANT closed).
 · THE WRITE PATH IS THE CEILING, NOT GOOGLE — Google served 32 concurrent reads against ONE account with zero
   refusals and LOWER latency than at width 1; we run about 1 per account.
-· CONNECT DOES NOT START THE WALK. The button is a workaround, not the design (★CONNECT-KICK-FIRES-LEGACY-DRAIN).
+· CONNECT DOES NOT START THE ENGINE — it starts the OLD deep backfill (★CONNECT-KICK-FIRES-LEGACY-DRAIN).
+  ⛔ CORRECTED 2026-09-17: this line used to call the Backfill button "a workaround, not the design".
+  THAT WAS WRONG AND RUSS HAS RULED THE OPPOSITE. The button IS the design — each connected platform
+  gets its own, and a press runs uninterrupted to the account's first day. See LORAMER_MAP.md §7.
 · LEGACY'S STORED NUMBERS ARE STALE — it re-reads only 30 days. On the disputed days the walk matched the
   vendor 110 times and legacy 2, with legacy overstating spend by up to 18% on a live client.
 · LEGACY STORES A ZERO ROW for a dormant day; the walk ATTESTS the day empty. Same facts, and the difference

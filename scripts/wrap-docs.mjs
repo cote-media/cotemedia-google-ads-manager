@@ -19,6 +19,7 @@
 //   node scripts/wrap-docs.mjs --check    verify only, change nothing (what the guard runs)
 //
 // Hermetic apart from `git rev-parse HEAD`, which only ever fills in last_reconciled_head.
+import { execSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import crypto from 'node:crypto'
@@ -44,6 +45,41 @@ const CHECK_ONLY = argv.includes('--check')
 // "Every doc touched this session" is a judgement call, and judgement is what produced a CLAUDE.md
 // entry stamped at c77be89 while the file had changed in 7ddebc5 and nobody noticed for four days.
 // Comparing hashes is not a judgement call.
+// ── LORAMER_MAP_V1 — THE MAP MUST BE CURRENT WHEN A RULING LANDS ─────────────────────────────────────
+// ⛔ WHY THIS REFUSES RATHER THAN WARNS. The map exists because a session can obey every rule in the repo and
+// still propose work that contradicts how the product works. A map that is allowed to fall a day behind is
+// exactly as misleading as no map — and the line this flight had to correct ("the Backfill button is a
+// workaround") had been wrong in the morning read for days while every gate stayed green.
+// THE RULE: if RUSS'S RULINGS changed in this wrap's commit range and LORAMER_MAP.md did not, the wrap stops.
+function mapIsCurrentOrRefuse() {
+  const MAP = 'LORAMER_MAP.md'
+  if (!fs.existsSync(abs(MAP))) {
+    console.error(`[wrap-docs] REFUSING — ${MAP} is missing. It is read before everything else every morning.`)
+    process.exit(1)
+  }
+  const map = read(MAP)
+  const stamp = /Last verified against the code:\s*\*\*(\d{4}-\d{2}-\d{2})\*\*/.exec(map)
+  if (!stamp) {
+    console.error(`[wrap-docs] REFUSING — ${MAP} carries no "Last verified against the code" date. A map with no date cannot be told from a stale one.`)
+    process.exit(1)
+  }
+  // Did a RULING change today without the map changing today?
+  let rulingTouched = false
+  try {
+    const changed = execSync('git diff --name-only HEAD~1 HEAD', { cwd: ROOT, encoding: 'utf8' }).split('\n')
+    const rulingDocs = ['LORAMER_ESSENCE.md', 'LORAMER_DECISIONS.md']
+    rulingTouched = changed.some((f) => rulingDocs.includes(f.trim()))
+    if (rulingTouched && !changed.some((f) => f.trim() === MAP)) {
+      console.error(`[wrap-docs] ⛔ REFUSING TO WRAP — a RULING document changed in the last commit and ${MAP} did not.`)
+      console.error(`            Russ's rulings and the picture of the app must move together, or the map becomes`)
+      console.error(`            the thing that is confidently wrong first thing in the morning.`)
+      console.error(`            Update ${MAP} §7 (and its "Last verified" date), then wrap again.`)
+      process.exit(1)
+    }
+  } catch { /* no HEAD~1 on a fresh repo — nothing to compare, nothing to refuse */ }
+  console.log(`[wrap-docs] 0/4  ${MAP} present, dated ${stamp[1]}${rulingTouched ? ', and moved with this commit\'s ruling change' : ''}`)
+}
+
 function restampManifest() {
   const manifest = JSON.parse(read(MANIFEST))
   const head = execFileSync('git', ['rev-parse', '--short', 'HEAD'], { cwd: ROOT }).toString().trim()
@@ -124,6 +160,7 @@ if (CHECK_ONLY) {
 const manifestBefore = fs.readFileSync(abs(MANIFEST))
 let wrapCompleted = false
 try {
+  mapIsCurrentOrRefuse()
   console.log('[wrap-docs] 1/4  re-stamping the manifest FIRST (the digest reads it)…')
   const { changed, head, total } = restampManifest()
   if (changed.length) changed.forEach((c) => console.log(`         restamped ${c.rel}  ${c.from} → ${c.to}  lines ${c.lines}`))

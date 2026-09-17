@@ -7,20 +7,21 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-09-16T18:18:35.587Z
-- built_from HEAD: b967ccba7db33487a55e11f2a3c80f5367452226  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-09-17T03:17:40.400Z
+- built_from HEAD: 0e7634ff38f96a686af516ff4b9a425e68ae3464  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
   exactly as fresh as the manifest is honest; the wrap-step regenerates manifest + digest together.
   Source-doc content_hash at build time:
-    - LORAMER_ESSENCE.md: 74cf1001f594db9124444d5d6c0a068e218dd7e00beeadc5f3b446ab552ac352
+    - LORAMER_MAP.md: f194060660f1b78cf1f10488ff7d514b73ec1e3260e885121f97e4960115aeab
+    - LORAMER_ESSENCE.md: 492b85a4c0f1d9ce4f4a00f287480df35b5ea4af727385c0c6816b7996b9112f
     - LORAMER_HANDOFF.md: 9f349d7d232366b1bb0b29f797f7225540b3ff6c8b43fbbea32eb0db4e761680
-    - CONTINUE_HERE.md: b5b87f52b3d2fbfdb88331f09b067ea3b473419f5967e996114bccdcfe8a8505
+    - CONTINUE_HERE.md: 3c79f147159cd7fea75cc63005a9e32980b3cc9a5b99af203288efee6c51ea20
     - LORAMER_DECISIONS.md: 7ce87cb385915cf688908894d41124c299299f06d50ea405571781a5b30ec6be
     - LORAMER_QUEUE_OF_RECORD.md: a707f623175f37f8a58e59d0afd30c53c08abb23a46766d44f3ce4c82d62d26e
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: f4bef31497a46984a3a54acc5be044d48000688ba74ed59689e7c4bfafca21a1
-    - RESUME_INSTRUCTIONS.md: 2f317be8a48fcd7767dad447cebcaa417cae0e8d8cd5bc5a01cc3939fb9f994a
+    - RESUME_INSTRUCTIONS.md: 3fb45b93b57ac4e73664dc2a7c0984b03c9ed6152b21d93c2c481dd7e0de9601
     - docs/LORAMER_ASSET_LAYER_SCOPE_V1.md: 5550c754b2bf30624360a47cb54bbfd190bf8fc3cda958ab9b843497eb61050d
     - docs/LORAMER_SECURITY_POSTURE.md: a283fa6f55f64dc91dd52bcf8dbf6c2a38e90dba993fde72d9ae9f6b68c98444
 
@@ -368,8 +369,14 @@ High-stakes = any claim gating a destructive/rotate/delete action, a "this is a 
 
 ## ⛔ WHAT "DONE" MEANS FOR A BACKFILL — LORAMER_BACKFILL_DONE_DONE_V1 [LAW — RUSS, banked 2026-08-17]
 
+⛔ **AMENDED 2026-09-17 (RUSS): ONE BUTTON PER CONNECTED PLATFORM, NOT ONE BUTTON FOR ALL OF THEM.** This law
+was written as "ONE Backfill button" and read as one button covering every platform, which is what the app
+does today. Russ has ruled the opposite: each connected platform on the client profile gets its OWN button,
+and a press runs UNINTERRUPTED to that account's first day — backfill does not take turns. The six conditions
+below are unchanged; what changed is WHICH button, and that it may not be interrupted. See LORAMER_MAP.md §7.
+
 **THE BACKFILL IS DONE ONLY WHEN a new customer connects a client on a platform (Google Ads, GA4, Meta, or
-Shopify), clicks ONE Backfill button, and ALL SIX conditions below hold — proven as ONE pass/fail ACCEPTANCE
+Shopify), clicks THAT PLATFORM'S OWN Backfill button, and ALL SIX conditions below hold — proven as ONE pass/fail ACCEPTANCE
 PROOF, green once on a GENUINELY COLD connection, through the REAL entry path.** Never a rehearsal that
 hand-feeds the inputs which make it pass (LORAMER_REAL_INPUT_GATE_A_V1 applies at acceptance scale).
 
@@ -448,7 +455,7 @@ one. The rest is the question above, asked out loud, every time.
 - [LAW] CHECK WHAT ALREADY WORKS BEFORE BUILDING IT AGAIN. Read the version that already shipped before rebuilding a capability; a working predecessor is EVIDENCE, not sentiment. (Precedent 2026-08-08: Russ asked THREE times whether the June backfill engine had been read; it had not, eight steps in. It already held write-then-advance-per-unit and the warehouse-over-cursor rule — the latter in a comment stating the law better than the plan did — and its no-progress bound was not planned at all and would have shipped missing.)
 - [LAW] THE RESUMABLE UNIT IS THE DAY BECAUSE THE WAREHOUSE IS KEYED BY DAY; the vendor's fetch unit is an adapter concern. Coverage is derived from `metrics_daily`, never from a vendor's convenience. (Proof 2026-08-08: Shopify offers only an opaque order cursor with no day concept and no ordering guarantee, and STILL resolves to days — what it withholds is only the entitlement to infer closure from ordering, which is an adapter declaration, not a second engine.)
 - [LAW] RIGHT > FAST. ALWAYS. If it takes 8 hours to get it right, that is fine. A deferral made because something was slow is NOT a decision, it is an unexamined cost — re-argue it with speed removed from the trade and say what changed. An hours estimate is never shaved to make a plan acceptable; a number that RISES when the work is understood properly is the estimate working. (Precedent 2026-08-08: sub-window checkpointing deferred to "a later flight" while speed was silently in the trade; with the trade corrected it moved INTO the rebuild the same day and the density model it propped up became an optimisation rather than a dependency.)
-- [LAW] LORAMER_BACKFILL_DONE_DONE_V1 — A BACKFILL IS DONE ONLY WHEN a new customer connects a client (Google Ads / GA4 / Meta / Shopify), clicks ONE Backfill button, and ALL SIX hold as ONE pass/fail acceptance proof, green once on a GENUINELY COLD connection through the REAL entry path — never a rehearsal that hand-feeds the inputs that make it pass: (1) ALL GRAINS, denominator = the vendor's own catalog, served-but-uncaptured = fail · (2) FLOOR TO INCEPTION, no surface pinned short, every interior day filled OR attested-empty WITH A STATED REASON · (3) CORRECT NOT JUST PRESENT — no rewriting committed days, restatement-aware, reconciles to the customer's own platform UI · (4) EXPEDITIOUS, but only AFTER correct · (5) LORA-WIRED — captured-but-dark is not done · (6) HONEST INSTRUMENTS — liveness tests CONSUMPTION not publishing, no-progress tests whether the frontier moved / the owed set shrank, and an instrument that reads green while its property is false is ITSELF A DEFECT. THE PROOF IS THE GATE, one proof not six greens: Foam OH / Google first, then the template to Meta/GA4/Shopify, then the other eight, then Bath Fitter — every backfill fix is SCORED AGAINST THIS PROOF, never shipped as its own green. FIVE-STEP runs uncompressed on every backfill piece; VERIFY is never skipped for anything that writes or spends. (Full text + the enforceability stamp: the section directly above.)
+- [LAW] LORAMER_BACKFILL_DONE_DONE_V1 — A BACKFILL IS DONE ONLY WHEN a new customer connects a client (Google Ads / GA4 / Meta / Shopify), clicks THAT PLATFORM'S OWN Backfill button, and ALL SIX hold as ONE pass/fail acceptance proof, green once on a GENUINELY COLD connection through the REAL entry path — never a rehearsal that hand-feeds the inputs that make it pass: (1) ALL GRAINS, denominator = the vendor's own catalog, served-but-uncaptured = fail · (2) FLOOR TO INCEPTION, no surface pinned short, every interior day filled OR attested-empty WITH A STATED REASON · (3) CORRECT NOT JUST PRESENT — no rewriting committed days, restatement-aware, reconciles to the customer's own platform UI · (4) EXPEDITIOUS, but only AFTER correct · (5) LORA-WIRED — captured-but-dark is not done · (6) HONEST INSTRUMENTS — liveness tests CONSUMPTION not publishing, no-progress tests whether the frontier moved / the owed set shrank, and an instrument that reads green while its property is false is ITSELF A DEFECT. THE PROOF IS THE GATE, one proof not six greens: Foam OH / Google first, then the template to Meta/GA4/Shopify, then the other eight, then Bath Fitter — every backfill fix is SCORED AGAINST THIS PROOF, never shipped as its own green. FIVE-STEP runs uncompressed on every backfill piece; VERIFY is never skipped for anything that writes or spends. (Full text + the enforceability stamp: the section directly above.)
 - GOVERNING LAW (above): capture EVERYTHING / EVERYWHERE / FOREVER, full grain + history. A thin slice (account-only, forward-only) is UNFINISHED CODE, never a "phase-4 / later."
 - VIDEO = ASSET **AND** METRIC, ALL MEANS ALL — the full video creative/asset layer AND the full video metric family (plays/ThruPlay/p25-100/avg-time/cost-per-thruplay), every grain, every platform.
 - INVENTORY-FIRST sequencing — map all 5 platforms' full capture surface, THEN one master gap list + value-ordered build queue, THEN build. Never writer-by-writer ahead of the map.
@@ -592,7 +599,10 @@ Recompute days-to-2026-09-30 at resume from the clock; never read it off this bl
 · Standard Access is GRANTED; the vendor is no longer the constraint (★CAP-FOLLOWS-GRANT closed).
 · THE WRITE PATH IS THE CEILING, NOT GOOGLE — Google served 32 concurrent reads against ONE account with zero
   refusals and LOWER latency than at width 1; we run about 1 per account.
-· CONNECT DOES NOT START THE WALK. The button is a workaround, not the design (★CONNECT-KICK-FIRES-LEGACY-DRAIN).
+· CONNECT DOES NOT START THE ENGINE — it starts the OLD deep backfill (★CONNECT-KICK-FIRES-LEGACY-DRAIN).
+  ⛔ CORRECTED 2026-09-17: this line used to call the Backfill button "a workaround, not the design".
+  THAT WAS WRONG AND RUSS HAS RULED THE OPPOSITE. The button IS the design — each connected platform
+  gets its own, and a press runs uninterrupted to the account's first day. See LORAMER_MAP.md §7.
 · LEGACY'S STORED NUMBERS ARE STALE — it re-reads only 30 days. On the disputed days the walk matched the
   vendor 110 times and legacy 2, with legacy overstating spend by up to 18% on a live client.
 · LEGACY STORES A ZERO ROW for a dormant day; the walk ATTESTS the day empty. Same facts, and the difference

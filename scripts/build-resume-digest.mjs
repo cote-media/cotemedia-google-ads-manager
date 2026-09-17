@@ -67,7 +67,7 @@ const generatedAt = new Date().toISOString()
 // in place at its path (so the ~10 live §6 gap-list references do not dangle), but it is no longer
 // stamped as a current gated source. Replacement path = derive it from the writers (QUEUE: MAP-vs-CODE
 // DRIFT / derive-INVENTORY-from-writers). Do NOT re-add without regenerating it from code.
-const SOURCE_DOCS = ['LORAMER_ESSENCE.md', 'LORAMER_HANDOFF.md', 'CONTINUE_HERE.md', 'LORAMER_DECISIONS.md', 'LORAMER_QUEUE_OF_RECORD.md', 'docs/LORAMER_BREAKDOWN_REGISTRY.md', 'RESUME_INSTRUCTIONS.md', 'docs/LORAMER_ASSET_LAYER_SCOPE_V1.md', 'docs/LORAMER_SECURITY_POSTURE.md']
+const SOURCE_DOCS = ['LORAMER_MAP.md', 'LORAMER_ESSENCE.md', 'LORAMER_HANDOFF.md', 'CONTINUE_HERE.md', 'LORAMER_DECISIONS.md', 'LORAMER_QUEUE_OF_RECORD.md', 'docs/LORAMER_BREAKDOWN_REGISTRY.md', 'RESUME_INSTRUCTIONS.md', 'docs/LORAMER_ASSET_LAYER_SCOPE_V1.md', 'docs/LORAMER_SECURITY_POSTURE.md']
 const hashLines = SOURCE_DOCS.map((d) => `    - ${d}: ${manifest[d]?.content_hash ?? 'MISSING-FROM-MANIFEST'}`).join('\n')
 
 // ── B. role contract ──
