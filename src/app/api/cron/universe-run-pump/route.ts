@@ -48,11 +48,13 @@ export async function GET(request: Request) {
   // A lane stepped inside the last reserve window is being advanced by another pump and is SKIPPED here rather than
   // raced: the first cut picked it anyway and lost the CAS after wasting a fire (measured 20:32Z: "step 26: another
   // pump owns this lane"). The CAS stays as the second lock.
+  // Busy = TOUCHED inside the reserve window: a step claims the lane by writing updated_at at its START (a lane whose
+  // first step is in flight has no last_step_at yet — that is how the second minute's pump fired into the lease).
   const busyAfter = new Date(startedAt - STEP_RESERVE_MS).toISOString()
   const { data: runs, error } = await supabaseAdmin.from('universe_run')
-    .select('client_id, vendor, status, steps, last_step_at')
+    .select('client_id, vendor, status, steps, last_step_at, updated_at')
     .in('status', ['running', 'stopping'])
-    .or(`last_step_at.is.null,last_step_at.lt.${busyAfter}`)
+    .lt('updated_at', busyAfter)
     .order('last_step_at', { ascending: true, nullsFirst: true })
     .limit(1)
   if (error) return NextResponse.json({ ok: false, error: `active-run read failed: ${error.message}` }, { status: 500 })

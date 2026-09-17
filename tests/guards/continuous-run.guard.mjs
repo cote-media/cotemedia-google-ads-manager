@@ -61,6 +61,11 @@ try {
   const good = M.decideChain(S(), O())
   if (good.chain !== true) findings.push(`(a) a step that retired 30 owed days did not chain: ${JSON.stringify(good)}. The whole flight is that the next step follows immediately.`)
 
+  // (c-0) a HELD step is decided before the floor: a held fire answers without an instrument, and its "no candidates"
+  // is silence, not the floor (measured 2026-09-17 21:54Z)
+  const heldAtFloor = M.decideChain(S(), O({ daysNoLongerOwed: 0, requestsOpened: 0, held: 'fire lease held by x since y', atFloor: true }))
+  if (heldAtFloor.chain !== true) findings.push(`(c-0) ⛔ A HELD STEP ENDED THE RUN AS ${JSON.stringify(heldAtFloor)}. A lease-held fire scanned nothing; reading it as the floor ended a run that had 60 candidates.`)
+
   // (c) only atFloor ends as done
   const floor = M.decideChain(S(), O({ atFloor: true, daysNoLongerOwed: 0 }))
   if (floor.chain !== false || floor.status !== 'done') findings.push(`(c) reaching the floor did not end the run as done: ${JSON.stringify(floor)}.`)

@@ -73,6 +73,19 @@ export async function runOneStep(a: { clientId: string; vendor: string; fire: ()
   const t0 = Date.now()
   const invocation = `${t0}-${Math.random().toString(36).slice(2, 8)}`
 
+  // ⛔ CLAIM THE LANE AT STEP START. The pump's picker treats a lane touched inside the reserve window as busy, and
+  // last_step_at is written only at step END — so a lane whose FIRST step was in flight looked free to the next minute's
+  // pump, which fired into the lease, read "lease-held" as the floor, and ended the run (measured 21:54Z). The claim is
+  // `updated_at = now` under the same compare-and-set; a loser here exits before it fires anything.
+  const { data: claimed, error: claimErr } = await supabaseAdmin.from('universe_run')
+    .update({ updated_at: stepStartedAt, last_invocation: invocation })
+    .eq('client_id', clientId).eq('vendor', vendor).eq('steps', run.steps)
+    .select('steps')
+  if (claimErr) return { ...base, step: run.steps, chained: false, status: 'failed', reason: `lane claim failed: ${claimErr.message}`, casLost: false }
+  if (!claimed || claimed.length === 0) {
+    return { ...base, step: run.steps, chained: false, status: run.status, reason: 'another chain advanced this run — exiting rather than racing it', casLost: true }
+  }
+
   // THE STEP IS THE EXISTING FIRE, UNCHANGED, called in-process. Its answer is CLASSIFIED, never assumed: a non-JSON
   // answer is FATAL (it is not the fire), so a login page can never read as "nothing asked" again.
   let body: any = null
@@ -88,9 +101,11 @@ export async function runOneStep(a: { clientId: string; vendor: string; fire: ()
 
   const committed = fatal ? 0 : await daysNoLongerOwedThisStep(clientId, vendor, stepStartedAt)
   const inst = body?.instrument ?? {}
-  // ⛔ AT FLOOR = NOTHING OWED ON ANY LANE. All three slots must be empty; one empty slot is a lane that had
-  // nothing this step, which is not the same as a lane with nothing left.
-  const atFloor = !fatal && body?.ok === true
+  // ⛔ AT FLOOR = NOTHING OWED ON ANY LANE, AND ONLY A FIRE THAT SCANNED CAN SAY SO. All three slots must be empty
+  // AND the instrument must exist: a held or refused fire answers without one, and its "no candidates" is silence,
+  // not the floor (LORAMER_ZERO_ROWS_IS_NOT_EXHAUSTION_V1's class, measured on this run 2026-09-17 21:54Z).
+  const scanned = body?.instrument != null && typeof body.instrument === 'object'
+  const atFloor = !fatal && body?.ok === true && scanned
     && (inst.candidates ?? 0) === 0 && (inst.lookbackCandidates ?? 0) === 0 && (inst.missedCandidates ?? 0) === 0
   const out: StepOutcome = {
     requestsOpened: Number(inst.requestsSelected ?? 0),

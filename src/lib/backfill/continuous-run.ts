@@ -110,6 +110,10 @@ export function decideChain(state: RunState, out: StepOutcome): ChainVerdict {
   if (state.status === 'stopping') {
     return { chain: false, status: 'stopping', reason: 'operator asked the run to stop; the step that was already running finished rather than being killed mid-work' }
   }
+  // ⛔ A HELD STEP IS NEVER THE FLOOR. Decided before atFloor on purpose: a lease-held or quota-held fire answers with
+  // no instrument, and "no candidates" from a fire that did not scan is not "nothing owed" (measured 2026-09-17 21:54Z:
+  // the second pump on a lane read its lease-held answer as the floor and ended a run that had 60 candidates).
+  if (out.held) return { chain: true, reason: `held: ${out.held} — a hold clears on its own; not counted as no progress` }
   if (out.atFloor) {
     return { chain: false, status: 'done', reason: 'the lane reached its floor — nothing is owed above inception' }
   }
@@ -122,7 +126,6 @@ export function decideChain(state: RunState, out: StepOutcome): ChainVerdict {
   // ⛔ A HELD STEP STILL CHAINS AND NEVER COUNTS. A quota or meter hold is a condition that CLEARS on its own,
   // and the next step re-reads it; ending the run would turn a pause into an abandonment the button would then
   // report as finished. It opens no attempt, so it does not start the asking clock either.
-  if (out.held) return { chain: true, reason: `held: ${out.held} — a hold clears on its own; not counted as no progress` }
   if (out.requestsOpened <= 0) return { chain: true, reason: 'nothing asked this step (no requests opened) — not counted as no progress' }
   // A step that ASKED and retired nothing: the clock is how long the lane has been asking since its last progress.
   const asking = state.askingWithoutProgressMs ?? 0

@@ -138,10 +138,19 @@ try {
   check(/action === 'start'/.test(run) && !/fetch\(`\$\{origin\}\/api\/backfill\/universe-run/.test(run), `(vii) ${RUN_ROUTE}'s start still kicks the first step by fetching itself; the pump picks a started run up within a minute.`)
   check(/inProcessFire\(/.test(pump) && /inProcessFire\(/.test(run), `(vii) the pump or the run route does not call the fire in-process (inProcessFire). A URL is a second way to be wrong about which code runs.`)
   // a chaining step must not write status back — an operator's stop landed between a step's read and its write
-  const upd = /\.update\(\{([\s\S]*?)\}\)\s*\n\s*\.eq\('client_id'/.exec(step)?.[1] ?? ''
+  // the step now has TWO updates under the compare-and-set: the claim at start (updated_at only) and the write at end;
+  // the rule binds the one that carries the verdict clause
+  const upd = [...step.matchAll(/\.update\(\{([\s\S]*?)\}\)\s*\n\s*\.eq\('client_id'/g)].map((m) => m[1]).find((u) => /verdict\.chain/.test(u)) ?? ''
   check(upd.length > 0 && !/^\s*status:/m.test(upd) && /verdict\.chain \? \{\} : \{ status: verdict\.status/.test(upd), `(vii) ${STEP_LIB}'s chaining update writes \`status\`. It would write the status it READ back over an operator's stop; only an ending step may write status.`)
   // the picker skips a lane stepped inside the last reserve window
-  check(/last_step_at\.is\.null,last_step_at\.lt\./.test(pump), `(vii) ${PUMP_ROUTE}'s picker does not skip a lane stepped inside the reserve window; two pumps would race one lane and waste a fire before the CAS settles it.`)
+  check(/\.lt\('updated_at',\s*busyAfter\)/.test(pump), `(vii) ${PUMP_ROUTE}'s picker does not skip a lane TOUCHED inside the reserve window (updated_at). last_step_at is written at step END, so a lane whose first step is in flight looks free — the second pump then fires into the lease (measured 21:54Z).`)
+  // the step claims the lane at START under the same compare-and-set, before it fires anything
+  const claim = /\.update\(\{\s*updated_at:\s*stepStartedAt[^}]*\}\)[\s\S]{0,200}\.eq\('steps',\s*run\.steps\)/.test(step)
+  check(claim, `(vii) ${STEP_LIB} does not claim the lane at step start (update updated_at under the steps compare-and-set) before firing. Without the claim the picker cannot see an in-flight first step.`)
+  const fireAfterClaim = step.indexOf('a.fire()') > step.indexOf('updated_at: stepStartedAt')
+  check(fireAfterClaim, `(vii) ${STEP_LIB} fires before it claims the lane.`)
+  // the floor needs an instrument
+  check(/const scanned = body\?\.instrument != null/.test(step) && /&& scanned\s*\n/.test(step), `(vii) ${STEP_LIB}'s atFloor does not require the fire's instrument; a lease-held answer (no instrument) read as the floor and ended a run with 60 candidates (21:54Z).`)
   check(/CRON_SECRET/.test(pump) && /status: 401/.test(pump), `(vii) ${PUMP_ROUTE} is not CRON_SECRET-gated.`)
   check(/no active run/i.test(pump) || /nothing to pump/i.test(pump), `(vii)(vi) ${PUMP_ROUTE} has no quiet path for "no active run" — the trigger must go quiet, not scan.`)
   check(/maxDuration = 800/.test(read(PUMP_ROUTE)), `(vii) ${PUMP_ROUTE} does not declare maxDuration = 800 — the pump must outlive the fire it awaits (300 s) by the same margin the run route did.`)
