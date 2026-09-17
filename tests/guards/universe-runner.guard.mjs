@@ -72,7 +72,10 @@ const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').split('\n').filter((l) =
   // STRENGTH — this leg still fires on any universe cron nobody decided, and above all on any cron pointing
   // at the V1 universe path, which is UNCHECKED and must never be fired. Widening a decision list by one
   // named entry is a decision; widening the PATTERN would have been a loosening, and is not what happened.
-  const DECIDED = [/^\/api\/cron\/universe-resume\?/, /^\/api\/cron\/universe-drain-poll\b/]
+  // ⛔ LORAMER_RUN_PUMP_V1 (Russ, round 10, 2026-09-17) — THE THIRD NAMED ENTRY: the pump that steps an active
+  // continuous run inside one invocation, every minute. It fires nothing on the v1 path; its only outbound call is the
+  // v2 resumer (the same fire the button and the driver make). Named here, not pattern-widened: the decision is the entry.
+  const DECIDED = [/^\/api\/cron\/universe-resume\?/, /^\/api\/cron\/universe-drain-poll\b/, /^\/api\/cron\/universe-run-pump$/]
   const firing = crons.filter((c) => /universe/.test(String(c.path || '')) && !DECIDED.some((re) => re.test(String(c.path || ''))))
   if (firing.length) findings.push(`(c) vercel.json has ${firing.length} CRON entr(ies) pointing at a universe path OTHER than the decided v2 resumer (${firing.map((c) => c.path).join(', ')}). The v1 consumer must never be fired (it is UNCHECKED — see the route-validator note), and any additional universe cron is a scheduling decision nobody made.`)
   const trig = v.functions?.[CONSUMER]?.experimentalTriggers?.[0]

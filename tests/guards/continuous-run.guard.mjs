@@ -22,7 +22,9 @@
 //      step that OPENED requests and retired no owed days does (Russ, 2026-09-17)
 //  (f) the run path names NO platform, and the vendor is never defaulted to a literal
 //  (g) progress is read from the CONSUMER ledger (day_committed), never from the producer's own count
-//  (h) the chain is immediate — no setTimeout, no sleep, no cron, no delay parameter on the self-invoke
+//  (h) the chain is immediate — no setTimeout, no sleep, no delay parameter — and the route NEVER requests its own
+//      deployment's run path (LORAMER_RUN_PUMP_V1: the pump steps inside one cron-triggered invocation; a self-kick
+//      dies at Vercel's fourth hop with 508)
 //  (i) two chains cannot both drive one lane (compare-and-set on the step counter)
 //  (j) daily upkeep is untouched: the cron list still holds its entries and the resume route is not edited
 import { readFileSync, mkdtempSync, rmSync } from 'node:fs'
@@ -40,6 +42,8 @@ const read = (rel) => {
 
 const MOD = 'src/lib/backfill/continuous-run.ts'
 const ROUTE = 'src/app/api/backfill/universe-run/route.ts'
+const STEP = 'src/lib/backfill/universe-run-step.ts' // LORAMER_RUN_PUMP_V1 — the step logic lives here; the route keeps start/stop/status/one step
+const PUMP = 'src/lib/backfill/universe-run-pump.ts'
 
 const out = mkdtempSync(join(tmpdir(), 'loramer-continuous-run-'))
 try {
@@ -134,13 +138,17 @@ try {
 }
 
 const mod = read(MOD)
-const route = read(ROUTE)
+const routeFile = read(ROUTE)
+const stepFile = read(STEP)
+const pumpFile = read(PUMP)
+// (g)(i) are about the STEP (progress read + compare-and-set); (h) is about the route and the step never self-kicking
+const route = stepFile
 const stripComments = (src) => src.replace(/\/\*[\s\S]*?\*\//g, '').split('\n').filter((l) => !/^\s*(\/\/|\*)/.test(l)).join('\n')
 
 // ── (f) NO PLATFORM IN THE RUN PATH ─────────────────────────────────────────────────────────────────
 const PLATFORM_WORDS = /\b(google|googleads|google_ads|gaql|shopify|woocommerce|ga4|facebook|meta_)\b/i
-for (const f of [MOD, ROUTE]) {
-  const src = f === MOD ? mod : route
+for (const f of [MOD, ROUTE, STEP, PUMP]) {
+  const src = f === MOD ? mod : f === ROUTE ? routeFile : f === STEP ? stepFile : pumpFile
   if (!src) continue
   stripComments(src).split('\n').forEach((line, i) => {
     const bare = line.replace(/from\s+'[^']*'/g, '').replace(/['"][^'"]*universe-[a-z-]+['"]/g, '')
@@ -148,7 +156,7 @@ for (const f of [MOD, ROUTE]) {
     if (m) findings.push(`(f) ${f}:${i + 1} names a platform in CODE — "${m[0]}" in \`${line.trim().slice(0, 90)}\`. The run is addressed by (client, vendor); a vendor literal here is the rotation's google filter returning in a new place.`)
   })
 }
-if (route && /vendor\s*=\s*[^;\n]*\|\|\s*'[a-z_]+'/.test(stripComments(route))) {
+if (routeFile && /vendor\s*=\s*[^;\n]*\|\|\s*'[a-z_]+'/.test(stripComments(routeFile))) {
   findings.push(`(f) ${ROUTE} DEFAULTS the vendor to a literal. A default is this file knowing which vendor it serves, which is the thing Round 1 found wrong with the rotation.`)
 }
 
@@ -163,17 +171,17 @@ if (route && /days(Committed|NoLongerOwed):\s*(body|inst)\./.test(stripComments(
 }
 
 // ── (h) THE CHAIN IS IMMEDIATE ──────────────────────────────────────────────────────────────────────
-if (route) {
-  const code = stripComments(route)
+for (const [f, src] of [[ROUTE, routeFile], [STEP, stepFile], [PUMP, pumpFile]]) if (src) {
+  const code = stripComments(src)
   for (const [pat, why] of [
     [/setTimeout\s*\(/, 'a setTimeout between steps is a cron wait wearing a different name'],
     [/\bsleep\s*\(/, 'a sleep between steps re-introduces exactly the idle this flight removes'],
     [/delay(Ms|Seconds)?\s*[:=]/, 'a delay parameter on the self-invoke is the 5-minute wait, parameterised'],
   ]) {
-    if (pat.test(code)) findings.push(`(h) ${ROUTE}: ${why}.`)
+    if (pat.test(code)) findings.push(`(h) ${f}: ${why}.`)
   }
-  if (!/waitUntil\(fetch\(/.test(code)) {
-    findings.push(`(h) ${ROUTE} does not self-invoke the next step through waitUntil(fetch(…)). That is the kick pattern this repo already runs and the only thing making the chain continuous.`)
+  if (/waitUntil\s*\(/.test(code) || /universe-run\?action=step/.test(code)) {
+    findings.push(`(h) ${f} still kicks itself (waitUntil / a fetch of its own step action). Vercel refuses the fourth self-request with 508 INFINITE_LOOP_DETECTED (measured 2026-09-17); the pump (universe-run-pump) is the only thing that chains steps, inside one invocation.`)
   }
 }
 
@@ -197,7 +205,7 @@ if (route && !/another chain advanced this run/.test(route)) {
       }
     }
     if (paths.some((p) => p.startsWith('/api/backfill/universe-run'))) {
-      findings.push(`(j) the run route is on a CRON. It is started per (client, vendor) by a caller and chains itself; scheduling it would re-create the take-turns regime this flight removes.`)
+      findings.push(`(j) the run route is on a CRON. It is started per (client, vendor) by a caller; the PUMP is the scheduled thing (run-pump.guard.mjs), and scheduling the run route itself would re-create the take-turns regime this flight removes.`)
     }
   }
 }
@@ -207,4 +215,4 @@ if (findings.length) {
   for (const f of findings) console.error(`  - ${f}`)
   process.exit(1)
 }
-console.log(`[continuous-run] PASS — a step that gained ground chains with no delay · asking without progress past NO_PROGRESS_WINDOW_MS ENDS the run as failed with a reason, six seconds of it does not · only the floor ends it as done · the ceiling is RUN_CEILING_MS elapsed, never a step count · an operator stop wins over progress and lets the step finish · a held step chains and never counts as no progress · the run path names no platform and never defaults the vendor · progress is read from the consumer ledger · the chain is immediate · a losing chain exits rather than racing · daily upkeep is still scheduled and the run is not.`)
+console.log(`[continuous-run] PASS — a step that gained ground chains with no delay · asking without progress past NO_PROGRESS_WINDOW_MS ENDS the run as failed with a reason, six seconds of it does not · only the floor ends it as done · the ceiling is RUN_CEILING_MS elapsed, never a step count · an operator stop wins over progress and lets the step finish · a held step chains and never counts as no progress · the run path names no platform and never defaults the vendor · progress is read from the consumer ledger · the chain is immediate and never self-requests · a losing chain exits rather than racing · daily upkeep is still scheduled and the run is not.`)

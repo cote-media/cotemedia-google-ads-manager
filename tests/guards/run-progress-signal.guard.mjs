@@ -43,7 +43,7 @@ const read = (rel) => {
 const stripComments = (src) => src.replace(/\/\*[\s\S]*?\*\//g, '').split('\n').filter((l) => !/^\s*(\/\/|\*)/.test(l)).join('\n')
 
 const RUN = 'src/lib/backfill/continuous-run.ts'
-const ROUTE = 'src/app/api/backfill/universe-run/route.ts'
+const ROUTE = 'src/lib/backfill/universe-run-step.ts' // LORAMER_RUN_PUMP_V1 — the step moved out of the route into this module
 const SPELLING = 'src/lib/backfill/universe-vendor-spelling.ts'
 const CONTRACT = 'src/lib/backfill/universe-v2-contract.ts'
 const WINDOW_LOG = 'src/lib/backfill/universe-window-log.ts'

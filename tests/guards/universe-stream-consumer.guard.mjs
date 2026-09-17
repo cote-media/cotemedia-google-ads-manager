@@ -185,7 +185,11 @@ if (route) {
   // universe-attempt-log.ts:45 (a constant MOVED out of the contract rather than imported) — moving VENDOR would
   // break the guards that compile the contract standalone, and a re-export from a leaf would break them the same way.
   const SPELLING = 'src/lib/backfill/universe-vendor-spelling.ts'
-  const ALLOWED = new Set([ROUTE, CONTRACT, RESUMER, DRIVE, POLL_LANE, SPELLING])
+  // ⛔ LORAMER_RUN_PUMP_V1 (2026-09-17) — the pump route imports ONE number from the contract, CONSUMER_MAX_DURATION_S,
+  // to derive the reserve it keeps before starting a step (a step awaits the fire, whose ceiling that is). It cannot
+  // publish: the clause below pins the import to that one symbol and refuses any queue reference. Naming is not publishing.
+  const PUMP = 'src/app/api/cron/universe-run-pump/route.ts'
+  const ALLOWED = new Set([ROUTE, CONTRACT, RESUMER, DRIVE, POLL_LANE, SPELLING, PUMP])
   // ⛔ QUOTATION IS NOT ASSERTION — banked THREE times now (canonical-client-identity, ga-dim, and here on
   // 2026-08-11). This leg matched the topic literal ANYWHERE in a file, so `capture-adapter.ts` became a
   // "candidate publisher" by NAMING the v2 route in a doc comment explaining why its own charge model exists.
@@ -200,6 +204,14 @@ if (route) {
       findings.push(`(e) ${SPELLING} is named in this set for ONE import — \`import { VENDOR as LEDGER_VENDOR } from '@/lib/backfill/universe-v2-contract'\` — and its contract import now reads ${JSON.stringify(imports)}. Anything more is a candidate publisher and needs its own decision here.`)
     }
     if (/publish|queue|TOPIC/i.test(sp)) findings.push(`(e) ${SPELLING} references publish/queue/TOPIC. A spelling map must not be able to send anything.`)
+  }
+  {
+    const pu = nocomment(readFileSync(resolve(ROOT, PUMP), 'utf8'))
+    const imports = pu.match(/^import[^\n]*universe-v2-contract[^\n]*$/gm) || []
+    if (imports.length !== 1 || !/^import \{ CONSUMER_MAX_DURATION_S \} from '@\/lib\/backfill\/universe-v2-contract'$/.test(imports[0].trim())) {
+      findings.push(`(e) ${PUMP} is named in this set for ONE import — \`import { CONSUMER_MAX_DURATION_S } from '@/lib/backfill/universe-v2-contract'\` — and its contract import now reads ${JSON.stringify(imports)}.`)
+    }
+    if (/publish|@vercel\/queue|TOPIC/i.test(pu)) findings.push(`(e) ${PUMP} references publish/queue/TOPIC. The pump must not be able to send anything to the topic.`)
   }
   const suspects = []
   for (const f of walk('src')) {

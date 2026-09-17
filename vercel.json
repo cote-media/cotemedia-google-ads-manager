@@ -77,6 +77,10 @@
       "schedule": "9-59/10 8-11 * * *"
     },
     {
+      "path": "/api/cron/universe-run-pump",
+      "schedule": "* * * * *"
+    },
+    {
       "path": "/api/cron/universe-resume?dryRun=0",
       "schedule": "*/5 * * * *"
     }
