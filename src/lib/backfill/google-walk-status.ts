@@ -10,7 +10,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { readWalkStopAccountFacts } from '@/lib/backfill/google-ads-universe-writer'
 import { runView, type RunView } from '@/lib/backfill/continuous-run'
 import { daysNoLongerOwedSince } from '@/lib/backfill/universe-coverage'
-import { VENDOR as LEDGER_VENDOR } from '@/lib/backfill/universe-v2-contract'
+import { ledgerVendorFor } from '@/lib/backfill/universe-vendor-spelling' // the ledger's spelling of the vendor, via the map — not the contract (universe-stream-consumer leg (e): reaching the contract is reaching the topic)
 
 /** The run row's own vendor spelling (universe_run.vendor, migration 096) — the capture universe's name. */
 export const RUN_VENDOR = 'google_ads'
@@ -89,7 +89,7 @@ export async function googleRunStatus(
   const run = runView(error ? null : (row as any), nowMs)
   let daysNoLongerOwed: number | null = null
   if (run) {
-    try { daysNoLongerOwed = await daysNoLongerOwedSince({ clientId, vendor: LEDGER_VENDOR }, run.startedAt) }
+    try { daysNoLongerOwed = await daysNoLongerOwedSince({ clientId, vendor: ledgerVendorFor(RUN_VENDOR) }, run.startedAt) }
     catch (e: any) { console.error(`[google-walk-status] progress unreadable for ${clientId}: ${e?.message ?? e}`) }
   }
   const denominator = walk.inception && walk.catalogSize

@@ -45,6 +45,7 @@ const NOT_A_DB_ENUM = {
   BudgetBlockedBy: 'a reason returned to the caller for logging; never persisted to a constrained column.',
   BulkPurpose: 'shopify-bulk purpose is a request-shaping argument; the bulk ledger stores ids and status, not this string, under a CHECK.',
   GoogleQuotaReadState: 'the sentinel READ state is derived at read time from sync_state booleans — it is an output of the reader, never a written value.',
+  StartDecision: 'client-run-start.ts — the one-click press\'s verdict (insert/restart/existing/meter) is RETURNED to the caller as the JSON `action` field and chooses which write runs; the universe_run row it writes carries status (running) and stop_reason, never this string, in any column (LORAMER_ONE_CLICK_RUN_V1, 2026-09-18).',
   PersistOutcome: 'the chat persist outcome is returned to the caller and logged; chat_turn_failures constrains phase and recovered, neither of which takes this union.',
   PlacementLevel: 'meta placement level selects which Graph edge to call; it lands in metrics_daily.entity_level, which has no CHECK constraint (that column is open by design across five platforms).',
   ChangeSource: 'REGISTRATION PENDING, NOT EXEMPT — entity_state_history_change_source_chk mirrors it exactly today (first_observation/poll_transition/event, verified 2026-08-17). Listed here rather than registered because registration is being done one verified pair at a time; see ★DB-ENUM-MIRRORS-TS-ONLY-COVERS-ONE-PAIR.',
