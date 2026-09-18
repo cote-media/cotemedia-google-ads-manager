@@ -66,6 +66,29 @@ export type ChainVerdict =
   | { chain: true; reason: string }
   | { chain: false; status: 'done' | 'failed'; reason: string }
 
+// ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+// THE END KIND — LORAMER_RUN_END_KIND_V1 (flight 2, 2026-09-18)
+// ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+// ⛔ 'done' IS TWO THINGS: the floor arrival and the operator stop. A press after the operator stopped the run should
+// continue the descent; a press after the floor must not start one (MAP §7: "when it is done, it is done"; forward
+// capture and the rotation own the future). The two 'done' reasons therefore live HERE as constants — decideChain
+// returns them, endKindOf reads them — so the reason a customer sees and the kind a press is judged by cannot drift.
+export type RunEndKind = 'floor' | 'stopped' | 'failed'
+export const RUN_END_REASON = {
+  floor: 'the lane reached its floor — nothing is owed above inception',
+  stopped: 'operator asked the run to stop; the step that was already running finished rather than being killed mid-work',
+} as const
+/**
+ * PURE. null = the row is not ended (no finished_at, or a live status). 'floor' ONLY for the exact floor reason;
+ * any other 'done' is 'stopped' (the safe kind: a press may continue); status 'failed' is 'failed'.
+ */
+export function endKindOf(row: { status: string; stopReason: string | null | undefined; finishedAt: string | null | undefined }): RunEndKind | null {
+  if (!row.finishedAt) return null
+  if (row.status === 'failed') return 'failed'
+  if (row.status !== 'done') return null
+  return row.stopReason === RUN_END_REASON.floor ? 'floor' : 'stopped'
+}
+
 /**
  * ⛔ THE NO-PROGRESS STOP IS A WINDOW OF TIME SPENT ASKING — LORAMER_RUN_STOP_LIMITS_ARE_TIME_V1 (Russ, 2026-09-17).
  * The first cut was a STEP COUNT, MAX_STEPS_WITHOUT_PROGRESS = 3, and its own derivation priced it in time:
@@ -111,14 +134,14 @@ export function decideChain(state: RunState, out: StepOutcome): ChainVerdict {
     // ⛔ A STOPPED RUN ENDS TERMINAL. It used to end as 'stopping' with finished_at set — a status the pump's picker
     // still selects and the step still advances, so a stopped run was re-fired every ~6 minutes forever (measured
     // 2026-09-18 00:26Z, closed by hand at 00:29Z). 'done' is terminal; the reason says it was an operator's stop.
-    return { chain: false, status: 'done', reason: 'operator asked the run to stop; the step that was already running finished rather than being killed mid-work' }
+    return { chain: false, status: 'done', reason: RUN_END_REASON.stopped }
   }
   // ⛔ A HELD STEP IS NEVER THE FLOOR. Decided before atFloor on purpose: a lease-held or quota-held fire answers with
   // no instrument, and "no candidates" from a fire that did not scan is not "nothing owed" (measured 2026-09-17 21:54Z:
   // the second pump on a lane read its lease-held answer as the floor and ended a run that had 60 candidates).
   if (out.held) return { chain: true, reason: `held: ${out.held} — a hold clears on its own; not counted as no progress` }
   if (out.atFloor) {
-    return { chain: false, status: 'done', reason: 'the lane reached its floor — nothing is owed above inception' }
+    return { chain: false, status: 'done', reason: RUN_END_REASON.floor }
   }
   if (state.runElapsedMs >= RUN_CEILING_MS) {
     return { chain: false, status: 'failed', reason: `hit RUN_CEILING_MS (${RUN_CEILING_MS} ms elapsed, ${state.steps} steps). This is a SAFETY BOUND, not an arrival — the lane still owes ground and the stop conditions did not fire.` }

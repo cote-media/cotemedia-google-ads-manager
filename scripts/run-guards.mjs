@@ -509,6 +509,7 @@ const GUARDS = [
   'tests/guards/resume-from-committed-day.guard.mjs', // LORAMER_RESUME_FROM_COMMITTED_DAY_V1 — a retry asks the remainder (Airbyte streams.py:117-130); the bound and the mis-size split reason over it
   'tests/guards/idle-reuse-month.guard.mjs', // LORAMER_IDLE_REUSE_MONTH_V1 — account-activity answers keyed by calendar month, reused for zero requests within the fire and across fires via the ledger's named days
   'tests/guards/wall-hold-never-retire.guard.mjs', // LORAMER_WALL_HOLD_NEVER_RETIRE_V1 — Q6: past the wall an empty is UNRESOLVED under every canary state, no idle verdict there, past-wall windows are asked and past-wall holes re-asked
+  'tests/guards/run-end-kind.guard.mjs', // LORAMER_RUN_END_KIND_V1 — every way a run ends has a named kind (floor / stopped / failed); the two 'done' reasons are constants
   'tests/guards/resume-digest-freshness.guard.mjs',
 ]
 
