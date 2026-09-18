@@ -24,15 +24,20 @@ const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').split('\n').filter((l) =
 
 const STATUS = 'src/app/api/backfill/status/route.ts'
 const PAGE = 'src/components/redesign/ClientPage.tsx'
+// LORAMER_STATUS_RUN_FIELDS_V1 (flight 2, 2026-09-18): googleWalkStatus moved VERBATIM to the lib so the button route
+// can judge a press by the same readout; the route keeps the sync_state skip and composes the lib's answer.
+const LIB = 'src/lib/backfill/google-walk-status.ts'
 const st = strip(read(STATUS))
+const libSrc = strip(read(LIB))
 if (!st) findings.push(`(a) ${STATUS} missing`)
 else {
-  if (!/readWalkStopAccountFacts\s*\(/.test(st)) findings.push(`(a) ${STATUS} never calls readWalkStopAccountFacts( — the google readout is not the walk's`)
+  if (!/readWalkStopAccountFacts\s*\(/.test(libSrc)) findings.push(`(a) ${LIB} never calls readWalkStopAccountFacts( — the google readout is not the walk's`)
+  if (!/googleWalkStatus\(clientId\)/.test(st)) findings.push(`(a) ${STATUS} no longer composes platforms.google from googleWalkStatus(`)
   if (!/r\.platform === ['"]google['"]\)\s*continue/.test(st.replace(/\s+/g, ' '))) findings.push(`(a) ${STATUS} does not skip platform 'google' in the sync_state loop — the June-engine cursor still answers for google`)
-  const gIdx = st.indexOf('async function googleWalkStatus')
-  if (gIdx === -1) findings.push(`(b) ${STATUS} has no googleWalkStatus( — the walk-floor branch is not isolated`)
+  const gIdx = libSrc.indexOf('async function googleWalkStatus')
+  if (gIdx === -1) findings.push(`(b) ${LIB} has no googleWalkStatus( — the walk-floor branch is not isolated`)
   else {
-    const block = st.slice(gIdx, st.indexOf('\n}', gIdx) + 2)
+    const block = libSrc.slice(gIdx, libSrc.indexOf('\n}', gIdx) + 2)
     if (/backfill_complete|backfill_earliest_date/.test(block)) findings.push(`(b) googleWalkStatus reads backfill_complete / backfill_earliest_date — the walk floor must not be a cursor`)
     for (const s of ["'not-started'", "'complete'", "'partial'"]) if (!block.includes(s)) findings.push(`(c) googleWalkStatus lacks the state ${s}`)
   }

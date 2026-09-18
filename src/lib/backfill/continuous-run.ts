@@ -90,6 +90,49 @@ export function endKindOf(row: { status: string; stopReason: string | null | und
 }
 
 /**
+ * LORAMER_STATUS_RUN_FIELDS_V1 — THE STALL RULE. The pump ticks every minute (vercel.json) and a dead claim expires after
+ * STEP_RESERVE_MS 320 s, so ten minutes with no step is at least ten ticks and three claim windows: the pump is not
+ * running. Derived in the view from the row's own clocks; never written to the row (no new status exists).
+ */
+export const RUN_STALL_MINUTES = 10
+
+export interface RunRowLike {
+  status: string
+  steps: number
+  requests_opened: number
+  days_committed: number
+  started_at: string
+  last_step_at: string | null
+  finished_at: string | null
+  stop_reason: string | null
+  last_invocation?: string | null
+}
+export interface RunView {
+  status: string; steps: number; requestsOpened: number; daysCommitted: number
+  startedAt: string; lastStepAt: string | null; finishedAt: string | null; stopReason: string | null
+  endKind: RunEndKind | null
+  /** running or stopping with no finished_at. ⛔ finished_at WINS over a stale last_invocation left on an ended row. */
+  live: boolean
+  /** live ∧ max(last_step_at, started_at) older than RUN_STALL_MINUTES. */
+  stalled: boolean
+  stalledForMinutes: number | null
+}
+/** PURE. The customer-facing view of one run row. null row → null. */
+export function runView(row: RunRowLike | null | undefined, nowMs: number): RunView | null {
+  if (!row) return null
+  const live = !row.finished_at && (row.status === 'running' || row.status === 'stopping')
+  const lastClock = Date.parse(row.last_step_at ?? row.started_at)
+  const idleMin = Number.isFinite(lastClock) ? (nowMs - lastClock) / 60_000 : null
+  const stalled = live && idleMin !== null && idleMin > RUN_STALL_MINUTES
+  return {
+    status: row.status, steps: row.steps, requestsOpened: row.requests_opened, daysCommitted: row.days_committed,
+    startedAt: row.started_at, lastStepAt: row.last_step_at, finishedAt: row.finished_at, stopReason: row.stop_reason,
+    endKind: endKindOf({ status: row.status, stopReason: row.stop_reason, finishedAt: row.finished_at }),
+    live, stalled, stalledForMinutes: stalled && idleMin !== null ? Math.floor(idleMin) : null,
+  }
+}
+
+/**
  * ⛔ THE NO-PROGRESS STOP IS A WINDOW OF TIME SPENT ASKING — LORAMER_RUN_STOP_LIMITS_ARE_TIME_V1 (Russ, 2026-09-17).
  * The first cut was a STEP COUNT, MAX_STEPS_WITHOUT_PROGRESS = 3, and its own derivation priced it in time:
  *   "MEASURED on the shipped rotation (24 h, 287 fires): every wet fire committed days, so a single no-progress
