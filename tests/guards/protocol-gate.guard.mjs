@@ -107,7 +107,10 @@ const PAD = '\n' + ('x. this line exists only to carry the paste past FLIGHT_MIN
 // URLs goes red the moment that research is banked — which is exactly what happened when this build's own
 // DECISIONS entry cited open-policy-agent.github.io and danger.systems. example.com/.org can never be
 // banked as a source, so the fixture is stable by construction. Do not "fix" this back to real URLs.
-const GOOD_RESEARCH = 'RESEARCH: https://example.com/vendor-doc · https://example.org/prior-art'
+// LORAMER_ADVERSARY_UNTIL_CONVERGED_V1 (item 4) — five URLs on four REGISTRABLE domains, the vendor declared and
+// among them, at least one domain neither the vendor's nor already in DECISIONS. example.com/.net/.org are IANA-
+// reserved and .invalid is RFC 2606's reserved TLD, so none of the four can ever be banked as a source.
+const GOOD_RESEARCH = 'RESEARCH: vendor=example.com · https://example.com/vendor-doc · https://example.com/vendor-doc-2 · https://example.net/c · https://example.org/prior-art · https://gate.invalid/e'
 const GOOD_ADVERSARY = 'ADVERSARY: mine=gate at paste-receipt | other=gate at commit time | collision=a commit-time gate cannot see paste-while-in-flight at all, so receipt wins'
 const GOOD_CONSTANTS = 'CONSTANTS: FLIGHT_MIN_CHARS=400 ⇐ measured 2026-08-23 N=12'
 const GOOD_QUESTION = 'QUESTION: where does the protocol gate have to live to fire every time?'
@@ -127,8 +130,21 @@ const fixtures = [
     text: `ROUND: SHAPE\nQUESTION: why?\nBLAST: backend-writer\n${GOOD_RESEARCH}\n${GOOD_ADVERSARY}\n${GOOD_CONSTANTS}${PAD}` },
   { name: 'RED RESEARCH-WITH-NO-URLS (one hostname only)', box: 'RESEARCH-WITH-NO-URLS', expect: 'block',
     text: `ROUND: SHAPE\n${GOOD_QUESTION}\nBLAST: backend-writer\nRESEARCH: https://danger.systems/js/ · https://danger.systems/js/plugins/\n${GOOD_ADVERSARY}\n${GOOD_CONSTANTS}${PAD}` },
-  { name: 'RED RESEARCH rubber-stamp (all hosts already in DECISIONS)', box: 'RESEARCH-WITH-NO-URLS', expect: 'block',
-    text: `ROUND: SHAPE\n${GOOD_QUESTION}\nBLAST: backend-writer\nRESEARCH: https://nango.dev/docs/guides/primitives/auth · https://docs.airbyte.com/platform/cloud/\n${GOOD_ADVERSARY}\n${GOOD_CONSTANTS}${PAD}` },
+  { name: 'RED RESEARCH rubber-stamp (all domains already in DECISIONS)', box: 'RESEARCH-WITH-NO-URLS', expect: 'block',
+    text: `ROUND: SHAPE\n${GOOD_QUESTION}\nBLAST: backend-writer\nRESEARCH: vendor=fivetran.com · https://nango.dev/docs/guides/primitives/auth · https://docs.airbyte.com/platform/cloud/ · https://fivetran.com/docs · https://developers.google.com/google-ads/api · https://vercel.com/docs\n${GOOD_ADVERSARY}\n${GOOD_CONSTANTS}${PAD}` },
+  // ── LORAMER_ADVERSARY_UNTIL_CONVERGED_V1 (item 4) — RESEARCH IS MANY PLACES: a source is a registrable domain, not a
+  // page (FLIGHT 1's header this morning passed 4 hosts that were 3 domains); the vendor is DECLARED, not inferred from
+  // URL order or a citation count; and a second CITED line without its prefix is body text the parser never read.
+  { name: 'RED RESEARCH five URLs on FIVE hosts that are TWO registrable domains', box: 'RESEARCH-WITH-NO-URLS', expect: 'block',
+    text: `ROUND: SHAPE\n${GOOD_QUESTION}\nBLAST: backend-writer\nRESEARCH: vendor=example.com · https://example.com/a · https://docs.example.com/b · https://api.example.com/c · https://example.net/d · https://api.example.net/e\n${GOOD_ADVERSARY}\n${GOOD_CITED}\n${GOOD_CONSTANTS}${PAD}` },
+  { name: 'RED RESEARCH vendor undeclared', box: 'RESEARCH-WITH-NO-URLS', expect: 'block',
+    text: `ROUND: SHAPE\n${GOOD_QUESTION}\nBLAST: backend-writer\nRESEARCH: https://example.com/vendor-doc · https://example.com/vendor-doc-2 · https://example.net/c · https://example.org/prior-art · https://gate.invalid/e\n${GOOD_ADVERSARY}\n${GOOD_CITED}\n${GOOD_CONSTANTS}${PAD}` },
+  { name: 'RED RESEARCH vendor declared but not among the sources', box: 'RESEARCH-WITH-NO-URLS', expect: 'block',
+    text: `ROUND: SHAPE\n${GOOD_QUESTION}\nBLAST: backend-writer\nRESEARCH: vendor=postgresql.org · https://example.com/vendor-doc · https://example.com/vendor-doc-2 · https://example.net/c · https://example.org/prior-art · https://gate.invalid/e\n${GOOD_ADVERSARY}\n${GOOD_CITED}\n${GOOD_CONSTANTS}${PAD}` },
+  { name: 'RED CITED unindented second citation line is body text the parser dropped (must refuse, not silently ignore)', box: 'CITATION-NEVER-READ', expect: 'block',
+    text: `ROUND: ISSUE\n${GOOD_QUESTION}\nBLAST: read-only\nINFLIGHT: clear\nCITED: ★UNDEFER-3-SIZE-READ ⇐ QUEUE\nLORAMER_TOTALLY_NEW_MARKER_V1 ⇐ DECISIONS\nCONSTANTS: NONE${PAD}` },
+  { name: 'GREEN CITED second citation carries its own CITED: prefix', expect: 'allow',
+    text: `ROUND: ISSUE\n${GOOD_QUESTION}\nBLAST: read-only\nINFLIGHT: clear\nCITED: ★UNDEFER-3-SIZE-READ ⇐ QUEUE\nCITED: NEW ★GENUINELY-NOVEL-TOKEN-QQQQQ\nCONSTANTS: NONE${PAD}` },
   { name: 'RED ADVERSARY-THAT-NEVER-COLLIDED (no collision named)', box: 'ADVERSARY-THAT-NEVER-COLLIDED', expect: 'block',
     text: `ROUND: SHAPE\n${GOOD_QUESTION}\nBLAST: live-path\n${GOOD_RESEARCH}\nADVERSARY: mine=ship it | other=ship it\n${GOOD_CONSTANTS}${PAD}` },
   { name: 'RED ADVERSARY compression attempted on a writing blast', box: 'ADVERSARY-THAT-NEVER-COLLIDED', expect: 'block',

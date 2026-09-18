@@ -67,6 +67,45 @@ export const MIN_COLLISION_WORDS = 8
 export const MIN_DERIVATION_WORDS = 8
 export const MIN_OVERRIDE_WORDS = 10
 export const MIN_NONE_APPLICABLE_WORDS = 10
+// ── LORAMER_ADVERSARY_UNTIL_CONVERGED_V1 — THE UNSKIPPABLE LAW'S CONSTANTS, each with its arrow ──────────
+// RESEARCH_MIN_URLS ⇐ Russ's ruling, round 12 of 2026-09-18: at least five sources is research; policy, not measured.
+export const RESEARCH_MIN_URLS = 5
+// RESEARCH_MIN_DOMAINS ⇐ the same ruling ("≥4 distinct hostnames"), RE-BASED from hostname to registrable domain in
+// round 12 after FLIGHT 1's own header that morning measured four hosts that were three domains (raw.githubusercontent.com
+// ×3 + developers.google.com + groups.google.com + vercel.com). A source is a domain, not a page.
+export const RESEARCH_MIN_DOMAINS = 4
+// ADVERSARY_MIN_ROUNDS ⇐ Russ's ruling, round 12: two resolved, accepted rounds carrying a graded adversary box before
+// any writing paste; "converged" on one round is a round that met no adversary.
+export const ADVERSARY_MIN_ROUNDS = 2
+// PRIOR_ART_MIN_WORDS ⇐ inherited from MIN_COLLISION_WORDS (Russ, 2026-08-23, :66) — the same field class, "name what
+// it settles"; inherited from a human decision, which is a derivation, not re-measured.
+export const PRIOR_ART_MIN_WORDS = 8
+// NONE_FOUND_MIN_WORDS ⇐ Russ's ruling, round 12 C.1: "where you looked and why nothing fits", fifteen words minimum.
+export const NONE_FOUND_MIN_WORDS = 15
+// CODE_HOSTS ⇐ MEASURED 2026-09-18 over the 68 distinct hostnames cited in DECISIONS + QUEUE + this log: the code hosts
+// actually cited are github.com and raw.githubusercontent.com (docs.github.com and *.github.io are docs and pages, not
+// code). The rest are DECLARED from round 12's list, unmeasured. ADDING RULE: a PRIOR-ART URL on an unlisted host is
+// refused BY NAME and the host is added only by a paste that carries its own arrow line — the gate never learns a host
+// from a paste it is grading.
+export const CODE_HOSTS = ['github.com', 'raw.githubusercontent.com', 'gist.github.com', 'gitlab.com', 'bitbucket.org', 'codeberg.org', 'sr.ht', 'pypi.org', 'npmjs.com', 'crates.io']
+// CODE_HOST_ALIASES ⇐ round 13: raw.githubusercontent.com and gist.github.com are github.com for the DOMAIN COUNT (one
+// vendor) while staying code hosts for PRIOR-ART.
+export const CODE_HOST_ALIASES = new Map([['raw.githubusercontent.com', 'github.com'], ['gist.github.com', 'github.com']])
+// TWO_LEVEL_SUFFIXES ⇐ MEASURED 2026-09-18: ZERO of the 68 cited hosts carry a two-level public suffix (TLDs seen: com 35 ·
+// org 11 · io 7 · dev 4), so a fixed short list costs nothing today; DECLARED entries for the ccTLD second levels plus the
+// PSL PRIVATE-section hosts this repo actually cites (adr.github.io and open-policy-agent.github.io are two projects, and
+// the PSL treats *.github.io as registrable — folding them to one would be wrong). The PSL itself is NOT vendored: it
+// "usually changes a few times per week" (publicsuffix.org/list) — a 250 KB file with weekly drift is not a constant.
+export const TWO_LEVEL_SUFFIXES = ['co.uk', 'org.uk', 'ac.uk', 'gov.uk', 'com.au', 'co.nz', 'co.jp', 'co.in', 'com.br', 'co.za', 'github.io', 'gitlab.io', 'readthedocs.io', 'vercel.app', 'pages.dev', 'netlify.app']
+/** The registrable domain of a host: strip www., apply the code-host alias, then the last two labels — or three when
+ *  the last two are a listed two-level suffix. Decidable from the string alone; vendor identity never is. */
+export function registrableDomain(host) {
+  let h = String(host || '').toLowerCase().replace(/^www\./, '')
+  h = CODE_HOST_ALIASES.get(h) || h
+  const labels = h.split('.').filter(Boolean)
+  if (labels.length >= 3 && TWO_LEVEL_SUFFIXES.includes(labels.slice(-2).join('.'))) return labels.slice(-3).join('.')
+  return labels.slice(-2).join('.')
+}
 // QUOTE_CHARS ⇐ MEASURED 2026-08-23 over every legitimate CONSTANTS-shaped value available: the fixture set
 // (47 · 15 · 26) and the two real values seen in this session — Russ's justified NONE at 84 and the longest
 // genuinely-derived constant in LORAMER_DECISIONS.md, the walk's UNIT_RESERVATION_FLOOR_MS line, at 104.
@@ -109,6 +148,8 @@ const sha256 = (s) => createHash('sha256').update(String(s), 'utf8').digest('hex
 // paste, including inside a fence, because Russ pastes from a phone and a leading fence is normal. A value
 // continues across lines until the next KEY: line, so a wrapped ADVERSARY line is not truncated.
 export const KEYS = ['ROUND', 'QUESTION', 'BLAST', 'INFLIGHT', 'RESEARCH', 'ADVERSARY', 'CONSTANTS', 'CITED']
+/** A line that looks like one of CITED's four forms: `NEW ★…` / `NEW LORAMER_…`, `… ⇐ home`, or `file:line "quote"`. */
+const CITATION_SHAPE_RE = /^(?:NEW\s+(?:★|LORAMER_)|.*(?:★[A-Z0-9-]{3,}|LORAMER_[A-Z0-9_]+_V\d+).*(?:⇐|<=)|\S+:\d+(?:\s*-\s*\d+)?\s+")/
 export function parseHeader(text) {
   const out = {}
   const lines = String(text || '').split('\n')
@@ -122,6 +163,11 @@ export function parseHeader(text) {
       // line of the paste — caught red-first by the guard's own GREEN fixtures, which were blocked because
       // ordinary prose after CONSTANTS: was being read as an underived constant.
       if (/^\s+\S/.test(line)) { out[cur] += '\n' + line.trim(); continue }
+      // LORAMER_ADVERSARY_UNTIL_CONVERGED_V1 (item 4) — THE SILENT DROP. Five build pastes were refused on 2026-09-18
+      // because a second citation was written on its own bare line: the parser ended CITED here and the line became body
+      // text — a ★token in it failed the unconditional scan, and a LORAMER_*_V<n> marker in it was dropped WITHOUT ANY
+      // ERROR. A citation-shaped line right after CITED is recorded so the evaluator refuses it by name.
+      if (cur === 'CITED' && CITATION_SHAPE_RE.test(line.trim())) { out.__orphan_CITED = (out.__orphan_CITED ? out.__orphan_CITED + '\n' : '') + line.trim(); cur = null; continue }
       cur = null
     }
   }
@@ -210,24 +256,34 @@ export function inFlightVerdict(transcriptPath) {
 // external fact is load-bearing" is a CLAIM about the work, and the reason is the only thing that makes it
 // auditable. So the SPELLING is unified and the ten-word floor stays — `NONE` alone still fails here.
 const RESEARCH_NONE_RE = /^NONE(?:-APPLICABLE)?\b\s*(?:[—–\-:,.]\s*(?<reason>[\s\S]*))?$/i
-export function researchVerdict(value, decisionsText) {
+// LORAMER_ADVERSARY_UNTIL_CONVERGED_V1 (item 4) — RESEARCH IS MANY PLACES. A source is a REGISTRABLE DOMAIN (round 13:
+// vendor identity is undecidable from a hostname; the domain is), the vendor is DECLARED (`vendor=<domain>`, and it must
+// be among the sources — "first URL" is an ordering trick and "most-cited" refuses the honest six-singletons case), and
+// `NONE` is refused beside a NAMED prior art: a named implementation is a source you have not read.
+export function researchVerdict(value, decisionsText, opts = {}) {
   const raw = String(value || '').trim()
-  if (!raw) return { ok: false, why: 'RESEARCH: is absent' }
+  if (!raw) return { ok: false, why: 'RESEARCH: is absent', domains: null, vendor: null }
   const na = raw.match(RESEARCH_NONE_RE)
   if (na) {
     const reason = (na.groups?.reason || '').trim()
     const n = words(reason)
+    if (opts.priorArtNamed) return { ok: false, why: `RESEARCH: NONE is refused beside PRIOR-ART: ${opts.priorArtNamed} — a named implementation is a source you have not read; cite it and four more domains`, domains: 0, vendor: null, noneApplicable: true }
     return n >= MIN_NONE_APPLICABLE_WORDS
-      ? { ok: true, why: `NONE with a ${n}-word reason`, noneApplicable: true }
-      : { ok: false, why: `RESEARCH: NONE carries only ${n} word(s) of reason; ${MIN_NONE_APPLICABLE_WORDS} are required — say why no external fact is load-bearing. (CONSTANTS accepts a bare NONE because "no numbers" can be checked by reading the paste; "no external fact matters" cannot, so it is the one that needs the sentence.)` }
+      ? { ok: true, why: `NONE with a ${n}-word reason`, noneApplicable: true, domains: 0, vendor: null }
+      : { ok: false, why: `RESEARCH: NONE carries only ${n} word(s) of reason; ${MIN_NONE_APPLICABLE_WORDS} are required — say why no external fact is load-bearing. (CONSTANTS accepts a bare NONE because "no numbers" is checkable; "no external fact" is a claim, so it costs a reason.)`, domains: 0, vendor: null }
   }
-  const urls = [...raw.matchAll(/https?:\/\/[^\s<>()\[\]"']+/g)].map((m) => m[0])
-  if (urls.length < 2) return { ok: false, why: `only ${urls.length} URL(s) present; 2 distinct sources are required` }
-  const hosts = [...new Set(urls.map((u) => { try { return new URL(u).hostname.replace(/^www\./, '') } catch { return null } }).filter(Boolean))]
-  if (hosts.length < 2) return { ok: false, why: `${urls.length} URLs but only ${hosts.length} distinct hostname(s) — two pages of one vendor is one source` }
-  const fresh = hosts.filter((h) => !decisionsText.includes(h))
-  if (fresh.length === 0) return { ok: false, why: `every hostname (${hosts.join(', ')}) is already cited in LORAMER_DECISIONS.md — re-citing our own record is not research` }
-  return { ok: true, why: `${urls.length} URL(s), ${hosts.length} hostname(s), ${fresh.length} not previously banked` }
+  const { vendor, urls, hosts } = researchSignals(raw)
+  const domains = [...new Set(hosts.map(registrableDomain))]
+  const tally = Object.entries(hosts.reduce((m, h) => { const d = registrableDomain(h); m[d] = (m[d] || 0) + 1; return m }, {})).map(([d, n]) => `${d} ×${n}`).join(', ')
+  const out = (ok, why) => ({ ok, why, domains: domains.length, vendor })
+  if (urls.length < RESEARCH_MIN_URLS) return out(false, `only ${urls.length} URL(s) present; ${RESEARCH_MIN_URLS} URLs on ${RESEARCH_MIN_DOMAINS} registrable domains are required — research is many places`)
+  if (domains.length < RESEARCH_MIN_DOMAINS) return out(false, `${urls.length} URL(s) on ${domains.length} registrable domain(s) (${tally}); ${RESEARCH_MIN_URLS} URLs on ${RESEARCH_MIN_DOMAINS} domains are required, one of them neither the vendor's nor already in DECISIONS. Four pages of one vendor are one source`)
+  if (!vendor) return out(false, `vendor= is absent — declare the registrable domain you are building against (e.g. \`RESEARCH: vendor=google.com · <urls>\`); it must be among your sources`)
+  const vendorDomain = registrableDomain(vendor)
+  if (!domains.includes(vendorDomain)) return out(false, `vendor=${vendor} is not among your sources (${tally}) — declare the vendor you are building against, and read it`)
+  const fresh = domains.filter((d) => d !== vendorDomain && !decisionsText.includes(d))
+  if (fresh.length === 0) return out(false, `every non-vendor domain (${domains.filter((d) => d !== vendorDomain).join(', ')}) is already cited in LORAMER_DECISIONS.md — re-citing our own record is not research; one domain must be new to it`)
+  return out(true, `${urls.length} URL(s), ${domains.length} registrable domain(s), vendor ${vendorDomain}, ${fresh.length} not previously banked`)
 }
 
 // ── CHECK 3 — ADVERSARY-THAT-NEVER-COLLIDED ───────────────────────────────────────────────────────────────
@@ -421,7 +477,7 @@ export function signalsOf(h) {
   const pa = String(h['PRIOR-ART'] || '').trim()
   return {
     adversary_present: adversaryVerdict(h.ADVERSARY).ok,
-    research_domains: h.RESEARCH ? r.hosts.length : null,
+    research_domains: h.RESEARCH ? new Set(r.hosts.map(registrableDomain)).size : null,
     prior_art: !pa ? 'absent' : /^NONE-FOUND\b/i.test(pa) ? 'none-found' : 'named',
     vendor: r.vendor,
     rounds_named: roundsNamed(h.ADVERSARY),
@@ -485,9 +541,10 @@ export function evaluate({ text, transcriptPath, decisionsText, queueText = '', 
   // like CONSTANTS; the token scan runs regardless of the box so a fabricated ★token in the BODY cannot hide
   // behind CITED: NONE.
   const docs = { QUEUE: queueText, DECISIONS: decisionsText, digest: digestText }
-  const CITED_FIX = `FOUR accepted forms, one per line: (1) \`CITED: ★TOKEN ⇐ QUEUE\` (or a LORAMER_*_V<n> marker with its home file) — the hook re-reads the record itself · (2) \`CITED: <file>:<line> "<quote>"\` — every ≥4-letter word of the quote must really be within ±${QUOTE_WINDOW_LINES} lines · (3) \`CITED: NEW ★TOKEN\` — passes only if the token is genuinely absent from QUEUE/DECISIONS/digest · (4) \`CITED: NONE — <at least ${MIN_NONE_APPLICABLE_WORDS} words>\`. Pasted grep output is never accepted as proof; the hook runs its own read.`
+  const CITED_FIX = `FOUR accepted forms, ONE \`CITED:\` LINE PER CITATION (a bare second line is body text — the parser ends a box at the first unindented line): (1) \`CITED: ★TOKEN ⇐ QUEUE\` (or a LORAMER_*_V<n> marker with its home file) — the hook re-reads the record itself · (2) \`CITED: <file>:<line> "<quote>"\` — every ≥4-letter word of the quote must really be within ±${QUOTE_WINDOW_LINES} lines · (3) \`CITED: NEW ★TOKEN\` — passes only if the token is genuinely absent from QUEUE/DECISIONS/digest · (4) \`CITED: NONE — <at least ${MIN_NONE_APPLICABLE_WORDS} words>\`. Pasted grep output is never accepted as proof; the hook runs its own read.`
   const cited = citedVerdict(h.CITED, { docs, root })
   if (!cited.ok) failures.push({ box: 'CITATION-NEVER-READ', why: cited.why, fix: CITED_FIX })
+  if (h.__orphan_CITED) failures.push({ box: 'CITATION-NEVER-READ', why: `a citation-shaped line follows CITED: without its own CITED: prefix and was NOT read: "${h.__orphan_CITED.split('\n')[0].slice(0, QUOTE_CHARS)}" — the parser ends a box at the first unindented line, so that citation was body text (2026-09-18: five build pastes refused this way)`, fix: CITED_FIX })
   {
     const docsEmpty = !Object.values(docs).some((b) => b && b.length)
     if (!docsEmpty) {
@@ -499,8 +556,8 @@ export function evaluate({ text, transcriptPath, decisionsText, queueText = '', 
 
   // THE PROPORTIONALITY RULE. Both rounds are demanded by CONSEQUENCE, never by question-shape.
   if (writesSomething(blast)) {
-    const r = researchVerdict(h.RESEARCH, decisionsText)
-    if (!r.ok) failures.push({ box: 'RESEARCH-WITH-NO-URLS', why: r.why, fix: `TWO accepted forms: (1) \`RESEARCH: <url> · <url>\` — at least 2 URLs on at least 2 DIFFERENT hostnames, at least one hostname not already cited in LORAMER_DECISIONS.md · (2) \`RESEARCH: NONE — <at least ${MIN_NONE_APPLICABLE_WORDS} words saying why no external fact is load-bearing>\` (the CONSTANTS spelling; \`NONE-APPLICABLE:\` is accepted too, and a BARE \`NONE\` is not — the reason is the whole point here)` })
+    const r = researchVerdict(h.RESEARCH, decisionsText, { priorArtNamed: false })
+    if (!r.ok) failures.push({ box: 'RESEARCH-WITH-NO-URLS', why: r.why, fix: `TWO accepted forms: (1) \`RESEARCH: vendor=<registrable domain> · <url> · <url> · <url> · <url> · <url>\` — at least ${RESEARCH_MIN_URLS} URLs on at least ${RESEARCH_MIN_DOMAINS} REGISTRABLE DOMAINS (pages of one vendor are one source), the vendor declared and among them, at least one domain neither the vendor's nor already cited in LORAMER_DECISIONS.md · (2) \`RESEARCH: NONE — <at least ${MIN_NONE_APPLICABLE_WORDS} words saying why no external fact is load-bearing>\` (the CONSTANTS spelling; \`NONE-APPLICABLE:\` is accepted too, and a BARE \`NONE\` is not — the reason is the whole point here)` })
     const a = adversaryVerdict(h.ADVERSARY)
     if (!a.ok) failures.push({ box: 'ADVERSARY-THAT-NEVER-COLLIDED', why: a.why, fix: `ONE accepted form, all three parts on one line: \`ADVERSARY: mine=<your position> | other=<the opposing position> | collision=<what actually changed, ${MIN_COLLISION_WORDS}+ words>\`. mine= and other= must differ. There is NO compressed form on a writing blast radius.` })
   }
