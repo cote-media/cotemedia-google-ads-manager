@@ -506,6 +506,7 @@ const GUARDS = [
   'tests/guards/attempt-timing.guard.mjs', // LORAMER_ATTEMPT_TIMING_V1 — stream_ms / upsert_ms / duration_ms on the attempt row: the vendor's share and ours, measured separately (098)
   'tests/guards/descend-window-90.guard.mjs', // LORAMER_DESCEND_WINDOW_90_V1 — maxDays 90 / MISSED_WINDOW_DAYS 90 pinned; deriveWindow and the missed lane never straddle the retention line (Airbyte clip form)
   'tests/guards/unit-reserve-per-surface.guard.mjs', // LORAMER_UNIT_RESERVE_PER_SURFACE_V1 — a unit reserves 18 s + its surface's s/day × days × 1.48 (floor 18 s) from the ledger's duration_ms; the fire and the worker admit against it
+  'tests/guards/resume-from-committed-day.guard.mjs', // LORAMER_RESUME_FROM_COMMITTED_DAY_V1 — a retry asks the remainder (Airbyte streams.py:117-130); the bound and the mis-size split reason over it
   'tests/guards/resume-digest-freshness.guard.mjs',
 ]
 

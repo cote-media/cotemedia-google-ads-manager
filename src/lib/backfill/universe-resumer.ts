@@ -699,6 +699,20 @@ export function planMisSizedSplit(a: {
   }
 }
 
+/**
+ * LORAMER_RESUME_FROM_COMMITTED_DAY_V1 — THE RETRY ASK IS THE REMAINDER, NEVER THE WHOLE WINDOW AGAIN. Pure.
+ * ADOPTED-FROM Airbyte source-google-ads streams.py:117-130 (`_handle_expired_page_exception` resets the slice's
+ * start_date to the current state and re-reads only what is left). Our flush-per-day already commits days as they
+ * land; this makes the BOUND (attempts-at-span, the mis-size halving) reason over what is still owed: the span from
+ * the first to the last uncovered day inside the window. Nothing owed → null (the caller's covered-skip path).
+ */
+export function planRetryAsk(a: { windowStart: string; windowEnd: string; uncoveredDays: string[] }): { start: string; end: string; days: number } | null {
+  const inside = a.uncoveredDays.filter((d) => d >= a.windowStart && d <= a.windowEnd).sort()
+  if (inside.length === 0) return null
+  const start = inside[0], end = inside[inside.length - 1]
+  return { start, end, days: Math.round((Date.parse(end + 'T00:00:00Z') - Date.parse(start + 'T00:00:00Z')) / 86_400_000) + 1 }
+}
+
 /** Date arithmetic in one place, so the pure decisions above stay drivable with no clock. */
 export function addDaysISO(iso: string, n: number): string {
   const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10)

@@ -84,7 +84,7 @@ module.exports = {
   // capture-adapter
   mayFetch: async () => ({ ok: true, reason: 'fixture' }),
   // universe-coverage — owed ranges per window span, scripted by the fixture
-  rangesStillOwed: async (k, start, end) => { const rs = W().owedFor(start, end); return { ranges: rs, coverage: { covered: [], attestedEmpty: [], uncovered: rs.map((x) => x.start), probes: 0, ms: 0 } } },
+  rangesStillOwed: async (k, start, end) => { const rs = W().owedFor(start, end); const days = []; for (const x of rs) { for (let d = x.start; d <= x.end; d = addDays(d, 1)) days.push(d) } return { ranges: rs, coverage: { covered: [], attestedEmpty: [], uncovered: days, probes: 0, ms: 0 } } }, // uncovered = EVERY owed day (faithful to windowCoverage; planRetryAsk spans first..last)
   // universe-attempt-log — THE COUNTER: one opened request per appendAttemptStarted(…, 1, …)
   appendAttemptStarted: async (key, requests) => { W().starts.push({ key, requests }); if (requests === 1) W().opened += 1; return { attemptNo: 1 } },
   appendDayCommitted: async () => {}, appendAttemptFinished: async () => {}, appendMessageFinished: async () => {},
@@ -92,6 +92,7 @@ module.exports = {
   // universe-sizing
   sizeNextWindow: async () => ({ days: 7, basis: 'fixture', sizedOnRowsPerDay: null, estimateRowsPerDay: null, reason: 'fixture' }), dayDiff,
   // universe-resumer — the pure split, re-stated for a 30-day window (halves at 15)
+  planRetryAsk: ({ windowStart, windowEnd, uncoveredDays }) => { const inside = uncoveredDays.filter((d) => d >= windowStart && d <= windowEnd).sort(); if (!inside.length) return null; const start = inside[0], end = inside[inside.length - 1]; return { start, end, days: dayDiff(start, end) + 1 } }, // LORAMER_RESUME_FROM_COMMITTED_DAY_V1
   planMisSizedSplit: ({ windowStart, windowEnd, minDays }) => { const span = dayDiff(windowStart, windowEnd) + 1; const half = Math.max(minDays, Math.floor(span / 2)); const lowerEnd = addDays(windowStart, half - 1); return { halfDays: half, lower: { start: windowStart, end: lowerEnd }, upper: lowerEnd < windowEnd ? { start: addDays(lowerEnd, 1), end: windowEnd } : null } },
   // universe-window-log
   checkDiskFloor: async () => ({ ok: true, freeBytes: 1e12, reason: 'fixture' }),

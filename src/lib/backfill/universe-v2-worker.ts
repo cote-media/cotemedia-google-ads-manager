@@ -68,7 +68,7 @@ import { appendAttemptStarted, appendDayCommitted, appendAttemptFinished, append
 import { sizeNextWindow, dayDiff } from '@/lib/backfill/universe-sizing'
 // ⛔ THE MIS-SIZED SPLIT IS A PURE DECISION AND LIVES WITH THE OTHER PURE DECISIONS — importing it rather
 // than recomputing it here is what lets a guard DRIVE the "no day belongs to neither half" invariant.
-import { planMisSizedSplit } from '@/lib/backfill/universe-resumer'
+import { planMisSizedSplit, planRetryAsk } from '@/lib/backfill/universe-resumer'
 import { checkDiskFloor } from '@/lib/backfill/universe-window-log'
 import { googleAdsStreamFor } from '@/lib/backfill/universe-vendor-stream'
 // LORAMER_RETENTION_WALL_CANARY_V1 — an empty answer past the published wall retires a day only under a green canary.
@@ -354,7 +354,17 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance, opts
   }
 
   // ══ 3 · THE BOUND — READ BEFORE CHARGING, AND EVALUATED AT THE SPAN ═══════════════════════════════════
-  const spanDays = dayDiff(startDate, endDate) + 1
+  // ⛔ LORAMER_RESUME_FROM_COMMITTED_DAY_V1 — THE SPAN IS THE REMAINDER. ADOPTED-FROM Airbyte source-google-ads
+  // streams.py:117-130: on a failed slice the ask restarts at the committed cursor, not at the slice's start. Our
+  // days commit as they flush, so a killed 90-day attempt with 40 days landed owes 50 — and the bound below (attempts
+  // at span, the mis-size halving) must see 50, not 90, or the retry is narrowed as if nothing had landed.
+  const remainder = planRetryAsk({ windowStart: startDate, windowEnd: endDate, uncoveredDays: owed.coverage.uncovered })
+  const askStart = remainder ? remainder.start : startDate
+  const askEnd = remainder ? remainder.end : endDate
+  const spanDays = remainder ? remainder.days : dayDiff(startDate, endDate) + 1
+  if (remainder && (askStart !== startDate || askEnd !== endDate)) {
+    console.log(`[universe-v2] RESUME FROM COMMITTED ${clientId} ${label}: window ${startDate}..${endDate}, remaining ${askStart}..${askEnd} (${spanDays} of ${dayDiff(startDate, endDate) + 1} days)`)
+  }
   const attemptsHere = await readAttemptsAtSpan(key)
   if (spanDays <= MIN_WINDOW_DAYS && attemptsHere >= MAX_ATTEMPTS_AT_MIN_SPAN) {
     // ⛔ **BROKEN**, and only here. One day of one entry could not complete in 300 seconds across
@@ -375,7 +385,7 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance, opts
     // ⛔ THE SPLIT IS A PURE FUNCTION AND NOT INLINE ARITHMETIC, DELIBERATELY — `planMisSizedSplit`
     // (universe-resumer.ts) so `mis-size-must-re-owe.guard.mjs` can DRIVE the property "no day of the window
     // belongs to neither half" instead of grepping for it. The inline version is what dropped the upper half.
-    const split = planMisSizedSplit({ windowStart: startDate, windowEnd: endDate, minDays: MIN_WINDOW_DAYS })
+    const split = planMisSizedSplit({ windowStart: askStart, windowEnd: askEnd, minDays: MIN_WINDOW_DAYS })
     const half = split.halfDays
     const narrowedEnd = split.lower.end
     // ⛔ LORAMER_MISSIZE_REOWES_THE_UPPER_HALF_V1 — THE HALF THIS BRANCH USED TO THROW AWAY.
@@ -392,7 +402,7 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance, opts
     // lost at the PUBLISH site, not at the anchor. A fix that closes a hole and leaves the CLASS alive is a
     // failure even shipped green.
     const hasUpper = split.upper !== null
-    const upperStart = split.upper?.start ?? endDate
+    const upperStart = split.upper?.start ?? askEnd
     // ⛔ THE UPPER HALF IS PUBLISHED **FIRST**, AND THE ORDER IS THE SAFETY PROPERTY, NOT A PREFERENCE.
     // The governor may refuse. If the lower half went out first and the upper were then refused, we would
     // have re-created the exact defect — the rotation would move down onto the narrowed window and the upper
@@ -402,8 +412,8 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance, opts
     // catastrophic one.
     const upper = hasUpper
       ? await publishGoverned(adapter,
-          { ...msg, startDate: upperStart, endDate }, dayDiff(upperStart, endDate) + 1,
-          `${clientId}|${entry.resource}|${entry.segment ?? ''}|${upperStart}|${endDate}|narrow-upper`,
+          { ...msg, startDate: upperStart, endDate: askEnd }, dayDiff(upperStart, askEnd) + 1,
+          `${clientId}|${entry.resource}|${entry.segment ?? ''}|${upperStart}|${askEnd}|narrow-upper`,
           opts,
         )
       : { published: true, reason: 'no upper half — the narrow consumed the whole window', requestsOpened: 0 }
@@ -413,24 +423,24 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance, opts
       // re-derives all of it next fire. A quota refusal must never become a permanent hole.
       await appendAttemptFinished(key, attemptsHere + 1, 'skipped', {
         rowsWritten: 0, requestsSpent: 0, diskFreeBytes: floor.freeBytes,
-        error: `MIS-SIZE HELD, NOT SPLIT: ${attemptsHere} attempt(s) at ${spanDays} days, but the upper half ${upperStart}..${endDate} could not be published (${upper.reason}). ` +
+        error: `MIS-SIZE HELD, NOT SPLIT: ${attemptsHere} attempt(s) at ${spanDays} days, but the upper half ${upperStart}..${askEnd} could not be published (${upper.reason}). ` +
           `Publishing only the older half would drop the upper half permanently — LORAMER_MISSIZE_REOWES_THE_UPPER_HALF_V1. The whole window stays owed and is re-derived next fire.`,
       }, prov)
-      console.warn(`[universe-v2] MIS-SIZE HELD ${clientId} ${label}: upper half ${upperStart}..${endDate} refused (${upper.reason}) — window NOT split, nothing dropped.`)
+      console.warn(`[universe-v2] MIS-SIZE HELD ${clientId} ${label}: upper half ${upperStart}..${askEnd} refused (${upper.reason}) — window NOT split, nothing dropped.`)
       return 0
     }
     const pub = await publishGoverned(adapter,
-      { ...msg, startDate, endDate: narrowedEnd }, half,
-      `${clientId}|${entry.resource}|${entry.segment ?? ''}|${startDate}|${narrowedEnd}|narrow`,
+      { ...msg, startDate: askStart, endDate: narrowedEnd }, half,
+      `${clientId}|${entry.resource}|${entry.segment ?? ''}|${askStart}|${narrowedEnd}|narrow`,
       opts,
     )
     await appendAttemptFinished(key, attemptsHere + 1, 'skipped', {
       rowsWritten: 0, requestsSpent: 0, diskFreeBytes: floor.freeBytes,
       error: `MIS-SIZED, not broken: ${attemptsHere} attempt(s) at ${spanDays} days. Re-published at ${half} day(s). ${pub.reason}` +
-        (hasUpper ? ` · UPPER HALF ${upperStart}..${endDate} RE-OWED as its own message (${upper.reason}) — LORAMER_MISSIZE_REOWES_THE_UPPER_HALF_V1.` : ''),
+        (hasUpper ? ` · UPPER HALF ${upperStart}..${askEnd} RE-OWED as its own message (${upper.reason}) — LORAMER_MISSIZE_REOWES_THE_UPPER_HALF_V1.` : ''),
     }, prov)
     console.log(`[universe-v2] MIS-SIZED ${clientId} ${label}: ${spanDays}d → ${half}d, published=${pub.published} (${pub.reason})` +
-      (hasUpper ? ` · upper ${upperStart}..${endDate} re-owed (${upper.reason})` : ''))
+      (hasUpper ? ` · upper ${upperStart}..${askEnd} re-owed (${upper.reason})` : ''))
     // LORAMER_FIRE_LOG_WITNESSES_OPENED_V1 — this invocation opened nothing itself; its two halves did.
     return upper.requestsOpened + pub.requestsOpened
   }
