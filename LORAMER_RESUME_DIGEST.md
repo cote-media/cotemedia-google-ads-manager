@@ -7,19 +7,19 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-09-18T01:29:11.129Z
-- built_from HEAD: b135a5ef80b73b1f4e1842da0b9e701ac3f785fe  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-09-18T03:49:33.440Z
+- built_from HEAD: 55eaf4061e8ecc908c1a9c6fdfcd036a91aa2ff2  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
   exactly as fresh as the manifest is honest; the wrap-step regenerates manifest + digest together.
   Source-doc content_hash at build time:
-    - LORAMER_MAP.md: 70c2d74b64bfc275423dae55135c7c32dc6e39c99062a9a72bb8c3ccc0fbd9e8
+    - LORAMER_MAP.md: add239ee82669499d93cd8b582b701cb824881ea728a1df76d002271cc99455d
     - LORAMER_ESSENCE.md: 492b85a4c0f1d9ce4f4a00f287480df35b5ea4af727385c0c6816b7996b9112f
     - LORAMER_HANDOFF.md: 9f349d7d232366b1bb0b29f797f7225540b3ff6c8b43fbbea32eb0db4e761680
-    - CONTINUE_HERE.md: 559aff64763fb16853dc3aad1346a5c7d3191d5b80745a0bc8143d00d56e8f31
-    - LORAMER_DECISIONS.md: 57c25ec9604707a42c8ee17ab7f9585f67fbbb8a3788055ab635ac0b96fb21b6
-    - LORAMER_QUEUE_OF_RECORD.md: 17eb948394686599367c6045934e90a36d49db4be21112b7bc673af310214f1b
+    - CONTINUE_HERE.md: 19c2062b44c25cf8a43c1a191ac596f950b6db70c514cbc91f349f04f1b52c9e
+    - LORAMER_DECISIONS.md: f2e05d009bc6ec303bd54b40204471e002462bba7b5e4db305da8bd134f6623c
+    - LORAMER_QUEUE_OF_RECORD.md: 367240a5900f039ce0e98d087ed924fb0cff3a301ff38c22a7019e794776ea58
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: f4bef31497a46984a3a54acc5be044d48000688ba74ed59689e7c4bfafca21a1
     - RESUME_INSTRUCTIONS.md: 3fb45b93b57ac4e73664dc2a7c0984b03c9ed6152b21d93c2c481dd7e0de9601
     - docs/LORAMER_ASSET_LAYER_SCOPE_V1.md: 5550c754b2bf30624360a47cb54bbfd190bf8fc3cda958ab9b843497eb61050d
@@ -562,77 +562,77 @@ a line of it was built.
 ## E. ACTIVE WORKSTREAM + NEXT STEP  (source: CONTINUE_HERE.md)
 ACTIVE WORKSTREAM = **DATA COMPLETENESS PROGRAM** (governing plan: docs/LORAMER_DATA_COMPLETENESS.md). GOVERNING RULE: retrieve ALL data from everywhere + store it FOREVER (until the customer cancels). Wave 0 audit DONE; Woo Fix-1a (8377b97) + Fix-1b (3e74e0b) SHIPPED; Meta placement fwd (c06d1c7)+history (9cb038a) SHIPPED; Meta account+placement backfill Inside/Glenn/Ogmentor SHIPPED (2026-06-23, LORAMER_DATA_COMPLETENESS_META_BACKFILL_INSIDE_GLENN_OGMENTOR_V1). Google campaign backfill WIRED+SCALED (2026-06-24) + Google ad_group+ad backfill WIRED+draining (2026-06-26, LORAMER_GOOGLE_ADGROUP_AD_BACKFILL_V1/V2 — drain step 'google_adgroup_ad') + Meta campaign backfill WIRED+draining (2026-06-26, LORAMER_META_CAMPAIGN_BACKFILL_FLAG_NOT_BLOCK_V2 — drain step 'meta_campaign') + Meta adset+ad backfill WIRED+draining (2026-06-26, LORAMER_META_ADSET_AD_BACKFILL_V1 — drain step 'meta_adset_ad'). ALL Google + Meta DEPTH grains (campaign/ad_group/ad/adset) now have writers + drain steps — the DEPTH ARC IS COMPLETE. The workstream advances under the **UNIFIED LIVE + BREADTH design (docs/LORAMER_LIVE_BREADTH_UNIFIED_DESIGN.md, LOCKED 2026-06-26)**: Direction B (captured metrics_daily = system-of-record; SEPARATE sibling live store keyed by as_of; Lora reconciles across + always labels which store). **CURRENT STATE (2026-06-28): Phase 1 CONSOLIDATION ✅; Phase 2 BREADTH well underway; SELF-SERVE SPINE ✅ LIVE+VERIFIED.** Registry = **docs/LORAMER_BREAKDOWN_REGISTRY.md** (per-dimension {entity_level, encoding, reconcile} + governing rules). LIVE+PUSHED (origin/main=d995acf, all auto-deployed + prod-verified): DEVICE breadth (4-entity-grain family) + GEO (campaign+ad_group) + HOUR breadth; GEO entity expansion + FREE-MAX drain config (*/5 cron, 800s, cap 18); the FULL SELF-SERVE BACKFILL SPINE (**LORAMER_SELFSERVE_SPINE_V1** — (1) priority lane [new-client backfill_priority=10, decays on onboard-complete], (2) connect-kickoff [every insert site sets priority=10 + waitUntil()→/api/cron/drain?clientId=], (3) bounded-concurrency runner [BACKFILL_CONCURRENCY=2, hard memory cap clampConcurrency N×peak≤2GB−256, runPool], (4) free dial [window 40d / N=2 / lease 360→480]); + BUDGET_MS 750→680 (504 fix); migrations 020 (backfill_priority col) + 021 (lease 480, CAS byte-identical) APPLIED; @vercel/functions live. VERIFIED IN PROD: concurrency:2 in the live drain JSON, clean 200 ticks, NO missing-column/lease/OOM; a new connection → priority=10 + immediate kickoff → ~3.7hr concurrent backfill to the 36-mo floor, holds at customer #5 AND #500. Design + findings: **docs/LORAMER_SELFSERVE_BACKFILL_DESIGN_V1.md** + **_FINDINGS.md**. DISK FINDING (banked, NOT a bug): Supabase disk 2→8→12GB = transient WAL spikes from heavy geo write bursts, NOT data (~1.9GB used of 12GB; metrics_daily ~1.5M rows, real geo, 5:1 ins:upd, no over-write); geo backfill is EARLY → metrics_daily grows toward ~5-30GB as it floors. **COST MODEL UPDATED 2026-06-28:** the cost-per-customer line is COMPUTE TIER (Supabase Small, ≥2GB RAM, swap=0 verified), NOT storage — the 2→12GB was transient WAL spikes, not data; on Pro, Nano billed at Micro's rate so the headroom was free all along. **NEXT FOCUS (2026-07-24 — FRONTIER MOVED FROM BREADTH TO CORRECTNESS-OVER-TIME): all 5 platforms are mapped AND captured at the daily-aggregate grain (91 families — google 27 · meta 25 · shopify 15 · woo 12 · ga 12; the 2026-07-19 never-started list closed for Shopify/Meta/Woo). GA is unfrozen (dedup fix f1c41d1 + Bath Fitter recovery). The remaining law-gap is no longer WIDTH, it is TIME + GRAIN: single-shot T+1 capture never re-fetches, so Google/Meta conversion history is UNDERSTATED on every captured day and store revenue is WRONG for any post-capture refund/edit (★RESTATEMENT-SWEEP-FLEET); the ORDER grain is fetched, summed, and DISCARDED (★ORDER-LEVEL-STORAGE); and the deep Google geo backfill STARVES forward capture at the ~04:03 ET quota reset (★GOOGLE-QUOTA-PRIORITY-INVERSION). BUILD ORDER is owned by LORAMER_QUEUE_OF_RECORD.md ## RANKED COMPLETION ORDER (T3 CAPTURE COMPLETENESS is the active tier) and external status by LORAMER_DECISIONS.md — NOT restated here per LORAMER_DOCS_SINGLE_OWNER_V1. NEXT = per that ranking; the three ★ items above are the top of T3. Restatement windows are banked in DECISIONS LORAMER_RESTATEMENT_WINDOW_LAW_V1.** Remaining LIVE+BREADTH phases: live spine → live UI (-next) → intelligence reshape (freeze-gated, last). (Influential Drones Meta = RESOLVED 2026-06-24 — connection ALIVE, reconciles to the penny; NOT blocked.) AUDIT_FINDINGS.md = master punch-list; LORAMER_CATCHUP_LOOP_PLAN.md = closed record of WS1c STEP 2.
 
-═══ HEAD — THE NEWEST BLOCK IN CONTINUE_HERE.md (line 1, 2026-09-16). THIS IS THE NEXT STEP. ═══
+═══ HEAD — THE NEWEST BLOCK IN CONTINUE_HERE.md (line 1, 2026-09-17). THIS IS THE NEXT STEP. ═══
 ⛔ CORROBORATION ONLY: the resume flow reads this block FROM CONTINUE_HERE.md directly. If what follows differs
 from the top of that file, CONTINUE_HERE WINS and this digest is stale — stop and say so.
 
-╔═══ SESSION CLOSE 2026-09-16/17 (OVERNIGHT) — THE ENGINE CAN NOW REACH A STRANGER'S ACCOUNT, ITS ROWS CARRY A REAL HIERARCHY, IT NO LONGER WAITS 85 MINUTES BETWEEN STEPS, AND THE REPO FINALLY HAS A PICTURE OF ITSELF. NEXT: FIX THE RUN'S PROGRESS SIGNAL, THEN TRI-COPY TO ITS FLOOR ═══╗
+╔═══ SESSION CLOSE 2026-09-17/18 (OVERNIGHT) — THE RUN NOW WALKS AT A MEASURED RATE, THE RETENTION WALL IS UNDERSTOOD AND GUARDED, AND EVERY ESTIMATE LEFT RESTS ON ONE NUMBER ═══╗
 
-⛔ **READ LORAMER_MAP.md FIRST. IT IS NOW THE FIRST LINE OF THE RESUME COMMAND** (LORAMER_MAP_V1, 2026-09-17).
-It holds what the app IS, how it works TODAY, and every ruling Russ has made. This block is the session
-narrative; the MAP is the picture. ⚠ RUSS MUST RE-PASTE THE RESUME BLOCK into Claude app settings — the
-command changed. The exact new command is in RESUME_INSTRUCTIONS.md.
+⛔ READ LORAMER_MAP.md FIRST (the resume command prints it). This block is the session narrative; the MAP is the picture.
 
-── WHAT SHIPPED, newest-first ──
-· `6c0e21b` LORAMER_MAP_V1 — one plain-English map, printed before everything else, inside the freshness gate;
-  the wrap REFUSES to finish if a ruling changed and the map did not. Two contradictions corrected: the
-  Backfill button is the DESIGN, not a workaround; and the backfill-done law now says ONE BUTTON PER PLATFORM.
-· `0e7634f` LORAMER_CONTINUOUS_RUN_V1 — a run for one (client, vendor) chains step to step. MEASURED LIVE:
-  **2 SECONDS between steps**, against the rotation's 85.3-minute gap. Daily upkeep kept running alongside.
-  ⛔ AND IT ENDED ITSELF AFTER 3 STEPS ON A FALSE READING — see NEXT STEP (2). The route is INERT (no button,
-  no cron, no kick), so nothing in production is affected while that is fixed.
-· `cc59791` + `93b3bbc` — the names dimension now spells ids the way the rows do (100% resolution on a plain
-  join, no bridge) and refreshes ONCE A DAY instead of 38 times.
-· `2b8c419` + `0c89c31` LORAMER_ENTITY_DIMENSION_V1 — every engine row can now resolve its real parent and its
-  entity's CURRENT name. Type 1 by ownership: name history already belongs to entity_state_history.
-· `96009e2` LORAMER_DIRECT_ACCESS_CUSTOMER_V1 — **a customer's own Google Ads account, outside Russ's manager
-  account, is now readable.** Manager-first, headerless only on a permission refusal. 18/18 existing
-  connections unchanged, proven against the live vendor before the push.
-· `b967ccb` LORAMER_FIRE_DEADLINE_FROM_FIRE_START_V1 — the fire's deadline is counted from the fire's start,
-  so no scan length can push work past the platform kill.
+── WHAT SHIPPED, newest-first (all READY, all polled to terminal) ──
+· `55eaf40` LORAMER_RETENTION_WALL_CANARY_V1 + LORAMER_IDLE_SKIP_V1 + LORAMER_RUN_CLAIM_STAMP_V1 — an empty answer past
+  Google's published 37-month wall retires a day ONLY while a daily canary proves the vendor still serves rows there
+  (first answer 2026-09-18 01:53Z: SERVED, 7 rows for 2022-09-10..16); otherwise UNRESOLVED, loud, and nothing past
+  the wall is asked. An idle window (Google's own account-level answer naming no active day) retires across every
+  surface for one request. A stopped run ends terminal; the pump's busy window reads only a live claim.
+· `b135a5e` LORAMER_RUN_FLOOR_NEEDS_INSTRUMENT_V1 — a held fire is never the floor; a step claims its lane before it
+  fires; the picker reads the claim (the second minute's pump had fired into the first step's lease and ended a run
+  with 60 candidates after 417 ms).
+· `dc949e1` LORAMER_NO_HTTP_TO_SELF_V1 — the run's fire is the resumer's handler called IN-PROCESS: a cron's fetch of
+  this deployment's own URL is answered by Vercel Authentication's login page (HTTP 200, no JSON), not by the fire.
+· `15c6455` LORAMER_RUN_PUMP_V1 — the run is stepped by a cron pump inside one 800 s invocation; Vercel's loop
+  detector refuses the fourth self-request with 508.
+· `dce9044` LORAMER_RUN_PROGRESS_SIGNAL_V1 + LORAMER_RUN_STOP_LIMITS_ARE_TIME_V1 — progress = DAYS NO LONGER OWED under
+  the ledger's own vendor spelling; stop limits are time (270 s asking without progress; 50 h ceiling).
+· `5f29796` LORAMER_ENTITY_DIMENSION_DAILY_GATE_V1 — the once-a-day name refresh reads the refresh moment; proven
+  live 17/17 read, then 17/17 skipped.
 
-── ⚠ THE FACTS THAT DECIDE TOMORROW ──
-· **THE SCREENS AND LORA READ THE OLD WRITERS' SPELLING FOR GOOGLE — 9 files, 25 read statements, including
-  Lora's own query layer.** The engine's Google rows are in the same table and nothing looks at them. THIS IS
-  WHY THE OLD WRITERS CANNOT STOP FIRST: a connected client would show empty.
-· There is ONE database and ONE table. "Legacy" means old CODE and old SCREENS, never old data.
-· The continuous run works; its PROGRESS SIGNAL does not. Three defects, all mine, all measured.
-· Standard Access is GRANTED and the docs that still read "waiting" were corrected tonight.
-· Daily capture and a backfill run alongside each other and neither waits — measured, and now a ruling.
+── ⚠ THE NUMBERS THAT DECIDE TOMORROW (all MEASURED 2026-09-18 02:17–03:21Z on Tri-Copy, one lane, Large DB) ──
+· THE RATE: 17.8 steps/h · ~25,500 surface-days/h by the frontier (30,600/h by the run's counter) · 20.5 owed days per
+  Google request · 6.5% idle (was 40.1% the night before) · slice gap ~28 s (was ~6 min) · cold start 35 s (was 5m49s).
+· WHAT IT PRICES (projected from that rate): Tri-Copy to inception 1,190,728 surface-days ≈ 47 h · one average client
+  (523,043) ≈ 20.5 h · all 17 one lane at a time (~7.8 M) ≈ 306 h ≈ 12.8 days · ~380,000 requests. DECISIONS
+  LORAMER_SESSION_2026_09_17_18_RATE_AND_WALL_V1 owns the figures.
+· THE THROTTLE: at ~23 requests/min average with 12-wide bursts Google answered `{"quota_error":2} Too many requests.
+  Retry in 900 seconds.` (03:20:30Z) — the first rate throttle ever observed here — and the sentinel treated it as a
+  FLEET-WIDE quota pause. Two lanes at once cannot be tried until a throttle backs off ONE lane.
+· THE IDLE SKIP: negative on active ground (49 account checks bought 570 owed days; a surface request buys 20.5 each),
+  positive on idle ground (round 13's 840 empty requests would have been ~30). Tri-Copy spent on nearly every day from
+  2025-10 back to 2018, so its next nine years are active ground.
+· THE WALL: real on paper (support.google.com/google-ads/answer/15188209, effective 2026-06-01), NOT enforced on the
+  API — daily rows served at 125 months, hourly at 48, on 2026-09-18. The canary tells us within a day when that changes.
+· check:data standing reds, unchanged: completion-claims · drain-alias-coverage · coverage-density · anchor (C) ·
+  no-owed-day. The new check-retention-canary leg is GREEN after the canary's first answer.
+
+── ⚠ OPEN FOR RUSS ──
+· THE WALL RULE IS CANARY-CONDITIONED, NOT UNCONDITIONAL (MAP open question 6). Round 15 asked for "never retire on
+  silence past the wall"; what shipped retires on silence past the wall ONLY while the canary proves the vendor still
+  serves that ground. Reason: unconditional would leave every idle day of every account below 2023-08-18 owed forever
+  (Tri-Copy: 27 spend days of 192 in 2016) and would rest on a clock; the canary rests on Google's own answer. Confirm
+  or overturn; overturning is a one-line change and a re-measure.
 
 ── ▶▶ NEXT STEP, IN ORDER ──
-(1) **DID THE 11:00 UTC NAME REFRESH POPULATE ALL 17 CLIENTS?** One client was populated by hand; the
-    scheduled path has never run. Read it before anything else — it is the cheapest possible check and it
-    tells you whether the daily refresh actually works.
-(2) **FIX THE CONTINUOUS RUN'S PROGRESS SIGNAL, THEN TAKE TRI-COPY TO ITS FLOOR.** Three defects:
-    (a) the run is keyed `google_ads` while the attempt ledger spells the vendor `google`, so the progress
-        query matched nothing — the SAME spelling class as the dimension defect fixed the night before;
-    (b) progress counts DAYS WITH ROWS, but a dormant day that is ATTESTED EMPTY is also ground gained. Of
-        Tri-Copy's 384 attempts, 204 returned empty-and-attested and 180 were already covered, so zero days
-        were committed while the lane genuinely advanced. Count DAYS NO LONGER OWED;
-    (c) the meter's reason string is always present and was read as a "hold".
-    Then RE-DERIVE the no-progress bound against a dormant-history lane, clear the failed Tri-Copy run row,
-    restart it and take it to the floor. MEASURE: owed days retired per hour, time to floor, Vercel cost,
-    write-path load, the cold-start gap between steps, and what a deploy mid-run does.
-(3) **CLOSE THE MAP'S CODE-DRIFT GAP.** The wrap refuses when a RULING changes and the map does not; nothing
-    notices when the CODE the map describes changes. Sections 3 and 4 must fail a check on code drift.
-(4) **EACH PLATFORM ITS OWN BACKFILL BUTTON, GOOGLE FIRST — SHIPPED IN ONE PIECE WITH THE READER CUTOVER.**
-    A second press does NOTHING and shows a progress meter over the 349 surfaces, measured in days no longer
-    owed. The screens and Lora move to the engine's spelling in the SAME work, so no connected client ever
-    shows empty. Ad names per Russ's answer to open question 2.
-(5) **NEWEST DATA FIRST.** The research the queue item demanded is now done: Fivetran names the pattern,
-    Airbyte does the opposite, so the shape is real and "everyone does it" is false.
-(6) **THE PROOF RUN** on Russ's outside account — that account's OWN login, fresh, never connected from
-    Russ's session. Russ picks the account (map open question 1).
-(7) **SWITCH OFF GOOGLE'S OLD CAPTURE CODE** — only after (4). The other four platforms still depend on it
-    entirely, and the Shopify reviewer's access is deferred until the data work is done.
+(1) SPLIT THE THROTTLE FROM THE DAILY CAP. RESOURCE_TEMPORARILY_EXHAUSTED ("Retry in N seconds") backs off ONE lane for
+    N seconds; RESOURCE_EXHAUSTED (the daily cap) pauses the fleet as today. Until then one throttle stops every Google
+    lane, and the walk cannot be widened. (★THROTTLE-IS-NOT-THE-DAILY-CAP; supersedes the deliberate deferral in
+    ★QUOTA-CLASSIFIER-CONFLATES-DAILY-EXHAUSTION-WITH-RATE-LIMITING.)
+(2) IDLE CHECKS READ THEIR OWN PRIOR ANSWERS AND KEY BY MONTH. An 'active' answer for a window never changes; the
+    ledger already holds it under __account_activity. Read before asking, and key the check by calendar month so the
+    349 surfaces (each at its own window) share one answer. (★IDLE-CHECK-REUSES-ITS-ANSWERS.)
+(3) THE FIRST-HOUR PATH: what a newly connected customer sees in hour one — order the walk newest-first (the research
+    is done: Fivetran names the pattern), then the meter, then the button.
+(4) EACH PLATFORM ITS OWN BACKFILL BUTTON, GOOGLE FIRST — SHIPPED IN ONE PIECE WITH THE READER CUTOVER (9 files, 25
+    reads on the old spelling). A second press does NOTHING and shows the meter in days no longer owed.
+(5) THE PROOF RUN on Russ's outside account (MAP open question 1).
+(6) SWITCH OFF GOOGLE'S OLD CAPTURE CODE — only after (4). Then Meta, Shopify/Woo, GA on the same engine.
+    Every estimate for (3)–(6) now rests on tonight's measured rate: ~47 h for Tri-Copy, ~12.8 days for all 17 on one
+    lane, before the throttle split and the idle-check reuse.
 
 ── STANDING ──
 · ⛔ LEGACY IS FROZEN for the other four platforms; Google's old writers stay until (4) lands.
-· check:data's standing reds, unchanged all session and none introduced by any of tonight's six pushes:
-  completion-claims · drain-alias-coverage · coverage-density · anchor (C) · no-owed-day · device-respell-scope.
-· Do not run check:data beside a press or a proof read.
-· One-block output · deploy-poll-until-terminal · the CITED gate · pushes gated — all bind.
+· Nothing past the retention wall is asked or retired unless the canary is green; check-retention-canary says so.
+· One-block output · deploy-poll-until-terminal · the CITED gate · pushes gated · check:data before a push — all bind.
 
 ╚═══════════════════════════════════════════════════════════════════════════════════════════════════════════════╝
 
@@ -1673,6 +1673,7 @@ The 2026-06-29 inventory pre-dates 6 shipped writers and was NOT trusted. | do n
   | LORAMER_NO_HTTP_TO_SELF_V1, 2026-09-17 | do not relitigate.
 ## LORAMER_RETENTION_WALL_CANARY_V1 + LORAMER_IDLE_SKIP_V1 + LORAMER_RUN_CLAIM_STAMP_V1 (2026-09-18) — SHIPPED (this push). An empty answer PAST Google's published 37-month wall retires a day only while a daily CANARY proves the vendor still serves rows there; otherwise it is UNRESOLVED, loud, and nothing past the wall is asked. An IDLE window — Google's own account-level answer naming no active day — retires across every surface for one request; a spent day is never idle; a mixed window walks whole. A stopped run ends TERMINAL, and the pump's busy window reads only a LIVE claim.
   | LORAMER_RETENTION_WALL_CANARY_V1 · LORAMER_IDLE_SKIP_V1 · LORAMER_RUN_CLAIM_STAMP_V1, 2026-09-18 | do not relitigate.
+## LORAMER_SESSION_2026_09_17_18_RATE_AND_WALL_V1 (2026-09-18) — SIX SHIPS, THE CONTINUOUS RUN MEASURED AT ITS REAL RATE, THE RETENTION WALL ESTABLISHED AND GUARDED, THE FIRST THROTTLE OBSERVED. Sequel to [[LORAMER_NO_HTTP_TO_SELF_V1]] and [[LORAMER_RETENTION_WALL_CANARY_V1]]; every figure below is quoted from the session's rounds 1–15 (reports and their own queries).
 
 ## H. OPEN-QUEUE INDEX — still-open items only (DONE appendix excluded)  (source: LORAMER_QUEUE_OF_RECORD.md)
 - ★CHECKDATA-PUSHED-OVER-RED — ⛔ **NEW 2026-08-22. I PUSHED TO MAIN TWICE TONIGHT OVER A RED `check:data`, DISCLOSED BOTH TIMES, AND THAT IS EXACTLY WHY THIS NEEDS A DECISION RATHER THAN A HABIT.** CLAUDE.md requires the gate to be RUN and REPORTED before any push to origin main; it does not say whether a red BLOCKS. So the gate is currently **NEITHER A GATE NOR ADVISORY** — it is whatever the executor argues in the moment, which is the weakest possible state for a check that exists to stop bad data. THE READS: 13 red before the cutover, **9 red after**, and FOUR cleared *because delivery resumed* (`check-consumer-liveness` had been reading "DELIVERY IS DARK", plus check-capture-landing, check-frozen-cursors, check-parent-analyze). ⚠ **THE COUNT ALSO MOVED 11 → 13 BETWEEN TWO RUNS TWENTY MINUTES APART ON IDENTICAL CODE** — proof these track warehouse STATE, not the diff, which is precisely what makes a blanket block wrong AND a blanket pass wrong. **THE WORK IS A DECISION RUSS OWNS:** (a) hard gate with a named baseline of accepted reds, (b) advisory with the verdict quoted in every push report, or (c) split it — the state checks advisory, the correctness checks blocking. Until one is chosen, every push over a red is a judgement call re-litigated from scratch. src: the 2026-08-22 cutover pushes. open [LC]
@@ -2487,8 +2488,8 @@ HOW TO USE: before writing "NEW" on any finding, gap or correction, GREP THIS SE
 LORAMER_*_V* marker you are about to mint. A token collision is DECIDABLE; a topic match is not. This is
 ESSENCE law 7 made mechanical — the law is a rule about behaviour, and on 2026-07-31 four already-decided
 topics were discussed as open while it was in force.
-TOTALS: 1153 tokens indexed · 368 resolve to BOTH a decision and a queue item ·
-144 decision-only · 641 queue-only.
+TOTALS: 1158 tokens indexed · 368 resolve to BOTH a decision and a queue item ·
+144 decision-only · 646 queue-only.
 ⛔ UNINDEXABLE — THIS COUNT IS THE BACKLOG, NOT A DISCLAIMER: 164 DECISIONS entries and
 261 QUEUE items carry NO token at all, so they cannot be found this way. An untokened decision
 is invisible to the enforcer; the fix is to mint a token when banking, not to widen the matcher. Samples —
@@ -2796,6 +2797,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★GUARD-SUITE-SWEEP-FOR-FALSE-GREENS — OPEN · decisions 2 · queue 1 · last 2026-08-11
 - ★HONESTY-ENFORCERS-MISS-GRAIN-ABSENCE — OPEN · decisions 1 · queue 3 · last 2026-08-01
 - ★HOUR-GRAIN-CAPTURE-HOLE — OPEN · decisions 1 · queue 2 · last 2026-07-19
+- ★IDLE-CHECK-REUSES-ITS-ANSWERS — DONE · decisions 0 · queue 1 · last 2026-09-18
 - ★IMPRESSION-SHARE-VS-BASE-DORMANT-DAY-DISAGREEMENT — DONE · decisions 0 · queue 1 · last 2026-08-26
 - ★INCEPTION-DISCOVERY-HAS-NO-EXECUTOR — OPEN · decisions 0 · queue 3 · last 2026-08-13
 - ★INFLUENTIAL-SHOPIFY-ZERO-COMPLETE-MONTHS — OPEN · decisions 0 · queue 1 · last 2026-08-01
@@ -2952,7 +2954,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★QUERY-BREAKDOWN-NO-STALENESS — OPEN · decisions 0 · queue 4 · last 2026-08-15
 - ★QUESTION-SCOPED-DOC-REQUIREMENTS — OPEN · decisions 0 · queue 1 · last 2026-07-31
 - ★QUEUE-TAG-BLIND-TO-TREE — OPEN · decisions 0 · queue 2 · last 2026-08-22
-- ★QUOTA-CLASSIFIER-CONFLATES-DAILY-EXHAUSTION-WITH-RATE-LIMITING — OPEN · decisions 0 · queue 2 · last 2026-08-09
+- ★QUOTA-CLASSIFIER-CONFLATES-DAILY-EXHAUSTION-WITH-RATE-LIMITING — OPEN · decisions 0 · queue 3 · last 2026-09-18
 - ★QUOTA-OUTAGE-INFLATES-CONNECTION-HEALTH — OPEN · decisions 0 · queue 1 · last 2026-08-01
 - ★RANGELAP-CLAIM-DEFECT — OPEN · decisions 0 · queue 2 · last 2026-08-01
 - ★RANGELAP-RATCHET-SWEEP — OPEN · decisions 0 · queue 4 · last 2026-07-29
@@ -2989,6 +2991,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★SEAMS-GATE-HAS-NO-MECHANICAL-ENFORCER — OPEN · decisions 1 · queue 1 · last 2026-09-14
 - ★SEARCH-TERM-TAIL-ALREADY-LOST — OPEN · decisions 0 · queue 2 · last 2026-09-28
 - ★SEMANTIC-LAYER — OPEN · decisions 0 · queue 6 · last 2026-08-15
+- ★SEVERAL-LANES-AT-ONCE — DONE · decisions 0 · queue 2 · last 2026-09-18
 - ★SHOPIFY-ABANDONED-CHECKOUT-SUSPECT — OPEN · decisions 0 · queue 1 · last 2026-07-30
 - ★SHOPIFY-API-VERSION-SUNSET — OPEN · decisions 1 · queue 1 · last 2026-07-26
 - ★SHOPIFY-CANCELLED-CROSS-CHECK-OWED-WHERE-CAPTURE-HAS-NOT-REACHED — DONE · decisions 0 · queue 1 · last 2026-08-23
@@ -3016,6 +3019,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★THREE-OWED-WINDOWS-RECONSTRUCTED — DONE · decisions 0 · queue 1 · last 2026-08-08
 - ★THREE-SOURCE-UNWINDING-TAG-SWALLOWS-A-NEW-DECISION — OPEN · decisions 0 · queue 1 · last 2026-08-19
 - ★THREE-STATE-READ-COLLAPSED-AT-THE-REPORTING-BOUNDARY — OPEN · decisions 0 · queue 2 · last 2026-08-09
+- ★THROTTLE-IS-NOT-THE-DAILY-CAP — DONE · decisions 0 · queue 2 · last 2026-09-18
 - ★TIER1-WIDEN-HELD — DECIDED · decisions 1 · queue 0 · last 2026-08-03
 - ★TO-DATE-MUST-INCLUDE-TODAY — DONE · decisions 0 · queue 1 · last 2026-08-25
 - ★TOKEN — OPEN · decisions 2 · queue 4 · last 2026-09-30
@@ -3108,6 +3112,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★WALKDUPE-UNTWINNED-NEED-NORMALISING — DONE · decisions 1 · queue 4 · last 2026-08-21
 - ★WALKED-SURFACES-WITHOUT-ATTEMPT-ROW — DONE · decisions 0 · queue 1 · last 2026-08-26
 - ★WALL-HELPERS-STILL-NAMED-ACCOUNT — OPEN · decisions 0 · queue 1 · last 2026-08-10
+- ★WALL-RULE-SHAPE-OPEN — DONE · decisions 0 · queue 1 · last 2026-09-18
 - ★WASTED-SPEND-COUNTER — OPEN · decisions 0 · queue 1 · last 2026-07-31
 - ★WHITE-LABEL-AGENCY — OPEN · decisions 0 · queue 3 · last 2026-08-15
 - ★WIRE-COVERAGE-INSTRUMENT — OPEN · decisions 1 · queue 5 · last 2026-08-01
@@ -3563,6 +3568,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_SESSION_2026_08_26_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-26
 - LORAMER_SESSION_2026_09_13_ROTATION_LIVE_V1 — OPEN · decisions 1 · queue 2 · last 2026-10-28
 - LORAMER_SESSION_2026_09_14_STORM_AND_INSTRUMENTS_V1 — DONE · decisions 1 · queue 3 · last 2026-09-16
+- LORAMER_SESSION_2026_09_17_18_RATE_AND_WALL_V1 — DONE · decisions 0 · queue 1 · last 2026-09-18
 - LORAMER_SESSION_CLOSE_2026_08_07_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-07
 - LORAMER_SESSION_WRAP_2026_08_03_V1 — DECIDED · decisions 2 · queue 0 · last 2026-08-03
 - LORAMER_SHELF_DVH_RETIRED_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-11

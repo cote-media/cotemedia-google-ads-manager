@@ -168,6 +168,14 @@ changed, and until it says the data is still served, nothing older than the limi
 - The Shopify reviewer's access is **deferred until the data work is finished**, under the
   data-completeness-only ruling.
 
+**2026-09-18**
+
+- **Establish the real retention wall before spending another round on speed** — done: Google's 37-month limit is
+  published and was not being applied by the API on 2026-09-18; a daily canary now tells us within a day if that changes.
+- **Close the silent-loss hole and add the idle skip before further speed work** — done and measured (see the
+  decisions record for the night). The continuous run walks at a measured rate; every remaining estimate rests on it.
+- **Several accounts at once is not tried** until a rate refusal from Google slows one account instead of pausing all.
+
 **Earlier, still standing**
 
 - Capture everything, from everywhere, and keep it forever. A thin slice is unfinished work, never a design.
@@ -200,3 +208,8 @@ changed, and until it says the data is still served, nothing older than the limi
    the button shows a progress meter instead.
 5. **May a customer's backfill hold up other customers' daily capture?** ANSWERED 2026-09-17: no — they run
    alongside each other and neither waits.
+6. **Past Google's thirty-seven-month limit, may an empty answer count as "nothing happened that day"?** OPEN —
+   Russ asked for NEVER. What shipped on 2026-09-18 says YES ONLY WHILE the daily canary proves Google still serves
+   data past the limit, and NEVER otherwise. Reason: a flat never would leave every quiet day older than
+   2023-08-18 owed forever for every account, on the strength of a calendar rather than of Google's own answer.
+   Overturning is a one-line change. Russ confirms or overturns.

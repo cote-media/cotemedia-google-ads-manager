@@ -1,4 +1,74 @@
-╔═══ SESSION CLOSE 2026-09-16/17 (OVERNIGHT) — THE ENGINE CAN NOW REACH A STRANGER'S ACCOUNT, ITS ROWS CARRY A REAL HIERARCHY, IT NO LONGER WAITS 85 MINUTES BETWEEN STEPS, AND THE REPO FINALLY HAS A PICTURE OF ITSELF. NEXT: FIX THE RUN'S PROGRESS SIGNAL, THEN TRI-COPY TO ITS FLOOR ═══╗
+╔═══ SESSION CLOSE 2026-09-17/18 (OVERNIGHT) — THE RUN NOW WALKS AT A MEASURED RATE, THE RETENTION WALL IS UNDERSTOOD AND GUARDED, AND EVERY ESTIMATE LEFT RESTS ON ONE NUMBER ═══╗
+
+⛔ READ LORAMER_MAP.md FIRST (the resume command prints it). This block is the session narrative; the MAP is the picture.
+
+── WHAT SHIPPED, newest-first (all READY, all polled to terminal) ──
+· `55eaf40` LORAMER_RETENTION_WALL_CANARY_V1 + LORAMER_IDLE_SKIP_V1 + LORAMER_RUN_CLAIM_STAMP_V1 — an empty answer past
+  Google's published 37-month wall retires a day ONLY while a daily canary proves the vendor still serves rows there
+  (first answer 2026-09-18 01:53Z: SERVED, 7 rows for 2022-09-10..16); otherwise UNRESOLVED, loud, and nothing past
+  the wall is asked. An idle window (Google's own account-level answer naming no active day) retires across every
+  surface for one request. A stopped run ends terminal; the pump's busy window reads only a live claim.
+· `b135a5e` LORAMER_RUN_FLOOR_NEEDS_INSTRUMENT_V1 — a held fire is never the floor; a step claims its lane before it
+  fires; the picker reads the claim (the second minute's pump had fired into the first step's lease and ended a run
+  with 60 candidates after 417 ms).
+· `dc949e1` LORAMER_NO_HTTP_TO_SELF_V1 — the run's fire is the resumer's handler called IN-PROCESS: a cron's fetch of
+  this deployment's own URL is answered by Vercel Authentication's login page (HTTP 200, no JSON), not by the fire.
+· `15c6455` LORAMER_RUN_PUMP_V1 — the run is stepped by a cron pump inside one 800 s invocation; Vercel's loop
+  detector refuses the fourth self-request with 508.
+· `dce9044` LORAMER_RUN_PROGRESS_SIGNAL_V1 + LORAMER_RUN_STOP_LIMITS_ARE_TIME_V1 — progress = DAYS NO LONGER OWED under
+  the ledger's own vendor spelling; stop limits are time (270 s asking without progress; 50 h ceiling).
+· `5f29796` LORAMER_ENTITY_DIMENSION_DAILY_GATE_V1 — the once-a-day name refresh reads the refresh moment; proven
+  live 17/17 read, then 17/17 skipped.
+
+── ⚠ THE NUMBERS THAT DECIDE TOMORROW (all MEASURED 2026-09-18 02:17–03:21Z on Tri-Copy, one lane, Large DB) ──
+· THE RATE: 17.8 steps/h · ~25,500 surface-days/h by the frontier (30,600/h by the run's counter) · 20.5 owed days per
+  Google request · 6.5% idle (was 40.1% the night before) · slice gap ~28 s (was ~6 min) · cold start 35 s (was 5m49s).
+· WHAT IT PRICES (projected from that rate): Tri-Copy to inception 1,190,728 surface-days ≈ 47 h · one average client
+  (523,043) ≈ 20.5 h · all 17 one lane at a time (~7.8 M) ≈ 306 h ≈ 12.8 days · ~380,000 requests. DECISIONS
+  LORAMER_SESSION_2026_09_17_18_RATE_AND_WALL_V1 owns the figures.
+· THE THROTTLE: at ~23 requests/min average with 12-wide bursts Google answered `{"quota_error":2} Too many requests.
+  Retry in 900 seconds.` (03:20:30Z) — the first rate throttle ever observed here — and the sentinel treated it as a
+  FLEET-WIDE quota pause. Two lanes at once cannot be tried until a throttle backs off ONE lane.
+· THE IDLE SKIP: negative on active ground (49 account checks bought 570 owed days; a surface request buys 20.5 each),
+  positive on idle ground (round 13's 840 empty requests would have been ~30). Tri-Copy spent on nearly every day from
+  2025-10 back to 2018, so its next nine years are active ground.
+· THE WALL: real on paper (support.google.com/google-ads/answer/15188209, effective 2026-06-01), NOT enforced on the
+  API — daily rows served at 125 months, hourly at 48, on 2026-09-18. The canary tells us within a day when that changes.
+· check:data standing reds, unchanged: completion-claims · drain-alias-coverage · coverage-density · anchor (C) ·
+  no-owed-day. The new check-retention-canary leg is GREEN after the canary's first answer.
+
+── ⚠ OPEN FOR RUSS ──
+· THE WALL RULE IS CANARY-CONDITIONED, NOT UNCONDITIONAL (MAP open question 6). Round 15 asked for "never retire on
+  silence past the wall"; what shipped retires on silence past the wall ONLY while the canary proves the vendor still
+  serves that ground. Reason: unconditional would leave every idle day of every account below 2023-08-18 owed forever
+  (Tri-Copy: 27 spend days of 192 in 2016) and would rest on a clock; the canary rests on Google's own answer. Confirm
+  or overturn; overturning is a one-line change and a re-measure.
+
+── ▶▶ NEXT STEP, IN ORDER ──
+(1) SPLIT THE THROTTLE FROM THE DAILY CAP. RESOURCE_TEMPORARILY_EXHAUSTED ("Retry in N seconds") backs off ONE lane for
+    N seconds; RESOURCE_EXHAUSTED (the daily cap) pauses the fleet as today. Until then one throttle stops every Google
+    lane, and the walk cannot be widened. (★THROTTLE-IS-NOT-THE-DAILY-CAP; supersedes the deliberate deferral in
+    ★QUOTA-CLASSIFIER-CONFLATES-DAILY-EXHAUSTION-WITH-RATE-LIMITING.)
+(2) IDLE CHECKS READ THEIR OWN PRIOR ANSWERS AND KEY BY MONTH. An 'active' answer for a window never changes; the
+    ledger already holds it under __account_activity. Read before asking, and key the check by calendar month so the
+    349 surfaces (each at its own window) share one answer. (★IDLE-CHECK-REUSES-ITS-ANSWERS.)
+(3) THE FIRST-HOUR PATH: what a newly connected customer sees in hour one — order the walk newest-first (the research
+    is done: Fivetran names the pattern), then the meter, then the button.
+(4) EACH PLATFORM ITS OWN BACKFILL BUTTON, GOOGLE FIRST — SHIPPED IN ONE PIECE WITH THE READER CUTOVER (9 files, 25
+    reads on the old spelling). A second press does NOTHING and shows the meter in days no longer owed.
+(5) THE PROOF RUN on Russ's outside account (MAP open question 1).
+(6) SWITCH OFF GOOGLE'S OLD CAPTURE CODE — only after (4). Then Meta, Shopify/Woo, GA on the same engine.
+    Every estimate for (3)–(6) now rests on tonight's measured rate: ~47 h for Tri-Copy, ~12.8 days for all 17 on one
+    lane, before the throttle split and the idle-check reuse.
+
+── STANDING ──
+· ⛔ LEGACY IS FROZEN for the other four platforms; Google's old writers stay until (4) lands.
+· Nothing past the retention wall is asked or retired unless the canary is green; check-retention-canary says so.
+· One-block output · deploy-poll-until-terminal · the CITED gate · pushes gated · check:data before a push — all bind.
+
+╚═══════════════════════════════════════════════════════════════════════════════════════════════════════════════╝
+
+╔═══ ⛔ SUPERSEDED 2026-09-18 · HISTORY · DO NOT ACT ON ITS DATES — SESSION CLOSE 2026-09-16/17 (OVERNIGHT) — THE ENGINE CAN NOW REACH A STRANGER'S ACCOUNT, ITS ROWS CARRY A REAL HIERARCHY, IT NO LONGER WAITS 85 MINUTES BETWEEN STEPS, AND THE REPO FINALLY HAS A PICTURE OF ITSELF. NEXT: FIX THE RUN'S PROGRESS SIGNAL, THEN TRI-COPY TO ITS FLOOR ═══╗
 
 ⛔ **READ LORAMER_MAP.md FIRST. IT IS NOW THE FIRST LINE OF THE RESUME COMMAND** (LORAMER_MAP_V1, 2026-09-17).
 It holds what the app IS, how it works TODAY, and every ruling Russ has made. This block is the session
