@@ -8,7 +8,7 @@
 >
 > ⛔ **EVERY FACTUAL LINE HERE IS VERIFIED AGAINST THE CODE, and is dated.** If a line and the code disagree,
 > THE CODE IS RIGHT and this file is stale — say so and fix it the same day.
-> Last verified against the code: **2026-09-18**
+> Last verified against the code: **2026-09-18** (flight 1 of the descent shape)
 
 ---
 
@@ -90,7 +90,8 @@ Before the surfaces are asked about a window, the engine asks Google once, at th
 anything in it; a window with no activity is retired for every surface on that one answer, and a window with any activity
 is walked surface by surface (ruled 2026-09-18). Google has published a limit — daily data older than thirty-seven months
 becomes unavailable — that the API was not yet applying on 2026-09-18; a daily canary request checks whether that has
-changed, and until it says the data is still served, nothing older than the limit is asked or retired (ruled 2026-09-18).
+changed. Days older than the limit are asked; an empty answer there is held and re-asked, never retired (ruled
+2026-09-18, question 6).
 
 ---
 
@@ -175,6 +176,12 @@ changed, and until it says the data is still served, nothing older than the limi
 - **Close the silent-loss hole and add the idle skip before further speed work** — done and measured (see the
   decisions record for the night). The continuous run walks at a measured rate; every remaining estimate rests on it.
 - **Several accounts at once is not tried** until a rate refusal from Google slows one account instead of pausing all.
+- **Past the thirty-seven-month limit, silence is not evidence.** An empty answer there is held and re-asked, never
+  retired; the walk stops only on the account's first day or a refusal from Google (open question 6, ruled).
+- **The descent asks ninety days per request** (was thirty), reserves time per surface from its own measured cost,
+  resumes a failed request from the last day it landed, reuses each month's account-activity answer, and holds one
+  customer's lane — not the whole fleet — when Google names that customer's own bucket. Nothing on the screens or on
+  the assistant's path changed (route R2).
 
 **Earlier, still standing**
 
@@ -208,8 +215,8 @@ changed, and until it says the data is still served, nothing older than the limi
    the button shows a progress meter instead.
 5. **May a customer's backfill hold up other customers' daily capture?** ANSWERED 2026-09-17: no — they run
    alongside each other and neither waits.
-6. **Past Google's thirty-seven-month limit, may an empty answer count as "nothing happened that day"?** OPEN —
-   Russ asked for NEVER. What shipped on 2026-09-18 says YES ONLY WHILE the daily canary proves Google still serves
-   data past the limit, and NEVER otherwise. Reason: a flat never would leave every quiet day older than
-   2023-08-18 owed forever for every account, on the strength of a calendar rather than of Google's own answer.
-   Overturning is a one-line change. Russ confirms or overturns.
+6. **Past Google's thirty-seven-month limit, may an empty answer count as "nothing happened that day"?** ANSWERED
+   2026-09-18: NEVER. Silence past the limit is not evidence; an empty answer there is held, re-asked, and never
+   retired; the walk stops only when Google names the account's first day or refuses the range. The daily canary
+   keeps running as the day-enforcement-begins detector. Every quiet day past the limit stays owed — Russ accepted
+   that cost (decisions record: LORAMER_WALL_HOLD_NEVER_RETIRE_V1).
