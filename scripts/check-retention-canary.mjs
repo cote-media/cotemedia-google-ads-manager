@@ -27,7 +27,10 @@ const FRESH_MS = 30 * 60 * 60 * 1000
 const rest = (path) => restAll(path)
 
 const findings = []
-const rows = await rest(`capture_pass_log?select=outcome,detail,ran_at&pass_marker=eq.${RETENTION_CANARY_MARKER}&platform=eq.google&order=ran_at.desc&limit=1`)
+// ⛔ NO `limit=1` THROUGH restAll: it pages by Range and overran the total the moment a SECOND canary row existed
+// (2026-09-18 10:15Z → "416 Range Not Satisfiable at 1 … overran the total it read (2)", the leg CRASHED). The canary
+// writes one row a day; reading them all and taking the newest is a handful of rows, and it cannot overrun.
+const rows = await rest(`capture_pass_log?select=outcome,detail,ran_at&pass_marker=eq.${RETENTION_CANARY_MARKER}&platform=eq.google&order=ran_at.desc`)
 const row = rows[0]
 if (!row) {
   findings.push('no retention canary row exists — /api/cron/retention-canary has never run (or never recorded). Until it does, every empty answer past the wall is UNRESOLVED and the walk spends nothing there.')
