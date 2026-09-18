@@ -41,9 +41,12 @@ if (!row) {
 }
 const since = new Date(Date.now() - 7 * 86400000).toISOString()
 const unresolved = await rest(`universe_attempt_log?select=client_id,resource,segment,window_start,window_end,recorded_at&phase=eq.attempt_finished&outcome=eq.error&error=like.${encodeURIComponent(UNRESOLVED_MARKER + '%')}&recorded_at=gte.${since}&order=recorded_at.desc&limit=50`)
+// LORAMER_WALL_HOLD_NEVER_RETIRE_V1 (Q6, 2026-09-18): an UNRESOLVED empty past the wall is now the EXPECTED outcome
+// (silence past the wall is not evidence; the missed lane re-asks it). It is reported, never a finding. This leg stays
+// red only when the canary itself is not SERVED — the day Google begins enforcing the wall.
 if (unresolved.length) {
   const clients = new Set(unresolved.map((u) => u.client_id)).size
-  findings.push(`${unresolved.length}${unresolved.length === 50 ? '+' : ''} empty answer(s) past the wall left UNRESOLVED in the last 7 days across ${clients} client(s) — oldest window ${unresolved.reduce((m, u) => (m === null || u.window_start < m ? u.window_start : m), null)}, newest record ${unresolved[0].recorded_at}. These days retired nothing; the missed lane re-asks them once the canary is green.`)
+  console.log(`${unresolved.length}${unresolved.length === 50 ? '+' : ''} empty answer(s) past the wall left UNRESOLVED in the last 7 days across ${clients} client(s) — oldest window ${unresolved.reduce((m, u) => (m === null || u.window_start < m ? u.window_start : m), null)}, newest record ${unresolved[0].recorded_at}. These days retired nothing; the missed lane re-asks them once the canary is green.`)
 }
 
 if (findings.length) {
@@ -51,4 +54,4 @@ if (findings.length) {
   for (const f of findings) console.error(`  - ${f}`)
   process.exit(1)
 }
-console.log(`✓ retention-canary OK — canary SERVED at ${row.ran_at} (${((Date.now() - Date.parse(row.ran_at)) / 3600000).toFixed(1)} h ago); 0 unresolved empties past the wall in the last 7 days.`)
+console.log(`✓ retention-canary OK — canary SERVED at ${row.ran_at} (${((Date.now() - Date.parse(row.ran_at)) / 3600000).toFixed(1)} h ago); ${unresolved.length} unresolved empties past the wall in the last 7 days are HELD, not retired (Q6).`)

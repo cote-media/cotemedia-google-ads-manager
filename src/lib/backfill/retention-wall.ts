@@ -62,12 +62,17 @@ export function isPastWall(rangeEnd: string, wallLine: string): boolean {
 /**
  * ⛔ THE ONE DECIDER FOR AN EMPTY ANSWER. Pure. 'zero' = retire as NO_DATA_OBSERVED; 'unresolved' = record under
  * 'error' with the marker and retire nothing. An empty answer ABOVE the wall is always 'zero' (the vendor serves
- * that ground and a zero there is the zero-metrics rule at work). PAST the wall it is 'zero' only when the canary
- * proved, within RETENTION_CANARY_FRESH_MS, that the vendor still serves rows past the wall.
+ * that ground and a zero there is the zero-metrics rule at work).
+ * ⛔ PAST THE WALL IT IS ALWAYS 'unresolved' — LORAMER_WALL_HOLD_NEVER_RETIRE_V1, Russ's Q6 ruling (2026-09-18):
+ * "silence past the wall is not evidence"; the walk stops when Google says this is the first day of anything
+ * (inception) or refuses the range (a DateRangeError wall). Until 2026-09-18 a SERVED canary licensed retirement
+ * here; the canary keeps running as the day-enforcement-begins detector, and its state is carried for the record,
+ * but it no longer decides. An unresolved day stays owed and the missed lane re-asks it.
  */
 export function classifyEmptyAnswer(a: { rangeEnd: string; wallLine: string; canary: CanaryState }): 'zero' | 'unresolved' {
   if (!isPastWall(a.rangeEnd, a.wallLine)) return 'zero'
-  return a.canary === 'served' ? 'zero' : 'unresolved'
+  void a.canary // carried for the record; never a licence (Q6)
+  return 'unresolved'
 }
 
 /**

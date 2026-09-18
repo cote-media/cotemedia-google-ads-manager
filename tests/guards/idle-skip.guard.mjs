@@ -45,43 +45,46 @@ try {
 }
 
 if (M) {
-  const W = { windowStart: '2016-05-01', windowEnd: '2016-06-03', wallLine: '2023-08-18' }
+  // LORAMER_WALL_HOLD_NEVER_RETIRE_V1 (Q6, 2026-09-18): no idle verdict is issued PAST the wall, so the verdict fixtures sit ABOVE it.
+  const W = { windowStart: '2025-05-01', windowEnd: '2025-06-03', wallLine: '2023-08-18' }
   // (a) a failed answer → unknown, never idle
   const failed = M.idleVerdict({ ...W, canary: 'served', answer: { ok: false, error: 'network' } })
   check(failed.kind === 'unknown', `(a) ⛔ a FAILED account answer produced '${failed.kind}' — no answer, no verdict; the window must walk surface by surface.`)
   // (a) an answer naming a day in the window → never idle (the account spent)
-  const spent = M.idleVerdict({ ...W, canary: 'served', answer: { ok: true, activeDays: ['2016-05-20'] } })
-  check(spent.kind !== 'idle', `(a) ⛔ the account SPENT on 2016-05-20 and the window read '${spent.kind}' — a day Google names active can never be marked idle.`)
+  const spent = M.idleVerdict({ ...W, canary: 'served', answer: { ok: true, activeDays: ['2025-05-20'] } })
+  check(spent.kind !== 'idle', `(a) ⛔ the account SPENT on 2025-05-20 and the window read '${spent.kind}' — a day Google names active can never be marked idle.`)
   // (a) days named OUTSIDE the window do not make it active; none inside → idle
-  const idle = M.idleVerdict({ ...W, canary: 'served', answer: { ok: true, activeDays: ['2016-04-20', '2016-07-01'] } })
+  const idle = M.idleVerdict({ ...W, canary: 'served', answer: { ok: true, activeDays: ['2025-04-20', '2025-07-01'] } })
   check(idle.kind === 'idle', `(a) an answer naming no day INSIDE the window must read 'idle' (got ${idle.kind}).`)
   // (a) empty answer with an empty day list: idle only from ok:true
   const emptyOk = M.idleVerdict({ ...W, canary: 'served', answer: { ok: true, activeDays: [] } })
   check(emptyOk.kind === 'idle', `(a) a successful answer naming no day must read 'idle' (got ${emptyOk.kind}).`)
   // (a) past the wall without a served canary → unknown, even on an empty answer
-  const past = M.idleVerdict({ ...W, canary: 'unknown', answer: { ok: true, activeDays: [] } })
-  check(past.kind === 'unknown', `(a) ⛔ past the wall with canary 'unknown' an empty account answer read '${past.kind}' — expiry and idle are indistinguishable there; no idle verdict.`)
+  for (const c of ['unknown', 'served']) {
+    const past = M.idleVerdict({ windowStart: '2016-05-01', windowEnd: '2016-06-03', wallLine: '2023-08-18', canary: c, answer: { ok: true, activeDays: [] } })
+    check(past.kind === 'unknown', `(a) ⛔ past the wall with canary '${c}' an empty account answer read '${past.kind}' — silence past the wall is not evidence (Q6); no idle verdict.`)
+  }
   const above = M.idleVerdict({ windowStart: '2025-11-10', windowEnd: '2025-12-13', wallLine: '2023-08-18', canary: 'unknown', answer: { ok: true, activeDays: [] } })
   check(above.kind === 'idle', `(a) above the wall the canary is irrelevant: an empty answer must read 'idle' (got ${above.kind}).`)
   // (b) mixed → active with the range and the split
-  const mixed = M.idleVerdict({ ...W, canary: 'served', answer: { ok: true, activeDays: ['2016-05-10', '2016-05-12'] } })
-  check(mixed.kind === 'active' && mixed.activeStart === '2016-05-10' && mixed.activeEnd === '2016-05-12' && mixed.activeDays === 2 && mixed.idleDays === 32, `(b) a mixed window must read 'active' naming the range 2016-05-10..12 with 2 active / 32 idle days (got ${JSON.stringify(mixed)}).`)
+  const mixed = M.idleVerdict({ ...W, canary: 'served', answer: { ok: true, activeDays: ['2025-05-10', '2025-05-12'] } })
+  check(mixed.kind === 'active' && mixed.activeStart === '2025-05-10' && mixed.activeEnd === '2025-05-12' && mixed.activeDays === 2 && mixed.idleDays === 32, `(b) a mixed window must read 'active' naming the range 2025-05-10..12 with 2 active / 32 idle days (got ${JSON.stringify(mixed)}).`)
   // (c) the memo asks once per window, shares across concurrent callers, and is bounded
   let asks = 0
-  const stream = (gaql) => (async function* () { asks++; if (/2016-05-01/.test(gaql)) return; yield { segments: { date: '2017-01-05' } } })()
+  const stream = (gaql) => (async function* () { asks++; if (/2025-05-01/.test(gaql)) return; yield { segments: { date: '2026-01-05' } } })()
   const ledgered = []
   const memo = M.createIdleMemo({ wallLine: '2023-08-18', canary: 'served', maxWindows: 2 })
   const ledger = async (w, a) => { ledgered.push({ w, ok: a.ok }) }
   const [v1, v2, v3] = await Promise.all([
-    memo.verdictFor({ windowStart: '2016-05-01', windowEnd: '2016-06-03', stream, ledger }),
-    memo.verdictFor({ windowStart: '2016-05-01', windowEnd: '2016-06-03', stream, ledger }),
-    memo.verdictFor({ windowStart: '2016-05-01', windowEnd: '2016-06-03', stream, ledger }),
+    memo.verdictFor({ windowStart: '2025-05-01', windowEnd: '2025-06-03', stream, ledger }),
+    memo.verdictFor({ windowStart: '2025-05-01', windowEnd: '2025-06-03', stream, ledger }),
+    memo.verdictFor({ windowStart: '2025-05-01', windowEnd: '2025-06-03', stream, ledger }),
   ])
   check(asks === 1 && ledgered.length === 1, `(c) ⛔ three concurrent units on ONE window asked the vendor ${asks} time(s) and ledgered ${ledgered.length} — the memo must ask once and share the promise.`)
   check(v1.kind === 'idle' && v2.kind === 'idle' && v3.kind === 'idle', `(c) all three units must receive the same idle verdict.`)
-  const v4 = await memo.verdictFor({ windowStart: '2017-01-01', windowEnd: '2017-02-03', stream, ledger })
+  const v4 = await memo.verdictFor({ windowStart: '2026-01-01', windowEnd: '2026-02-03', stream, ledger })
   check(v4.kind === 'active' && asks === 2, `(c) a second window is asked once and reads active (got ${v4.kind}, asks ${asks}).`)
-  const v5 = await memo.verdictFor({ windowStart: '2018-01-01', windowEnd: '2018-02-03', stream, ledger })
+  const v5 = await memo.verdictFor({ windowStart: '2026-03-01', windowEnd: '2026-04-03', stream, ledger })
   check(v5.kind === 'unknown' && asks === 2, `(c) ⛔ the third window exceeded maxWindows=2 and must read 'unknown' with NO request (got ${v5.kind}, asks ${asks}).`)
   check(memo.stats.windowsAsked === 2 && memo.stats.requestsSpent === 2 && memo.stats.idle === 1 && memo.stats.active === 1 && memo.stats.unknown === 1, `(c) stats must read asked 2 / spent 2 / idle 1 / active 1 / unknown 1 (got ${JSON.stringify(memo.stats)}).`)
   // (a) the GAQL is account-level with segments.date and the broad metric set

@@ -10,8 +10,8 @@
 // developers.google.com/google-ads/api/docs/reporting/zero-metrics). A successful answer therefore NAMES the active
 // days. A day named active is never idle. A failed, refused or missing answer yields NO verdict, and the window walks
 // surface by surface exactly as before — the skip can only ever remove requests, never facts.
-// ⛔ PAST THE RETENTION WALL an empty account answer has the same ambiguity as any other empty (retention-wall.ts),
-// so no idle verdict is issued there unless the canary is green.
+// ⛔ PAST THE RETENTION WALL no idle verdict is issued at all (LORAMER_WALL_HOLD_NEVER_RETIRE_V1, Q6): silence there is
+// not evidence, whatever the canary reads.
 // ⛔ A MIXED WINDOW IS NEVER SKIPPED. Splitting the surfaces' request to the active range would save no operation
 // (one request per surface either way) and would double the ledger, so a mixed window walks whole; the verdict still
 // names the active range and the idle days so the fire's log says what was seen.
@@ -53,8 +53,10 @@ export type IdleVerdict =
  */
 export function idleVerdict(a: { windowStart: string; windowEnd: string; wallLine: string; canary: CanaryState; answer: ActivityAnswer }): IdleVerdict {
   if (!a.answer.ok) return { kind: 'unknown', reason: `account activity unanswered — ${a.answer.error}; the window walks surface by surface` }
-  if (isPastWall(a.windowEnd, a.wallLine) && a.canary !== 'served') {
-    return { kind: 'unknown', reason: `window ${a.windowStart}..${a.windowEnd} is past the retention wall ${a.wallLine} and the canary reads ${a.canary} — an empty account answer there cannot be told from expiry; no idle verdict` }
+  // LORAMER_WALL_HOLD_NEVER_RETIRE_V1 (Q6, 2026-09-18): past the wall NO idle verdict is issued, whatever the canary —
+  // silence there is not evidence. The window walks surface by surface and its empties are held unresolved.
+  if (isPastWall(a.windowEnd, a.wallLine)) {
+    return { kind: 'unknown', reason: `window ${a.windowStart}..${a.windowEnd} is past the retention wall ${a.wallLine} (canary ${a.canary}) — an empty account answer there is not evidence; no idle verdict (Q6)` }
   }
   const inWindow = [...new Set(a.answer.activeDays)].filter((d) => d >= a.windowStart && d <= a.windowEnd).sort()
   if (inWindow.length === 0) {

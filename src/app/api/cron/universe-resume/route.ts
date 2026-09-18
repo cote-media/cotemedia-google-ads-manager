@@ -679,14 +679,11 @@ export async function GET(request: Request) {
     }
     const { windowStart, windowEnd } = win
 
-    // ── ⛔ PAST THE WALL WITHOUT A GREEN CANARY: SPEND NOTHING — LORAMER_RETENTION_WALL_CANARY_V1 ────────────
-    // The answer would be unresolvable (an empty past the wall cannot be told from expiry without the canary's
-    // proof), so the request is not made. Recorded as a refusal; re-admitted the moment the canary reads 'served'.
-    if (isPastWall(windowEnd, wallLine) && canary.state !== 'served') {
-      pastWallHeld++
-      refusals.push({ label, verdict: 'past-wall-unverified', reason: `window ${windowStart}..${windowEnd} is past the retention wall ${wallLine} and the canary reads ${canary.state} (${canary.detail}) — no request spent; re-admitted when the canary is green` })
-      continue
-    }
+    // ── ⛔ PAST THE WALL IS ASKED — LORAMER_WALL_HOLD_NEVER_RETIRE_V1 (Q6, 2026-09-18) ─────────────────────────
+    // Until 2026-09-18 a past-wall window was refused here unless the canary read 'served'. Russ ruled: the walk stops
+    // only on inception or a vendor refusal; a past-wall window is asked in its own window (the clip in deriveWindow
+    // keeps it from straddling the line) and an empty answer there is held UNRESOLVED by the worker, never retired.
+    // `pastWallHeld` stays in the instrument at 0 so readers of older fires can tell the two regimes apart.
 
     let owed
     if (lastCoverage !== null && !anchor.receded && windowStart === String(rot!.last_window_start) && windowEnd === String(rot!.last_window_end)) {
@@ -888,13 +885,8 @@ export async function GET(request: Request) {
           }
         }
         missed.sort((a, b) => (a.windowStart < b.windowStart ? -1 : a.windowStart > b.windowStart ? 1 : 0))
-        // LORAMER_RETENTION_WALL_CANARY_V1 — the same refusal for the fourth lane: a hole past the wall is not re-asked
-        // without a green canary (the answer could not resolve it), and an UNRESOLVED_PAST_WALL day is exactly such a hole.
-        if (canary.state !== 'served') {
-          const kept = missed.filter((m) => !isPastWall(m.windowEnd, wallLine))
-          missedPastWallHeld = missed.length - kept.length
-          missed.length = 0; missed.push(...kept)
-        }
+        // LORAMER_WALL_HOLD_NEVER_RETIRE_V1 (Q6): a past-wall hole IS re-asked — an UNRESOLVED_PAST_WALL day is exactly
+        // the hole this lane exists for. The canary no longer gates it; `missedPastWallHeld` stays at 0 in the instrument.
       }
     } catch (e: any) {
       refusals.push({ label: '(missed lane)', verdict: 'missed-enumeration-error', reason: String(e?.message ?? e) })
@@ -1080,7 +1072,7 @@ export async function GET(request: Request) {
     // producer-assigned identifier the terminal row persists, minted here exactly as it was for the queue's
     // dedupe. A durable row that cannot name its publisher is what let a scheduled fire's requests be
     // counted as a drive's.
-      published.push({ lane, label: c.label, window: `${c.windowStart}..${c.windowEnd}`, ranges: c.ranges, owedDays: c.owedDays, sizing: c.sizingBasis, receded: c.receded, anchor: c.anchorBasis, stop: c.stopBasis, idempotencyKey })
+      published.push({ lane, label: c.label, window: `${c.windowStart}..${c.windowEnd}`, ranges: c.ranges, owedDays: c.owedDays, sizing: c.sizingBasis, reserveMs: c.reserveMs, maxSecPerDay: c.maxSecPerDay, receded: c.receded, anchor: c.anchorBasis, stop: c.stopBasis, idempotencyKey })
       if (!dryRun) {
         // ⛔ PER-UNIT EXECUTION, PER-UNIT ISOLATION. processMessage writes the unit's terminal row on EVERY
         // exit including a throw (its own try/finally); a unit that throws here has already recorded itself,
