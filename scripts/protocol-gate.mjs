@@ -119,6 +119,7 @@ export const BOXES = [
   'QUESTION-NEVER-FRAMED',
   'PASTE-WHILE-IN-FLIGHT',
   'RESEARCH-WITH-NO-URLS',
+  'PRIOR-ART-NEVER-LOOKED',
   'ADVERSARY-THAT-NEVER-COLLIDED',
   'CONSTANT-INHERITED-WITHOUT-DERIVATION',
   'CITATION-NEVER-READ',
@@ -147,7 +148,7 @@ const sha256 = (s) => createHash('sha256').update(String(s), 'utf8').digest('hex
 // Claude Code instruction carries a `ROUND:` header naming its step"). Keys may appear anywhere in the
 // paste, including inside a fence, because Russ pastes from a phone and a leading fence is normal. A value
 // continues across lines until the next KEY: line, so a wrapped ADVERSARY line is not truncated.
-export const KEYS = ['ROUND', 'QUESTION', 'BLAST', 'INFLIGHT', 'RESEARCH', 'ADVERSARY', 'CONSTANTS', 'CITED']
+export const KEYS = ['ROUND', 'QUESTION', 'BLAST', 'INFLIGHT', 'RESEARCH', 'PRIOR-ART', 'ADVERSARY', 'CONSTANTS', 'CITED']
 /** A line that looks like one of CITED's four forms: `NEW ★…` / `NEW LORAMER_…`, `… ⇐ home`, or `file:line "quote"`. */
 const CITATION_SHAPE_RE = /^(?:NEW\s+(?:★|LORAMER_)|.*(?:★[A-Z0-9-]{3,}|LORAMER_[A-Z0-9_]+_V\d+).*(?:⇐|<=)|\S+:\d+(?:\s*-\s*\d+)?\s+")/
 export function parseHeader(text) {
@@ -284,6 +285,43 @@ export function researchVerdict(value, decisionsText, opts = {}) {
   const fresh = domains.filter((d) => d !== vendorDomain && !decisionsText.includes(d))
   if (fresh.length === 0) return out(false, `every non-vendor domain (${domains.filter((d) => d !== vendorDomain).join(', ')}) is already cited in LORAMER_DECISIONS.md — re-citing our own record is not research; one domain must be new to it`)
   return out(true, `${urls.length} URL(s), ${domains.length} registrable domain(s), vendor ${vendorDomain}, ${fresh.length} not previously banked`)
+}
+
+// ── CHECK 2b — PRIOR-ART-NEVER-LOOKED (LORAMER_ADVERSARY_UNTIL_CONVERGED_V1, item 5) ─────────────────────
+// PRIOR ART FIRST. Rust's RFC template: "If there is no prior art, that is fine" — the section may say none, never be
+// blank. PEP 1 denies a PEP for "duplication of effort". Before a writing paste designs anything it names what already
+// exists — `<name> — <URL> — <≥8 words: what shape it settles>` (repeatable with ·) — or says `NONE-FOUND — <≥15 words:
+// where you looked and why nothing fits>`. THE FIG-LEAF TEST, made decidable (round 13): the URL's host is a CODE HOST,
+// or its registrable domain is not already among RESEARCH's — a vendor's docs page re-listed as "prior art" is neither.
+const PRIOR_ART_NONE_RE = /^NONE-FOUND\b\s*(?:[—–\-:,.]\s*(?<reason>[\s\S]*))?$/i
+export function priorArtVerdict(value, { researchDomains = [] } = {}) {
+  const raw = String(value || '').trim()
+  if (!raw) return { ok: false, kind: 'absent', named: null, why: 'PRIOR-ART: is absent — this paste writes and names no prior art. Rust\'s template: prior art may be absent, never blank' }
+  const none = raw.match(PRIOR_ART_NONE_RE)
+  if (none) {
+    const n = words((none.groups?.reason || '').trim())
+    return n >= NONE_FOUND_MIN_WORDS
+      ? { ok: true, kind: 'none-found', named: null, why: `NONE-FOUND with a ${n}-word account of where you looked` }
+      : { ok: false, kind: 'none-found', named: null, why: `PRIOR-ART: NONE-FOUND carries only ${n} word(s); ${NONE_FOUND_MIN_WORDS} are required — where you looked and why nothing fits` }
+  }
+  const entries = raw.split(/\n|\s·\s/).map((e) => e.trim()).filter(Boolean)
+  const bad = []
+  const names = []
+  for (const e of entries) {
+    const m = e.match(/^(?<name>.+?)\s+[—–-]\s+(?<url>https?:\/\/\S+)\s+[—–-]\s+(?<what>.+)$/)
+    if (!m) { bad.push(`"${e.slice(0, QUOTE_CHARS)}" is not \`<name> — <URL> — <what it settles>\``); continue }
+    const { name, url, what } = m.groups
+    let host = null
+    try { host = new URL(url).hostname.replace(/^www\./, '').toLowerCase() } catch { bad.push(`"${url.slice(0, QUOTE_CHARS)}" is not a URL`); continue }
+    const domain = registrableDomain(host)
+    const codeHost = CODE_HOSTS.includes(host) || CODE_HOSTS.includes(domain)
+    if (!codeHost && researchDomains.includes(domain)) bad.push(`${name}: ${host} is neither a code host (${CODE_HOSTS.join(', ')}) nor a domain outside your RESEARCH list — a vendor page re-listed is not prior art; cite the implementation`)
+    const n = words(what)
+    if (n < PRIOR_ART_MIN_WORDS) bad.push(`${name}: "${what.slice(0, QUOTE_CHARS)}" says what it settles in ${n} word(s); ${PRIOR_ART_MIN_WORDS} are required`)
+    names.push(name)
+  }
+  if (bad.length) return { ok: false, kind: 'named', named: names[0] || null, why: bad.join(' · ') }
+  return { ok: true, kind: 'named', named: names[0], why: `${entries.length} prior art(s) named, each on a code host or a domain outside the research list` }
 }
 
 // ── CHECK 3 — ADVERSARY-THAT-NEVER-COLLIDED ───────────────────────────────────────────────────────────────
@@ -478,7 +516,7 @@ export function signalsOf(h) {
   return {
     adversary_present: adversaryVerdict(h.ADVERSARY).ok,
     research_domains: h.RESEARCH ? new Set(r.hosts.map(registrableDomain)).size : null,
-    prior_art: !pa ? 'absent' : /^NONE-FOUND\b/i.test(pa) ? 'none-found' : 'named',
+    prior_art: priorArtVerdict(pa).kind,
     vendor: r.vendor,
     rounds_named: roundsNamed(h.ADVERSARY),
   }
@@ -556,7 +594,10 @@ export function evaluate({ text, transcriptPath, decisionsText, queueText = '', 
 
   // THE PROPORTIONALITY RULE. Both rounds are demanded by CONSEQUENCE, never by question-shape.
   if (writesSomething(blast)) {
-    const r = researchVerdict(h.RESEARCH, decisionsText, { priorArtNamed: false })
+    const rs = researchSignals(h.RESEARCH)
+    const pa = priorArtVerdict(h['PRIOR-ART'], { researchDomains: [...new Set(rs.hosts.map(registrableDomain))] })
+    if (!pa.ok) failures.push({ box: 'PRIOR-ART-NEVER-LOOKED', why: pa.why, fix: `TWO accepted forms: (1) \`PRIOR-ART: <name> — <URL> — <${PRIOR_ART_MIN_WORDS}+ words: what shape it settles>\` (repeatable with ·) — the URL on a code host (${CODE_HOSTS.slice(0, 4).join(', ')}, …) or on a domain not already in your RESEARCH list · (2) \`PRIOR-ART: NONE-FOUND — <${NONE_FOUND_MIN_WORDS}+ words: where you looked and why nothing fits>\`. Prior art first: before a writing paste designs anything it names what already exists.` })
+    const r = researchVerdict(h.RESEARCH, decisionsText, { priorArtNamed: pa.kind === 'named' ? pa.named : false })
     if (!r.ok) failures.push({ box: 'RESEARCH-WITH-NO-URLS', why: r.why, fix: `TWO accepted forms: (1) \`RESEARCH: vendor=<registrable domain> · <url> · <url> · <url> · <url> · <url>\` — at least ${RESEARCH_MIN_URLS} URLs on at least ${RESEARCH_MIN_DOMAINS} REGISTRABLE DOMAINS (pages of one vendor are one source), the vendor declared and among them, at least one domain neither the vendor's nor already cited in LORAMER_DECISIONS.md · (2) \`RESEARCH: NONE — <at least ${MIN_NONE_APPLICABLE_WORDS} words saying why no external fact is load-bearing>\` (the CONSTANTS spelling; \`NONE-APPLICABLE:\` is accepted too, and a BARE \`NONE\` is not — the reason is the whole point here)` })
     const a = adversaryVerdict(h.ADVERSARY)
     if (!a.ok) failures.push({ box: 'ADVERSARY-THAT-NEVER-COLLIDED', why: a.why, fix: `ONE accepted form, all three parts on one line: \`ADVERSARY: mine=<your position> | other=<the opposing position> | collision=<what actually changed, ${MIN_COLLISION_WORDS}+ words>\`. mine= and other= must differ. There is NO compressed form on a writing blast radius.` })
@@ -602,7 +643,7 @@ export function renderRefusal(res, meta) {
   }
   L.push('')
   L.push(`THE SCHEMA (top of the paste): ${KEYS.join(' · ')}`)
-  L.push('RESEARCH and ADVERSARY are required only when BLAST is not read-only — rounds attach to consequence.')
+  L.push('RESEARCH, PRIOR-ART and ADVERSARY are required only when BLAST is not read-only — rounds attach to consequence.')
   L.push('CITED is required on every flight paste: ★TOKEN ⇐ home · file:line "quote" · NEW ★TOKEN · NONE — <10+ words>.')
   if (meta?.promptKey) L.push(`[gate: read the paste from the "${meta.promptKey}" field]`)
   L.push('')

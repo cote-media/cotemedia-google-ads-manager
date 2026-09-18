@@ -113,6 +113,10 @@ const PAD = '\n' + ('x. this line exists only to carry the paste past FLIGHT_MIN
 const GOOD_RESEARCH = 'RESEARCH: vendor=example.com · https://example.com/vendor-doc · https://example.com/vendor-doc-2 · https://example.net/c · https://example.org/prior-art · https://gate.invalid/e'
 const GOOD_ADVERSARY = 'ADVERSARY: mine=gate at paste-receipt | other=gate at commit time | collision=a commit-time gate cannot see paste-while-in-flight at all, so receipt wins'
 const GOOD_CONSTANTS = 'CONSTANTS: FLIGHT_MIN_CHARS=400 ⇐ measured 2026-08-23 N=12'
+// LORAMER_ADVERSARY_UNTIL_CONVERGED_V1 (item 5) — PRIOR ART FIRST: a name, a URL on a code host (or a domain not in
+// RESEARCH), and eight words on what it settles; or NONE-FOUND with fifteen words on where you looked.
+const GOOD_PRIOR_ART = 'PRIOR-ART: example/prior — https://github.com/example/prior — one sync per connection, a second start is refused while one runs'
+const GOOD_PRIOR_ART_NONE = 'PRIOR-ART: NONE-FOUND — searched GitHub, npm and the vendor forum for a paste-time protocol enforcer and found only commit-time linters'
 const GOOD_QUESTION = 'QUESTION: where does the protocol gate have to live to fire every time?'
 // LORAMER_CITED_GATE_V1 — CITED is required on every flight paste exactly as CONSTANTS is, with a justified
 // NONE as the cheap honest form. Every pre-existing GREEN fixture carries this line for the same reason every
@@ -143,6 +147,21 @@ const fixtures = [
     text: `ROUND: SHAPE\n${GOOD_QUESTION}\nBLAST: backend-writer\nRESEARCH: vendor=postgresql.org · https://example.com/vendor-doc · https://example.com/vendor-doc-2 · https://example.net/c · https://example.org/prior-art · https://gate.invalid/e\n${GOOD_ADVERSARY}\n${GOOD_CITED}\n${GOOD_CONSTANTS}${PAD}` },
   { name: 'RED CITED unindented second citation line is body text the parser dropped (must refuse, not silently ignore)', box: 'CITATION-NEVER-READ', expect: 'block',
     text: `ROUND: ISSUE\n${GOOD_QUESTION}\nBLAST: read-only\nINFLIGHT: clear\nCITED: ★UNDEFER-3-SIZE-READ ⇐ QUEUE\nLORAMER_TOTALLY_NEW_MARKER_V1 ⇐ DECISIONS\nCONSTANTS: NONE${PAD}` },
+  // ── LORAMER_ADVERSARY_UNTIL_CONVERGED_V1 (item 5) — PRIOR ART FIRST. Rust's template: the section may say "none",
+  // never be blank; PEP 1 denies a PEP for "duplication of effort". A writing paste names what already exists or says
+  // NONE-FOUND with where it looked; a NONE research beside a named implementation is refused.
+  { name: 'RED PRIOR-ART missing on a writing paste', box: 'PRIOR-ART-NEVER-LOOKED', expect: 'block',
+    text: `ROUND: SHAPE\n${GOOD_QUESTION}\nBLAST: backend-writer\nINFLIGHT: clear\n${GOOD_RESEARCH}\n${GOOD_ADVERSARY}\n${GOOD_CITED}\n${GOOD_CONSTANTS}${PAD}` },
+  { name: 'RED PRIOR-ART fig-leaf (vendor docs page already in RESEARCH, two words)', box: 'PRIOR-ART-NEVER-LOOKED', expect: 'block',
+    text: `ROUND: SHAPE\n${GOOD_QUESTION}\nBLAST: backend-writer\nINFLIGHT: clear\n${GOOD_RESEARCH}\n${GOOD_ADVERSARY}\nPRIOR-ART: Example — https://docs.example.com/x — settles it\n${GOOD_CITED}\n${GOOD_CONSTANTS}${PAD}` },
+  { name: 'RED PRIOR-ART NONE-FOUND under fifteen words', box: 'PRIOR-ART-NEVER-LOOKED', expect: 'block',
+    text: `ROUND: SHAPE\n${GOOD_QUESTION}\nBLAST: backend-writer\nINFLIGHT: clear\n${GOOD_RESEARCH}\n${GOOD_ADVERSARY}\nPRIOR-ART: NONE-FOUND — looked around, nothing\n${GOOD_CITED}\n${GOOD_CONSTANTS}${PAD}` },
+  { name: 'RED RESEARCH NONE beside a NAMED prior art', box: 'RESEARCH-WITH-NO-URLS', expect: 'block',
+    text: `ROUND: SHAPE\n${GOOD_QUESTION}\nBLAST: backend-writer\nINFLIGHT: clear\nRESEARCH: NONE — twelve words saying that no external fact is load-bearing here at all\n${GOOD_ADVERSARY}\n${GOOD_PRIOR_ART}\n${GOOD_CITED}\n${GOOD_CONSTANTS}${PAD}` },
+  { name: 'GREEN the NONE-FOUND pair: research NONE with its reason beside prior-art NONE-FOUND with where it looked', expect: 'allow',
+    text: `ROUND: SHAPE\n${GOOD_QUESTION}\nBLAST: backend-writer\nINFLIGHT: clear\nRESEARCH: NONE — this flight re-derives a constant from measurements taken on our own shipped code tonight, so no vendor page is load-bearing\n${GOOD_ADVERSARY}\n${GOOD_PRIOR_ART_NONE}\n${GOOD_CITED}\n${GOOD_CONSTANTS}${PAD}` },
+  { name: 'GREEN PRIOR-ART on a domain not in RESEARCH (not a code host) with eight words', expect: 'allow',
+    text: `ROUND: SHAPE\n${GOOD_QUESTION}\nBLAST: backend-writer\nINFLIGHT: clear\n${GOOD_RESEARCH}\n${GOOD_ADVERSARY}\nPRIOR-ART: Temporal — https://docs.temporal.io/workflows — a workflow id conflict policy of use-existing returns the running one\n${GOOD_CITED}\n${GOOD_CONSTANTS}${PAD}` },
   { name: 'GREEN CITED second citation carries its own CITED: prefix', expect: 'allow',
     text: `ROUND: ISSUE\n${GOOD_QUESTION}\nBLAST: read-only\nINFLIGHT: clear\nCITED: ★UNDEFER-3-SIZE-READ ⇐ QUEUE\nCITED: NEW ★GENUINELY-NOVEL-TOKEN-QQQQQ\nCONSTANTS: NONE${PAD}` },
   { name: 'RED ADVERSARY-THAT-NEVER-COLLIDED (no collision named)', box: 'ADVERSARY-THAT-NEVER-COLLIDED', expect: 'block',
@@ -175,18 +194,18 @@ const fixtures = [
   { name: 'RED RESEARCH NONE with a reason under the floor still fails', box: 'RESEARCH-WITH-NO-URLS', expect: 'block',
     text: `ROUND: SHAPE\n${GOOD_QUESTION}\nBLAST: backend-writer\nRESEARCH: NONE — nothing external here\n${GOOD_ADVERSARY}\n${GOOD_CITED}\n${GOOD_CONSTANTS}${PAD}` },
   { name: 'GREEN RESEARCH takes the CONSTANTS spelling when the reason carries the floor', expect: 'allow',
-    text: `ROUND: SHAPE\n${GOOD_QUESTION}\nBLAST: backend-writer\nINFLIGHT: clear\nRESEARCH: NONE — this flight re-derives a constant from measurements taken on our own shipped code tonight, so no vendor page is load-bearing\n${GOOD_ADVERSARY}\n${GOOD_CITED}\n${GOOD_CONSTANTS}${PAD}` },
+    text: `ROUND: SHAPE\n${GOOD_QUESTION}\nBLAST: backend-writer\nINFLIGHT: clear\nRESEARCH: NONE — this flight re-derives a constant from measurements taken on our own shipped code tonight, so no vendor page is load-bearing\n${GOOD_PRIOR_ART_NONE}\n${GOOD_ADVERSARY}\n${GOOD_CITED}\n${GOOD_CONSTANTS}${PAD}` },
   { name: 'GREEN the legacy NONE-APPLICABLE spelling still passes (regression)', expect: 'allow',
-    text: `ROUND: SHAPE\n${GOOD_QUESTION}\nBLAST: backend-writer\nINFLIGHT: clear\nRESEARCH: NONE-APPLICABLE: every figure in this paste was measured on our own fleet tonight and no external vendor fact enters the derivation\n${GOOD_ADVERSARY}\n${GOOD_CITED}\n${GOOD_CONSTANTS}${PAD}` },
+    text: `ROUND: SHAPE\n${GOOD_QUESTION}\nBLAST: backend-writer\nINFLIGHT: clear\nRESEARCH: NONE-APPLICABLE: every figure in this paste was measured on our own fleet tonight and no external vendor fact enters the derivation\n${GOOD_PRIOR_ART_NONE}\n${GOOD_ADVERSARY}\n${GOOD_CITED}\n${GOOD_CONSTANTS}${PAD}` },
   { name: 'GREEN compliant writing paste', expect: 'allow',
-    text: `ROUND: SHAPE\n${GOOD_QUESTION}\nBLAST: backend-writer\nINFLIGHT: clear\n${GOOD_RESEARCH}\n${GOOD_ADVERSARY}\n${GOOD_CITED}\n${GOOD_CONSTANTS}${PAD}` },
+    text: `ROUND: SHAPE\n${GOOD_QUESTION}\nBLAST: backend-writer\nINFLIGHT: clear\n${GOOD_RESEARCH}\n${GOOD_ADVERSARY}\n${GOOD_PRIOR_ART}\n${GOOD_CITED}\n${GOOD_CONSTANTS}${PAD}` },
   { name: 'GREEN BLAST carrying a parenthetical qualifier (how Russ actually writes it)', expect: 'allow',
-    text: `ROUND: RUN\n${GOOD_QUESTION}\nBLAST: backend-writer (repo tooling only \u2014 no app code, no schema, no live path)\nINFLIGHT: clear\n${GOOD_RESEARCH}\n${GOOD_ADVERSARY}\n${GOOD_CITED}\n${GOOD_CONSTANTS}${PAD}` },
+    text: `ROUND: RUN\n${GOOD_QUESTION}\nBLAST: backend-writer (repo tooling only \u2014 no app code, no schema, no live path)\nINFLIGHT: clear\n${GOOD_RESEARCH}\n${GOOD_ADVERSARY}\n${GOOD_PRIOR_ART}\n${GOOD_CITED}\n${GOOD_CONSTANTS}${PAD}` },
   { name: 'GREEN read-only paste needs NO rounds (proportionality)', expect: 'allow',
     text: `ROUND: ISSUE\n${GOOD_QUESTION}\nBLAST: read-only\nINFLIGHT: clear\n${GOOD_CITED}\nCONSTANTS: NONE${PAD}` },
   { name: 'GREEN short conversational paste is not a flight', expect: 'allow', text: 'go' },
   { name: 'GREEN override lifts exactly its own box', expect: 'allow',
-    text: `ROUND: RUN\n${GOOD_QUESTION}\nBLAST: backend-writer\n${GOOD_ADVERSARY}\n${GOOD_CITED}\n${GOOD_CONSTANTS}\nOVERRIDE RESEARCH-WITH-NO-URLS: the vendor documentation host is down right now and the walk read is time boxed${PAD}`,
+    text: `ROUND: RUN\n${GOOD_QUESTION}\nBLAST: backend-writer\n${GOOD_ADVERSARY}\n${GOOD_PRIOR_ART}\n${GOOD_CITED}\n${GOOD_CONSTANTS}\nOVERRIDE RESEARCH-WITH-NO-URLS: the vendor documentation host is down right now and the walk read is time boxed${PAD}`,
     mutatesLog: true },
   { name: 'RED override with a too-short reason does NOT lift its box', box: 'RESEARCH-WITH-NO-URLS', expect: 'block',
     text: `ROUND: RUN\n${GOOD_QUESTION}\nBLAST: backend-writer\n${GOOD_ADVERSARY}\n${GOOD_CONSTANTS}\nOVERRIDE RESEARCH-WITH-NO-URLS: docs down${PAD}` },
