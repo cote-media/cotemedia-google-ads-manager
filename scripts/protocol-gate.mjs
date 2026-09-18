@@ -37,6 +37,19 @@
 //
 // ⛔ LAYER 2 (an isolated `type:"prompt"` judge for the hollow-but-filled case) IS NOT IN THIS BUILD, by
 // Russ's instruction. L1 + the override burn-down only.
+//
+// ⛔ LORAMER_ADVERSARY_UNTIL_CONVERGED_V1 (2026-09-18) — THE UNSKIPPABLE LAW, three legs and a minted id, converged
+// over rounds 12–16 (prior art: PEP 1, rust-lang/rfcs, MADR, Danger JS, commitlint, GitHub required checks):
+//   · PRIOR ART FIRST — a writing paste names what already exists (PRIOR-ART-NEVER-LOOKED) or says NONE-FOUND with
+//     where it looked; the fig-leaf test is decidable (code host, or a domain outside RESEARCH).
+//   · RESEARCH IS MANY PLACES — a source is a registrable domain; five URLs on four domains; the vendor declared and
+//     among them; one domain new to DECISIONS; NONE refused beside a named prior art.
+//   · ADVERSARY ROUNDS UNTIL NOTHING CHANGES — two rounds cited by the ids THIS GATE MINTED AND PRINTED, resolved
+//     against this log (accepted, graded box, exactly one paste per id); the converging sentence is allowed only
+//     beside two resolved rounds.
+//   · EVERY GRADED PASTE IS A RECORD with an id; the echo `round-id: <n> · ROUND <title>` is the executor's footer.
+//   The first case the law caught was its own wrong build: five build pastes refused on 2026-09-18 for a citation
+//   the parser silently dropped (an unindented second CITED line) and for citing the entry the build creates.
 
 import { readFileSync, appendFileSync, existsSync, openSync, readSync, fstatSync, closeSync, mkdirSync } from 'node:fs'
 import { createHash } from 'node:crypto'
@@ -330,6 +343,11 @@ export function priorArtVerdict(value, { researchDomains = [] } = {}) {
 // both existed is a fact about two conversations; this function sees one string. What it CAN establish is
 // that both positions and a named collision are PRESENT and that the two positions are not the same text.
 // A filled box here means "the artifact exists", never "the round happened".
+// ⛔ LORAMER_ADVERSARY_UNTIL_CONVERGED_V1 (2026-09-18) EXTENDS THE LIMIT, IT DOES NOT LIFT IT: the gate now also
+// proves that the rounds a writing paste names RESOLVE — to accepted submissions in its own log that carried a box
+// passing this shape — and it proves NOTHING MORE. A box that passes the shape with hollow words counts as a round;
+// two rounds that resolved but changed nothing are two rounds; "last-round-changed=" is a string anyone can type.
+// The gate proves artifacts exist and ids resolve. Whether a round happened is read by Russ in the report, only.
 export function adversaryVerdict(value) {
   const raw = String(value || '').trim()
   if (!raw) return { ok: false, why: 'ADVERSARY: is absent' }
