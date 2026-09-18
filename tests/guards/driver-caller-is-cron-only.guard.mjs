@@ -67,8 +67,8 @@ try {
   const got = mine.map((c) => c.schedule)
   if (mine.length !== 3 || want.some((s) => !got.includes(s))) findings.push(`(c) vercel.json holds ${mine.length} /api/cron/forward-driver entr(ies) with schedules ${JSON.stringify(got)}; decided: exactly ${JSON.stringify(want)}`)
   if (mine.some((c) => String(c.path).includes('?'))) findings.push('(c) a forward-driver cron entry carries a query string — the caller takes no client filter on the schedule (DRIVER_EXCLUDED_CLIENTS is the only filter)')
-  // 21 since LORAMER_RUN_PUMP_V1 (2026-09-17): 17 + 3 driver entries + the continuous-run pump (/api/cron/universe-run-pump, every minute).
-  if (crons.length !== 21) findings.push(`(c) vercel.json holds ${crons.length} cron entries; 17 + 3 driver entries + 1 run pump = 21 — something else moved`)
+  // 22 since LORAMER_RETENTION_WALL_CANARY_V1 (2026-09-18): 17 + 3 driver entries + the continuous-run pump (/api/cron/universe-run-pump, every minute) + the retention canary (/api/cron/retention-canary, daily).
+  if (crons.length !== 22) findings.push(`(c) vercel.json holds ${crons.length} cron entries; 17 + 3 driver entries + 1 run pump + 1 retention canary = 22 — something else moved`)
 } catch (e) { findings.push(`(c) vercel.json unreadable: ${e.message}`) }
 
 // (e) THE ENOENT TRAP, indirect edition — measured on the first smoke fire 2026-09-10 20:52:19Z (cron_runs 14714, HTTP 500):

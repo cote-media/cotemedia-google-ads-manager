@@ -7,18 +7,18 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-09-17T20:58:28.466Z
-- built_from HEAD: 15c6455ac9d36cafc77735d97d94402843385cfe  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-09-18T01:29:11.129Z
+- built_from HEAD: b135a5ef80b73b1f4e1842da0b9e701ac3f785fe  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
   exactly as fresh as the manifest is honest; the wrap-step regenerates manifest + digest together.
   Source-doc content_hash at build time:
-    - LORAMER_MAP.md: 42b8dde6163a9959f99ba3bce1decf74b75d8b148fa25cc2114b4f2ff85f76ac
+    - LORAMER_MAP.md: 70c2d74b64bfc275423dae55135c7c32dc6e39c99062a9a72bb8c3ccc0fbd9e8
     - LORAMER_ESSENCE.md: 492b85a4c0f1d9ce4f4a00f287480df35b5ea4af727385c0c6816b7996b9112f
     - LORAMER_HANDOFF.md: 9f349d7d232366b1bb0b29f797f7225540b3ff6c8b43fbbea32eb0db4e761680
     - CONTINUE_HERE.md: 559aff64763fb16853dc3aad1346a5c7d3191d5b80745a0bc8143d00d56e8f31
-    - LORAMER_DECISIONS.md: dd06e2fad093aa66904662c3357c8fc5a56aff2a0471e18935a6d523fc881104
+    - LORAMER_DECISIONS.md: 57c25ec9604707a42c8ee17ab7f9585f67fbbb8a3788055ab635ac0b96fb21b6
     - LORAMER_QUEUE_OF_RECORD.md: 17eb948394686599367c6045934e90a36d49db4be21112b7bc673af310214f1b
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: f4bef31497a46984a3a54acc5be044d48000688ba74ed59689e7c4bfafca21a1
     - RESUME_INSTRUCTIONS.md: 3fb45b93b57ac4e73664dc2a7c0984b03c9ed6152b21d93c2c481dd7e0de9601
@@ -1671,6 +1671,8 @@ The 2026-06-29 inventory pre-dates 6 shipped writers and was NOT trusted. | do n
   | LORAMER_SESSION_2026_09_05_RULINGS, 2026-09-05; (w)(x) 2026-09-09 | do not relitigate.
 ## LORAMER_NO_HTTP_TO_SELF_V1 (2026-09-17) — SHIPPED (this push). This project's deployment URLs sit behind Vercel Authentication; the custom domain does not. An automated call to a deployment URL is answered with a LOGIN PAGE, not an error. The continuous run therefore makes NO HTTP call to itself at all: the fire is the resumer's handler, called in-process. Do not re-derive either wall.
   | LORAMER_NO_HTTP_TO_SELF_V1, 2026-09-17 | do not relitigate.
+## LORAMER_RETENTION_WALL_CANARY_V1 + LORAMER_IDLE_SKIP_V1 + LORAMER_RUN_CLAIM_STAMP_V1 (2026-09-18) — SHIPPED (this push). An empty answer PAST Google's published 37-month wall retires a day only while a daily CANARY proves the vendor still serves rows there; otherwise it is UNRESOLVED, loud, and nothing past the wall is asked. An IDLE window — Google's own account-level answer naming no active day — retires across every surface for one request; a spent day is never idle; a mixed window walks whole. A stopped run ends TERMINAL, and the pump's busy window reads only a LIVE claim.
+  | LORAMER_RETENTION_WALL_CANARY_V1 · LORAMER_IDLE_SKIP_V1 · LORAMER_RUN_CLAIM_STAMP_V1, 2026-09-18 | do not relitigate.
 
 ## H. OPEN-QUEUE INDEX — still-open items only (DONE appendix excluded)  (source: LORAMER_QUEUE_OF_RECORD.md)
 - ★CHECKDATA-PUSHED-OVER-RED — ⛔ **NEW 2026-08-22. I PUSHED TO MAIN TWICE TONIGHT OVER A RED `check:data`, DISCLOSED BOTH TIMES, AND THAT IS EXACTLY WHY THIS NEEDS A DECISION RATHER THAN A HABIT.** CLAUDE.md requires the gate to be RUN and REPORTED before any push to origin main; it does not say whether a red BLOCKS. So the gate is currently **NEITHER A GATE NOR ADVISORY** — it is whatever the executor argues in the moment, which is the weakest possible state for a check that exists to stop bad data. THE READS: 13 red before the cutover, **9 red after**, and FOUR cleared *because delivery resumed* (`check-consumer-liveness` had been reading "DELIVERY IS DARK", plus check-capture-landing, check-frozen-cursors, check-parent-analyze). ⚠ **THE COUNT ALSO MOVED 11 → 13 BETWEEN TWO RUNS TWENTY MINUTES APART ON IDENTICAL CODE** — proof these track warehouse STATE, not the diff, which is precisely what makes a blanket block wrong AND a blanket pass wrong. **THE WORK IS A DECISION RUSS OWNS:** (a) hard gate with a named baseline of accepted reds, (b) advisory with the verdict quoted in every push report, or (c) split it — the state checks advisory, the correctness checks blocking. Until one is chosen, every push over a red is a judgement call re-litigated from scratch. src: the 2026-08-22 cutover pushes. open [LC]
@@ -2485,8 +2487,8 @@ HOW TO USE: before writing "NEW" on any finding, gap or correction, GREP THIS SE
 LORAMER_*_V* marker you are about to mint. A token collision is DECIDABLE; a topic match is not. This is
 ESSENCE law 7 made mechanical — the law is a rule about behaviour, and on 2026-07-31 four already-decided
 topics were discussed as open while it was in force.
-TOTALS: 1150 tokens indexed · 368 resolve to BOTH a decision and a queue item ·
-141 decision-only · 641 queue-only.
+TOTALS: 1153 tokens indexed · 368 resolve to BOTH a decision and a queue item ·
+144 decision-only · 641 queue-only.
 ⛔ UNINDEXABLE — THIS COUNT IS THE BACKLOG, NOT A DISCLAIMER: 164 DECISIONS entries and
 261 QUEUE items carry NO token at all, so they cannot be found this way. An untokened decision
 is invisible to the enforcer; the fix is to mint a token when banking, not to widen the matcher. Samples —
@@ -3334,6 +3336,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_HOOKS_OVER_PROSE_V1 — OPEN · decisions 0 · queue 3 · last 2026-09-10
 - LORAMER_HORIZON_FORK_DEPLOY1_V1 — OPEN · decisions 0 · queue 1 · last 2026-08-17
 - LORAMER_HYDRATED_CUSTOM_RANGE_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-16
+- LORAMER_IDLE_SKIP_V1 — DECIDED · decisions 1 · queue 0 · last 2026-09-18
 - LORAMER_INSIGHT_OPUS_FLOOR_V1 — DONE · decisions 2 · queue 1 · last 2026-07-17
 - LORAMER_INSTRUMENT_CLIENT_LITERAL_GUARD_V1 — DONE · decisions 0 · queue 1 · last 2026-09-15
 - LORAMER_INSTRUMENT_MUST_NAME_ITS_PHASE_V1 — DECIDED · decisions 4 · queue 0 · last 2026-07-31
@@ -3545,8 +3548,10 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_RESUME_PROTOCOL_REPAIR_V1 — DONE · decisions 0 · queue 1 · last 2026-07-03
 - LORAMER_RESUMER_ROTATION_SHAPE_V1 — OPEN · decisions 0 · queue 1 · last 2026-09-12
 - LORAMER_RESUMER_SCAN_ROTATES_V1 — OPEN · decisions 0 · queue 1 · last 2026-08-17
+- LORAMER_RETENTION_WALL_CANARY_V1 — DECIDED · decisions 1 · queue 0 · last 2026-09-18
 - LORAMER_ROTATION_SKIP_SCAN_V1 — DONE · decisions 0 · queue 1 · last 2026-09-14
 - LORAMER_ROUNDS_AT_DECISION_POINTS_V1 — OPEN · decisions 1 · queue 2 · last 2026-08-23
+- LORAMER_RUN_CLAIM_STAMP_V1 — DECIDED · decisions 1 · queue 0 · last 2026-09-18
 - LORAMER_SCOPED_DRILLDOWN_FALSE_ZERO_V1 — OPEN · decisions 2 · queue 2 · last 2026-07-28
 - LORAMER_SEALED_STRIP_PASS_V1 — DONE · decisions 0 · queue 2 · last 2026-08-26
 - LORAMER_SEAMS_PROOF_INCLUDES_THE_DATABASE_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-17

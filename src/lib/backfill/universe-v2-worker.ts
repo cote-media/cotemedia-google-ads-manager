@@ -71,6 +71,10 @@ import { sizeNextWindow, dayDiff } from '@/lib/backfill/universe-sizing'
 import { planMisSizedSplit } from '@/lib/backfill/universe-resumer'
 import { checkDiskFloor } from '@/lib/backfill/universe-window-log'
 import { googleAdsStreamFor } from '@/lib/backfill/universe-vendor-stream'
+// LORAMER_RETENTION_WALL_CANARY_V1 — an empty answer past the published wall retires a day only under a green canary.
+import { classifyEmptyAnswer, wallLineFor, readRetentionCanary, UNRESOLVED_PAST_WALL_MARKER, type CanaryReading } from '@/lib/backfill/retention-wall'
+// LORAMER_IDLE_SKIP_V1 — an idle window (Google's own account-level answer) retires across every surface for one request.
+import { ACCOUNT_ACTIVITY_RESOURCE, IDLE_ATTESTED_MARKER, type IdleMemo } from '@/lib/backfill/universe-idle-skip'
 // ⛔ THE TOPIC, THE MESSAGE SHAPE AND THE TWO BOUNDS LIVE IN A CONTRACT MODULE, NOT HERE. Next.js rejects
 // any non-Route export from a route file ("TOPIC is not a valid Route export field") — and `tsc --noEmit`
 // passes it clean, so only `npm run build` catches it. It is also the right shape: a publisher needs the
@@ -151,7 +155,15 @@ async function publishGoverned(
 // must respect the SAME absolute deadline, or a narrowing cascade could run the fire into the platform
 // kill. `deadlineAt` is an epoch-ms ceiling; absent (the drive's single-unit path) only the worker's own
 // WALK_BUDGET_MS applies, exactly as before the cutover.
-export interface DeadlineOpts { deadlineAt?: number }
+export interface DeadlineOpts {
+  deadlineAt?: number
+  /** LORAMER_IDLE_SKIP_V1 — the fire's per-window memo; absent = no idle skip (every window walks surface by surface). */
+  idle?: IdleMemo
+  /** LORAMER_RETENTION_WALL_CANARY_V1 — the fire's canary reading, read once per fire; absent = read here, once per message. */
+  canary?: CanaryReading
+  /** LORAMER_RETENTION_WALL_CANARY_V1 — called once per empty answer past the wall that could not be resolved. */
+  onUnresolvedPastWall?: () => void
+}
 
 // LORAMER_FIRE_LOG_WITNESSES_OPENED_V1 — RETURNS THE NUMBER OF REQUESTS THIS INVOCATION OPENED: one per
 // appendAttemptStarted(…, 1, …) in the range loop, plus whatever a mis-size continuation or an advance opened. Every
@@ -431,6 +443,49 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance, opts
   let maxRangeMs = 0
   let deferredForBudget = 0
 
+  // ── ⛔ THE RETENTION WALL — LORAMER_RETENTION_WALL_CANARY_V1 ─────────────────────────────────────────────
+  // An empty answer PAST the published 37-month wall retires a day only while the canary proves the vendor still
+  // serves rows there. Otherwise it is UNRESOLVED: recorded under 'error' with the marker, retiring nothing, loudly.
+  // The line is the vendor's own unit (37 calendar months); the canary is the vendor's own answer. Neither is a stop.
+  const wallLine = wallLineFor(new Date().toISOString().slice(0, 10))
+  let canary: CanaryReading | null = opts.canary ?? null
+
+  // ── ⛔ THE IDLE SKIP — LORAMER_IDLE_SKIP_V1 (descend lane only) ───────────────────────────────────────────
+  // Before this surface spends a request on the window, ask (once per window per fire, memoised across units) whether
+  // the ACCOUNT had any activity in it. Google's answer names the active days; a window it names none in is retired
+  // for THIS surface with a 0-request 'zero' row carrying the marker — the same attesting terminal a surface-level
+  // empty would have produced, from the same vendor, one level up. A window with any active day walks whole.
+  if (lane === 'descend' && opts.idle && owed.ranges.length > 0) {
+    if (!canary) canary = await readRetentionCanary()
+    const verdict = await opts.idle.verdictFor({
+      windowStart: startDate, windowEnd: endDate, stream: streamFor,
+      ledger: async (w, answer) => {
+        const actKey: AttemptKey = { clientId, vendor: VENDOR, resource: ACCOUNT_ACTIVITY_RESOURCE, segment: '', windowStart: w.windowStart, windowEnd: w.windowEnd }
+        try {
+          const o = await appendAttemptStarted(actKey, 1, undefined, prov, 'descend')
+          await appendAttemptFinished(actKey, o.attemptNo, answer.ok ? (answer.activeDays.length ? 'ok' : 'zero') : 'error', {
+            rowsWritten: 0, requestsSpent: 1, diskFreeBytes: floor.freeBytes,
+            error: answer.ok ? `ACCOUNT_ACTIVITY — ${answer.activeDays.length} active day(s) named by the vendor in ${w.windowStart}..${w.windowEnd}` : `ACCOUNT_ACTIVITY unanswered — ${answer.error}`,
+          }, prov)
+        } catch (e: any) {
+          console.error(`[universe-v2] IDLE-SKIP ledger write failed for ${clientId} ${w.windowStart}..${w.windowEnd}: ${String(e?.message ?? e)}`)
+        }
+      },
+    })
+    if (verdict.kind === 'idle') {
+      const opened = await appendAttemptStarted(key, 0, { startDate, endDate }, prov, lane)
+      const daysHere = owed.ranges.reduce((n, r) => n + dayDiff(r.start, r.end) + 1, 0)
+      await appendAttemptFinished(key, opened.attemptNo, 'zero', {
+        rowsWritten: 0, requestsSpent: 0, diskFreeBytes: floor.freeBytes,
+        error: `${IDLE_ATTESTED_MARKER} — ${verdict.reason}; ${daysHere} owed day(s) retired for this surface on the account's answer, 0 requests`,
+      }, prov)
+      opts.idle.noteRetired(1, daysHere)
+      console.log(`[universe-v2] IDLE SKIP ${clientId} ${label}: ${startDate}..${endDate} — ${verdict.reason} · retired ${daysHere} day(s) for 0 requests`)
+      return 0
+    }
+    if (verdict.kind === 'active') console.log(`[universe-v2] IDLE CHECK ${clientId} ${label}: ${verdict.reason}`)
+  }
+
   for (const range of owed.ranges) {
     // ⛔ RESERVATION, NOT A BARE ELAPSED CHECK — lap-budget.ts:14-17, the rule that outlives its own route.
     // HOW THE WALK'S ITERATION SATISFIES THE INVARIANT ("one iteration cannot exceed the remaining ceiling"):
@@ -487,13 +542,27 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance, opts
       // 2026-08-17. Folded into 'zero' it becomes indistinguishable in the log from "the vendor returned
       // nothing", which is the very distinction that made this class findable. It attests like a zero and
       // reads apart from one.
-      const outcome = res.error ? 'error' : res.skipped ? 'skipped'
+      let outcome: 'error' | 'skipped' | 'zero' | 'nongrain' | 'ok' = res.error ? 'error' : res.skipped ? 'skipped'
         : res.apiRows === 0 ? 'zero'
         : res.nonGrainOnly ? 'nongrain'
         : 'ok'
+      // ⛔ LORAMER_RETENTION_WALL_CANARY_V1 — A SUCCESS-EMPTY PAST THE WALL IS NOT A ZERO UNLESS THE CANARY SAYS THE
+      // VENDOR STILL SERVES THAT GROUND. Without that answer it cannot be told from expiry: it is recorded under
+      // 'error' with the marker (the CHECK constraint holds the eight outcomes; 'error' is the one that retires
+      // nothing and is re-asked by the missed lane once the canary is green again), and it is counted loudly.
+      let unresolvedNote: string | null = null
+      if (outcome === 'zero') {
+        if (!canary) canary = await readRetentionCanary()
+        if (classifyEmptyAnswer({ rangeEnd: range.end, wallLine, canary: canary.state }) === 'unresolved') {
+          outcome = 'error'
+          unresolvedNote = `${UNRESOLVED_PAST_WALL_MARKER} — empty answer for ${range.start}..${range.end}, past the retention wall ${wallLine}, canary ${canary.state} (${canary.detail}); NOT retired — expiry and idle are indistinguishable here without the canary's proof`
+          opts.onUnresolvedPastWall?.()
+          console.error(`[universe-v2] UNRESOLVED PAST WALL ${clientId} ${label}: ${unresolvedNote}`)
+        }
+      }
       await appendAttemptFinished(rangeKey, opened.attemptNo, outcome, {
         rowsWritten: res.rowsWritten, requestsSpent: 1, diskFreeBytes: floor.freeBytes,
-        error: res.error ?? (res.orderViolation ? 'ORDER VIOLATION: the vendor returned a row for an already-committed day, so this attempt\'s day commits do not prove closure' : res.skipped ? res.skipped.requirement : null),
+        error: unresolvedNote ?? res.error ?? (res.orderViolation ? 'ORDER VIOLATION: the vendor returned a row for an already-committed day, so this attempt\'s day commits do not prove closure' : res.skipped ? res.skipped.requirement : null),
       }, prov)
       maxRangeMs = Math.max(maxRangeMs, Date.now() - rangeStartedAt)
     } catch (e: any) {
@@ -609,7 +678,7 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance, opts
 // extra named export here is a build risk in a step whose whole contract is "nothing changes". The poll
 // lane will need it, and the correct home is then a lib module — that relocation belongs to step 2,
 // not to this one.
-export async function processMessage(msg: UniverseMessageV2, opts: DeadlineOpts = {}): Promise<{ requestsOpened: number }> {
+export async function processMessage(msg: UniverseMessageV2, opts: DeadlineOpts = {}): Promise<{ requestsOpened: number; unresolvedPastWall: number }> {
   // ⛔ THE PROVENANCE IS MINTED BEFORE ANYTHING CAN FAIL. `messageKey` is the PUBLISHER's idempotency key,
   // riding on the message — the fact we already had and threw away. `invocationId` is THIS DELIVERY's, and it
   // is a second fact rather than a duplicate: a redelivery carries the SAME message key, so nothing keyed on
@@ -635,8 +704,10 @@ export async function processMessage(msg: UniverseMessageV2, opts: DeadlineOpts 
   let ended = 'returned'
   // LORAMER_FIRE_LOG_WITNESSES_OPENED_V1 — the count the fire's heartbeat sums; 0 until the body says otherwise.
   let requestsOpened = 0
+  let unresolvedPastWall = 0
+  const counted: DeadlineOpts = { ...opts, onUnresolvedPastWall: () => { unresolvedPastWall++; opts.onUnresolvedPastWall?.() } }
   try {
-    requestsOpened = await runOneMessage(msg, prov, opts)
+    requestsOpened = await runOneMessage(msg, prov, counted)
   } catch (e: any) {
     // ⛔ RECORD AND RETHROW. Swallowing here would convert a crash into a silent success and hand the queue a
     // 2xx for work that did not happen — the exact inversion of what this row exists to prevent.
@@ -655,7 +726,7 @@ export async function processMessage(msg: UniverseMessageV2, opts: DeadlineOpts 
         `observer — it did not fail, it became unreadable. NOT rethrown: a throw from finally would replace the real error.`)
     }
   }
-  return { requestsOpened }
+  return { requestsOpened, unresolvedPastWall }
 }
 
 /**

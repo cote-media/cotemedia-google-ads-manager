@@ -8,7 +8,7 @@
 >
 > ⛔ **EVERY FACTUAL LINE HERE IS VERIFIED AGAINST THE CODE, and is dated.** If a line and the code disagree,
 > THE CODE IS RIGHT and this file is stale — say so and fix it the same day.
-> Last verified against the code: **2026-09-17**
+> Last verified against the code: **2026-09-18**
 
 ---
 
@@ -86,6 +86,11 @@ eight minutes of stepping, then the next minute's pump resumes). **The run never
 This project's Vercel deployment addresses sit behind Vercel's login wall (the custom domain does not), and an
 automated call to one is answered with a login page, not an error; so the run calls the capture code directly
 inside the same process (ruled 2026-09-17). Nothing starts a run yet except an operator — no button.
+Before the surfaces are asked about a window, the engine asks Google once, at the account level, whether the account did
+anything in it; a window with no activity is retired for every surface on that one answer, and a window with any activity
+is walked surface by surface (ruled 2026-09-18). Google has published a limit — daily data older than thirty-seven months
+becomes unavailable — that the API was not yet applying on 2026-09-18; a daily canary request checks whether that has
+changed, and until it says the data is still served, nothing older than the limit is asked or retired (ruled 2026-09-18).
 
 ---
 

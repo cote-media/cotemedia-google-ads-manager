@@ -22,6 +22,7 @@ import type { FireAnswer } from '@/lib/backfill/universe-run-fire'
 export type RunRow = {
   status: 'running' | 'stopping' | 'done' | 'failed'
   started_at: string
+  finished_at: string | null
   steps: number
   requests_opened: number
   days_committed: number
@@ -59,24 +60,25 @@ export async function runOneStep(a: { clientId: string; vendor: string; fire: ()
     step: 0, stepMs: 0, scanMs: null, daysNoLongerOwed: 0, requestsOpened: 0, atFloor: false,
   }
   const { data: row, error: rowErr } = await supabaseAdmin.from('universe_run')
-    .select('status, started_at, steps, requests_opened, days_committed, steps_without_progress')
+    .select('status, started_at, finished_at, steps, requests_opened, days_committed, steps_without_progress')
     .eq('client_id', clientId).eq('vendor', vendor).maybeSingle()
   const run = row as RunRow | null
   if (rowErr || !run) {
     return { ...base, chained: false, status: 'failed', reason: rowErr ? `run row unreadable: ${rowErr.message}` : 'no run for this lane', casLost: false, noRun: !rowErr }
   }
-  if (run.status === 'done' || run.status === 'failed') {
-    return { ...base, step: run.steps, chained: false, status: run.status, reason: `run is already ${run.status}`, casLost: false }
+  if (run.status === 'done' || run.status === 'failed' || run.finished_at) {
+    return { ...base, step: run.steps, chained: false, status: run.status, reason: `run is already ${run.status}${run.finished_at ? ` (finished ${run.finished_at})` : ''}`, casLost: false }
   }
 
   const stepStartedAt = new Date().toISOString()
   const t0 = Date.now()
   const invocation = `${t0}-${Math.random().toString(36).slice(2, 8)}`
 
-  // ⛔ CLAIM THE LANE AT STEP START. The pump's picker treats a lane touched inside the reserve window as busy, and
-  // last_step_at is written only at step END — so a lane whose FIRST step was in flight looked free to the next minute's
-  // pump, which fired into the lease, read "lease-held" as the floor, and ended the run (measured 21:54Z). The claim is
-  // `updated_at = now` under the same compare-and-set; a loser here exits before it fires anything.
+  // ⛔ CLAIM THE LANE AT STEP START — AND THE CLAIM IS `last_invocation`, CLEARED AT STEP END. The picker treats a lane
+  // as busy only while a claim is LIVE (last_invocation set AND updated_at inside the reserve window); a lane whose step
+  // has ENDED is free at once. The first cut keyed the busy window on updated_at alone, so every finished slice looked
+  // busy for 320 s more and the START's own write cost the first step 5 min 49 s (measured 2026-09-17: 40% idle).
+  // Under the same compare-and-set; a loser here exits before it fires anything.
   const { data: claimed, error: claimErr } = await supabaseAdmin.from('universe_run')
     .update({ updated_at: stepStartedAt, last_invocation: invocation })
     .eq('client_id', clientId).eq('vendor', vendor).eq('steps', run.steps)
@@ -145,7 +147,7 @@ export async function runOneStep(a: { clientId: string; vendor: string; fire: ()
       days_committed: run.days_committed + Math.max(0, committed),
       updated_at: new Date().toISOString(),
       last_step_at: new Date().toISOString(),
-      last_invocation: invocation,
+      last_invocation: null, // the claim is released: the lane is free the moment the step ends
       ...(verdict.chain ? {} : { status: verdict.status, finished_at: new Date().toISOString(), stop_reason: verdict.reason }),
     })
     .eq('client_id', clientId).eq('vendor', vendor).eq('steps', run.steps)

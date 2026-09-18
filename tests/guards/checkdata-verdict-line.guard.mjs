@@ -84,6 +84,7 @@ if (pkg && pkg.scripts?.['check:data'] !== 'node scripts/run-checkdata.mjs') {
 const EXPECTED_ROSTER = [
   'scripts/check-capture-landing.mjs --invariant-only --guard',
   'scripts/check-frozen-cursors.mjs --guard',
+  'scripts/check-retention-canary.mjs', // LORAMER_RETENTION_WALL_CANARY_V1 (2026-09-18)
   'tests/guards/canonical-client-identity.guard.mjs --db',
   'scripts/breakdown-reachability-check.mjs --gate',
   'scripts/check-completion-claims.mjs --guard',

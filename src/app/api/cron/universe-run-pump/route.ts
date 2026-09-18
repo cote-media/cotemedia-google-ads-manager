@@ -48,13 +48,16 @@ export async function GET(request: Request) {
   // A lane stepped inside the last reserve window is being advanced by another pump and is SKIPPED here rather than
   // raced: the first cut picked it anyway and lost the CAS after wasting a fire (measured 20:32Z: "step 26: another
   // pump owns this lane"). The CAS stays as the second lock.
-  // Busy = TOUCHED inside the reserve window: a step claims the lane by writing updated_at at its START (a lane whose
-  // first step is in flight has no last_step_at yet — that is how the second minute's pump fired into the lease).
+  // Busy = a LIVE CLAIM: last_invocation set by a step's start AND updated_at inside the reserve window. A step clears
+  // last_invocation when it ends, so a finished slice is free at once (the first cut keyed on updated_at alone and every
+  // slice sat idle 320 s more — measured 40% idle 2026-09-17). A claim whose invocation died expires with the window.
+  // finished_at IS NULL: a run that has ended is never picked, whatever status it ended under.
   const busyAfter = new Date(startedAt - STEP_RESERVE_MS).toISOString()
   const { data: runs, error } = await supabaseAdmin.from('universe_run')
-    .select('client_id, vendor, status, steps, last_step_at, updated_at')
+    .select('client_id, vendor, status, steps, last_step_at, updated_at, last_invocation')
     .in('status', ['running', 'stopping'])
-    .lt('updated_at', busyAfter)
+    .is('finished_at', null)
+    .or(`last_invocation.is.null,updated_at.lt.${busyAfter}`)
     .order('last_step_at', { ascending: true, nullsFirst: true })
     .limit(1)
   if (error) return NextResponse.json({ ok: false, error: `active-run read failed: ${error.message}` }, { status: 500 })

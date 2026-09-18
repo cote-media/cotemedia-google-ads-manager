@@ -64,6 +64,7 @@ const ROOT = process.env.LORAMER_GUARD_ROOT || process.cwd()
 const CHECKS = [
   { name: 'check-capture-landing', cmd: ['scripts/check-capture-landing.mjs', '--invariant-only', '--guard'] },
   { name: 'check-frozen-cursors', cmd: ['scripts/check-frozen-cursors.mjs', '--guard'] },
+  { name: 'check-retention-canary', cmd: ['scripts/check-retention-canary.mjs'] }, // LORAMER_RETENTION_WALL_CANARY_V1 — the canary is fresh and SERVED, and no empty past the wall was left unresolved
   { name: 'canonical-client-identity', cmd: ['tests/guards/canonical-client-identity.guard.mjs', '--db'] },
   { name: 'breakdown-reachability', cmd: ['scripts/breakdown-reachability-check.mjs', '--gate'] },
   { name: 'check-completion-claims', cmd: ['scripts/check-completion-claims.mjs', '--guard'] },

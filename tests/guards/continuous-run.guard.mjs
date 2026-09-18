@@ -66,6 +66,11 @@ try {
   const heldAtFloor = M.decideChain(S(), O({ daysNoLongerOwed: 0, requestsOpened: 0, held: 'fire lease held by x since y', atFloor: true }))
   if (heldAtFloor.chain !== true) findings.push(`(c-0) ⛔ A HELD STEP ENDED THE RUN AS ${JSON.stringify(heldAtFloor)}. A lease-held fire scanned nothing; reading it as the floor ended a run that had 60 candidates.`)
 
+  // (c-1) LORAMER_RUN_CLAIM_STAMP_V1 — a stopping run ends TERMINAL ('done'), never as 'stopping': the picker selects
+  // 'stopping' and the step advances it, so a stopped run was re-fired every ~6 min forever (measured 2026-09-18 00:26Z)
+  const stopped = M.decideChain(S({ status: 'stopping' }), O({ daysNoLongerOwed: 5, requestsOpened: 60 }))
+  if (stopped.chain !== false || stopped.status !== 'done') findings.push(`(c-1) ⛔ an operator's stop ended the run as ${JSON.stringify(stopped)} — it must end chain:false status:'done' (terminal), or the pump picks it again.`)
+
   // (c) only atFloor ends as done
   const floor = M.decideChain(S(), O({ atFloor: true, daysNoLongerOwed: 0 }))
   if (floor.chain !== false || floor.status !== 'done') findings.push(`(c) reaching the floor did not end the run as done: ${JSON.stringify(floor)}.`)
@@ -132,7 +137,8 @@ try {
 
   // (d) operator stop wins even while healthy
   const stopping = M.decideChain(S({ status: 'stopping' }), O())
-  if (stopping.chain !== false || stopping.status !== 'stopping') {
+  // LORAMER_RUN_CLAIM_STAMP_V1 (2026-09-18): the stop ends TERMINAL — status 'done', never 'stopping' (see (c-1))
+  if (stopping.chain !== false || stopping.status !== 'done') {
     findings.push(`(d) an operator stop did not end the chain while the run was doing well: ${JSON.stringify(stopping)}. A stop that can be outvoted by progress is not a stop.`)
   }
   if (!/finished rather than being killed/.test(stopping.reason)) {

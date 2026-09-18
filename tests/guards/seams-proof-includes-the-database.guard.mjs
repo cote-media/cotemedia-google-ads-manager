@@ -36,6 +36,7 @@ const findings = []
 // ── ALLOWLIST — each entry says WHY this union cannot take the 23514 hit. "It probably doesn't" is not a
 // reason; the reason must name where the value goes. Adding a union here is a claim someone can check.
 const NOT_A_DB_ENUM = {
+  CanaryState: 'retention-wall.ts — the canary state is persisted only INSIDE capture_pass_log.detail (a text JSON blob, no CHECK); the constrained column, outcome, is written as ok|error, both inside capture_pass_log_outcome_chk (verified against pg_constraint 2026-09-18). A widened union changes the JSON, never the constrained value.',
   CronMode: 'cron_runs.mode — the column carries no CHECK constraint (verified against pg_constraint 2026-08-17), so a widened union cannot be rejected. If a constraint is ever added, register the pair instead of extending this note.',
   CronTrigger: 'cron_runs.trigger — same table, same absence of a CHECK constraint.',
   ConnAuthClass: 'connection-health classification computed for DISPLAY and for the health JSON blob; it is not the domain of any constrained column.',

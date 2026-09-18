@@ -72,6 +72,7 @@ export async function GET(request: Request) {
       client_id: clientId, vendor, status: 'running', started_at: nowIso, updated_at: nowIso,
       finished_at: null, steps: 0, requests_opened: 0, days_committed: 0, steps_without_progress: 0,
       stop_reason: null, last_step_at: null,
+      last_invocation: null, // no claim: the next minute's pump may take the lane at once
     }, { onConflict: 'client_id,vendor' })
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
     // ⛔ NO KICK. The pump (cron, every minute) picks this run up; a request from here to our own deployment is the

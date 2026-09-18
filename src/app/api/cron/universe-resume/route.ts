@@ -96,6 +96,10 @@ import {
   addDaysISO,
   type LastAttempt,
 } from '@/lib/backfill/universe-resumer'
+// LORAMER_RETENTION_WALL_CANARY_V1 — the fire reads the canary once; past the wall it spends nothing without a green one.
+import { readRetentionCanary, wallLineFor, isPastWall } from '@/lib/backfill/retention-wall'
+// LORAMER_IDLE_SKIP_V1 — the per-fire memo is CREATED here (pure) and asked INSIDE the worker; this route still fetches nothing.
+import { createIdleMemo } from '@/lib/backfill/universe-idle-skip'
 import { boundaryDaysFor } from '@/lib/backfill/lookback-boundary' // LORAMER_LOOKBACK_LANE_V1 — the boundary, read from the store per account per fire
 import { enumerateGoogleHoles } from '@/lib/backfill/google-hole-map' // LORAMER_MISSED_DAY_WALK_V1 — the fourth lane's candidates come from the hole map, never from the clock
 import { readMissedCursor, writeMissedCursor } from '@/lib/backfill/universe-missed-cursor' // LORAMER_MISSED_CURSOR_V1 — the enumeration resumes where the allowance cut it
@@ -335,6 +339,14 @@ export async function GET(request: Request) {
 
   const yesterday = addDays(new Date().toISOString().slice(0, 10), -1)
   const startedAt = Date.now()
+  // LORAMER_RETENTION_WALL_CANARY_V1 — the published wall (37 calendar months) and what the canary last saw past it.
+  const wallLine = wallLineFor(addDays(yesterday, 1))
+  const canary = await readRetentionCanary()
+  let pastWallHeld = 0        // descend windows past the wall refused this fire because the canary is not 'served'
+  let missedPastWallHeld = 0  // missed-lane windows past the wall dropped for the same reason
+  let unresolvedPastWall = 0  // empty answers past the wall the worker could not resolve this fire
+  // LORAMER_IDLE_SKIP_V1 — one memo per fire; the worker asks the account through it, once per window.
+  const idleMemo = createIdleMemo({ wallLine, canary: canary.state })
 
   // ── THE ROTATION — LORAMER_RESUMER_SCAN_ROTATES_V1 ────────────────────────────────────────────────────
   // ⛔ WHAT THIS FIXES, MEASURED BEFORE IT WAS CHANGED. The scan ran the catalog IN ORDER and broke at
@@ -633,6 +645,15 @@ export async function GET(request: Request) {
     }
     const { windowStart, windowEnd } = win
 
+    // ── ⛔ PAST THE WALL WITHOUT A GREEN CANARY: SPEND NOTHING — LORAMER_RETENTION_WALL_CANARY_V1 ────────────
+    // The answer would be unresolvable (an empty past the wall cannot be told from expiry without the canary's
+    // proof), so the request is not made. Recorded as a refusal; re-admitted the moment the canary reads 'served'.
+    if (isPastWall(windowEnd, wallLine) && canary.state !== 'served') {
+      pastWallHeld++
+      refusals.push({ label, verdict: 'past-wall-unverified', reason: `window ${windowStart}..${windowEnd} is past the retention wall ${wallLine} and the canary reads ${canary.state} (${canary.detail}) — no request spent; re-admitted when the canary is green` })
+      continue
+    }
+
     let owed
     if (lastCoverage !== null && !anchor.receded && windowStart === String(rot!.last_window_start) && windowEnd === String(rot!.last_window_end)) {
       // The recede gate already answered this exact window — do not pay for the same probes twice.
@@ -820,6 +841,13 @@ export async function GET(request: Request) {
           }
         }
         missed.sort((a, b) => (a.windowStart < b.windowStart ? -1 : a.windowStart > b.windowStart ? 1 : 0))
+        // LORAMER_RETENTION_WALL_CANARY_V1 — the same refusal for the fourth lane: a hole past the wall is not re-asked
+        // without a green canary (the answer could not resolve it), and an UNRESOLVED_PAST_WALL day is exactly such a hole.
+        if (canary.state !== 'served') {
+          const kept = missed.filter((m) => !isPastWall(m.windowEnd, wallLine))
+          missedPastWallHeld = missed.length - kept.length
+          missed.length = 0; missed.push(...kept)
+        }
       }
     } catch (e: any) {
       refusals.push({ label: '(missed lane)', verdict: 'missed-enumeration-error', reason: String(e?.message ?? e) })
@@ -903,7 +931,7 @@ export async function GET(request: Request) {
   // 300,000 ms kill. Counting from `startedAt` makes any scan overrun come out of capture automatically.
   // `captureStartedAt` survives for REPORTING only (capture-phase elapsed in the instrument) and MUST
   // NOT be used for admission — `fire-deadline-from-fire-start.guard.mjs` fails the build if it is.
-  const unitOpts: DeadlineOpts = { deadlineAt: fireDeadlineAt(startedAt) }
+  const unitOpts: DeadlineOpts = { deadlineAt: fireDeadlineAt(startedAt), idle: idleMemo, canary, onUnresolvedPastWall: () => { unresolvedPastWall++ } }
   // ── ⛔ THE LOOKBACK SLOT — LORAMER_LOOKBACK_LANE_V1, OBSERVE-ONLY UNTIL STOP-AND-CONFIRM 2 ─────────────────
   // Every derived window is logged with the boundary it was derived against and where that boundary came from, so
   // a real tick can be read against the docs before anything is sent. The instrument below carries the tallies.
@@ -1057,6 +1085,12 @@ export async function GET(request: Request) {
     // LORAMER_WALK_FLOOR_SEAL_V1 — sealedHeld = sealed surfaces skipped WITHOUT a slot; sealedThisFire =
     // seals WRITTEN (once-only evidence pairs). sealReadFailed non-null = exclusion failed open to scanning.
     sealedHeld, sealedThisFire, sealReadFailed,
+    // LORAMER_RETENTION_WALL_CANARY_V1 — the wall line, what the canary saw, and what was held or left unresolved because of it.
+    retentionWallLine: wallLine, retentionCanary: canary.state, retentionCanaryAt: canary.at, pastWallHeld, missedPastWallHeld, unresolvedPastWall,
+    // LORAMER_IDLE_SKIP_V1 — account-level checks this fire: windows asked (one request each), verdicts, and what they retired.
+    idleWindowsAsked: idleMemo.stats.windowsAsked, idleRequestsSpent: idleMemo.stats.requestsSpent,
+    idleWindowsIdle: idleMemo.stats.idle, idleWindowsActive: idleMemo.stats.active, idleWindowsUnknown: idleMemo.stats.unknown,
+    idleSurfacesRetired: idleMemo.stats.surfacesRetired, idleDaysRetired: idleMemo.stats.daysRetired,
     receded: published.filter((p) => p.receded).length,
     oldestWindowStart: published.reduce<string | null>((m, p) => {
       const s = String(p.window).slice(0, 10); return m === null || s < m ? s : m

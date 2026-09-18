@@ -143,7 +143,13 @@ try {
   const upd = [...step.matchAll(/\.update\(\{([\s\S]*?)\}\)\s*\n\s*\.eq\('client_id'/g)].map((m) => m[1]).find((u) => /verdict\.chain/.test(u)) ?? ''
   check(upd.length > 0 && !/^\s*status:/m.test(upd) && /verdict\.chain \? \{\} : \{ status: verdict\.status/.test(upd), `(vii) ${STEP_LIB}'s chaining update writes \`status\`. It would write the status it READ back over an operator's stop; only an ending step may write status.`)
   // the picker skips a lane stepped inside the last reserve window
-  check(/\.lt\('updated_at',\s*busyAfter\)/.test(pump), `(vii) ${PUMP_ROUTE}'s picker does not skip a lane TOUCHED inside the reserve window (updated_at). last_step_at is written at step END, so a lane whose first step is in flight looks free — the second pump then fires into the lease (measured 21:54Z).`)
+  // LORAMER_RUN_CLAIM_STAMP_V1 — busy = a LIVE claim (last_invocation set AND updated_at inside the reserve window); a finished
+  // step clears the claim so the lane is free at once; a run with finished_at is never picked, whatever its status.
+  check(/\.is\('finished_at',\s*null\)/.test(pump), `(vii) ${PUMP_ROUTE}'s picker does not exclude finished runs (.is('finished_at', null)). A stopped run ended as 'stopping'+finished_at and was re-fired every ~6 min (measured 2026-09-18 00:26Z).`)
+  check(/\.or\(`last_invocation\.is\.null,updated_at\.lt\.\$\{busyAfter\}`\)/.test(pump) && !/\.lt\('updated_at',\s*busyAfter\)/.test(pump), `(vii) ${PUMP_ROUTE}'s picker must treat a lane as busy ONLY under a live claim (last_invocation set and updated_at inside the reserve) — keying on updated_at alone left every finished slice idle 320 s more (measured 40% idle 2026-09-17).`)
+  check(/last_invocation: null, \/\/ the claim is released/.test(step), `(vii) ${STEP_LIB}'s end write must clear last_invocation — the claim is released the moment the step ends.`)
+  check(/run\.finished_at\) \{/.test(step) && /select\('status, started_at, finished_at,/.test(step), `(vii) ${STEP_LIB} must read finished_at and exit on a finished run without firing.`)
+  check(/last_invocation: null, \/\/ no claim/.test(read(RUN_ROUTE)), `(vii) ${RUN_ROUTE}'s start must write no claim (last_invocation null) so the next minute's pump may take the lane at once — the start's own write cost the first step 5 min 49 s (measured 2026-09-17).`)
   // the step claims the lane at START under the same compare-and-set, before it fires anything
   const claim = /\.update\(\{\s*updated_at:\s*stepStartedAt[^}]*\}\)[\s\S]{0,200}\.eq\('steps',\s*run\.steps\)/.test(step)
   check(claim, `(vii) ${STEP_LIB} does not claim the lane at step start (update updated_at under the steps compare-and-set) before firing. Without the claim the picker cannot see an in-flight first step.`)

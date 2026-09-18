@@ -97,6 +97,11 @@ module.exports = {
   checkDiskFloor: async () => ({ ok: true, freeBytes: 1e12, reason: 'fixture' }),
   // universe-vendor-stream
   googleAdsStreamFor: async () => (async function* () {}),
+  // retention-wall (LORAMER_RETENTION_WALL_CANARY_V1) — the fixture walks above the wall; the canary reads served
+  wallLineFor: () => '2023-08-18', readRetentionCanary: async () => ({ state: 'served', at: null, ageMs: 0, detail: 'fixture' }),
+  classifyEmptyAnswer: ({ rangeEnd, wallLine, canary }) => (rangeEnd < wallLine && canary !== 'served' ? 'unresolved' : 'zero'), UNRESOLVED_PAST_WALL_MARKER: 'UNRESOLVED_PAST_WALL',
+  // universe-idle-skip (LORAMER_IDLE_SKIP_V1) — no memo is passed by these fixtures, so the skip never runs
+  ACCOUNT_ACTIVITY_RESOURCE: '__account_activity', IDLE_ATTESTED_MARKER: 'IDLE_ATTESTED_BY_ACCOUNT',
   // universe-v2-contract
   VENDOR: 'google', MAX_ATTEMPTS_AT_MIN_SPAN: 3, NARROW_AFTER_ATTEMPTS: 2, EMPTY_STRETCH_REPORT_AFTER: 400, CONSUMER_MAX_DURATION_S: 300, UNIT_RESERVATION_FLOOR_MS: 0,
   // google-quota-store / universe-quota-hold

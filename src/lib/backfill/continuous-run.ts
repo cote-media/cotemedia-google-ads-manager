@@ -64,7 +64,7 @@ export type RunState = {
 
 export type ChainVerdict =
   | { chain: true; reason: string }
-  | { chain: false; status: 'done' | 'failed' | 'stopping'; reason: string }
+  | { chain: false; status: 'done' | 'failed'; reason: string }
 
 /**
  * ⛔ THE NO-PROGRESS STOP IS A WINDOW OF TIME SPENT ASKING — LORAMER_RUN_STOP_LIMITS_ARE_TIME_V1 (Russ, 2026-09-17).
@@ -108,7 +108,10 @@ export const RUN_CEILING_MS = 180_000_000
 export function decideChain(state: RunState, out: StepOutcome): ChainVerdict {
   if (out.fatal) return { chain: false, status: 'failed', reason: `step reported a fatal condition: ${out.fatal}` }
   if (state.status === 'stopping') {
-    return { chain: false, status: 'stopping', reason: 'operator asked the run to stop; the step that was already running finished rather than being killed mid-work' }
+    // ⛔ A STOPPED RUN ENDS TERMINAL. It used to end as 'stopping' with finished_at set — a status the pump's picker
+    // still selects and the step still advances, so a stopped run was re-fired every ~6 minutes forever (measured
+    // 2026-09-18 00:26Z, closed by hand at 00:29Z). 'done' is terminal; the reason says it was an operator's stop.
+    return { chain: false, status: 'done', reason: 'operator asked the run to stop; the step that was already running finished rather than being killed mid-work' }
   }
   // ⛔ A HELD STEP IS NEVER THE FLOOR. Decided before atFloor on purpose: a lease-held or quota-held fire answers with
   // no instrument, and "no candidates" from a fire that did not scan is not "nothing owed" (measured 2026-09-17 21:54Z:
