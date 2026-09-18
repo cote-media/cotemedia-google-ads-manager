@@ -79,7 +79,7 @@ import { ACCOUNT_ACTIVITY_RESOURCE, IDLE_ATTESTED_MARKER, type IdleMemo } from '
 // any non-Route export from a route file ("TOPIC is not a valid Route export field") — and `tsc --noEmit`
 // passes it clean, so only `npm run build` catches it. It is also the right shape: a publisher needs the
 // topic and the message type without dragging a handler and its maxDuration into scope.
-import { VENDOR, MAX_ATTEMPTS_AT_MIN_SPAN, NARROW_AFTER_ATTEMPTS, EMPTY_STRETCH_REPORT_AFTER, CONSUMER_MAX_DURATION_S, UNIT_RESERVATION_FLOOR_MS, type UniverseMessageV2 } from '@/lib/backfill/universe-v2-contract'
+import { mintUnitInvocationId, VENDOR, MAX_ATTEMPTS_AT_MIN_SPAN, NARROW_AFTER_ATTEMPTS, EMPTY_STRETCH_REPORT_AFTER, CONSUMER_MAX_DURATION_S, UNIT_RESERVATION_FLOOR_MS, type UniverseMessageV2 } from '@/lib/backfill/universe-v2-contract'
 // ⛔ LORAMER_V2_QUOTA_SENTINEL_WIRED_V1 — the SHARED predicate, imported, never re-derived. `holdGoogleWork`
 // and not `.paused`: LORAMER_QUOTA_READ_SPLIT_STATE_V1 exists because an UNREADABLE sentinel returns
 // paused:false, and a lane that tests `.paused` spends the fleet's quota against a pause it could not see.
@@ -712,7 +712,7 @@ export async function processMessage(msg: UniverseMessageV2, opts: DeadlineOpts 
   // the message alone can tell delivery #1's terminal row from delivery #2's later range rows.
   const prov: WriteProvenance = {
     messageKey: msg.messageKey ?? null,
-    invocationId: randomUUID(),
+    invocationId: mintUnitInvocationId(msg.fireInvocationId ?? null, randomUUID), // LORAMER_OWN_INVOCATION_METER_V1 — prefixed with the fire's id when it rides the message
     // ⛔ THE LANE IS MINTED HERE, ONCE, WITH THE REST OF THE PROVENANCE — LORAMER_TOP_EDGE_ATTESTS_BY_MESSAGE_V1.
     // Every append in this route threads `prov`, so stamping it here is what makes the terminal rows agree
     // with the `attempt_started` row instead of silently taking the column default. The first cut passed the

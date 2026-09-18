@@ -517,29 +517,38 @@ export function daysNoLongerOwedFromClosures(records: ClosureRecord[]): number {
  * ⛔ THROWS on an unreadable ledger. Zero from a failed read would let a broken read end a healthy run through
  * the no-progress bound; the caller decides what an unknown means (it chains).
  */
-export async function daysNoLongerOwedSince(k: { clientId: string; vendor: string }, sinceIso: string): Promise<number> {
+export async function daysNoLongerOwedSince(
+  k: { clientId: string; vendor: string }, sinceIso: string,
+  /** LORAMER_OWN_INVOCATION_METER_V1 — when set, only rows whose invocation_id starts `${prefix}:` count (one fire's own). */
+  opts: { invocationPrefix?: string | null } = {},
+): Promise<number> {
   const records: ClosureRecord[] = []
+  const prefix = opts.invocationPrefix ? `${opts.invocationPrefix}:%` : null
 
   // (1) Days committed by any lane but the lookback. A head-count: one row per (surface, day) per attempt, so the
   // count cannot be page-capped the way a row read can (the 1,000-row cap this file's header names).
-  const { count, error: cErr } = await supabaseAdmin
+  let committedQ = supabaseAdmin
     .from('universe_attempt_log')
     .select('id', { count: 'exact', head: true })
     .eq('client_id', k.clientId).eq('vendor', k.vendor)
     .eq('phase', 'day_committed')
     .neq('lane', 'lookback')
     .gte('recorded_at', sinceIso)
+  if (prefix) committedQ = committedQ.like('invocation_id', prefix)
+  const { count, error: cErr } = await committedQ
   if (cErr) throw new Error(`[universe-coverage] progress read (day_committed) failed: ${cErr.message}. ⛔ PROGRESS MUST NOT BE SYNTHESISED FROM A FAILED READ.`)
   records.push({ kind: 'committed', lane: 'descend', days: count ?? 0 })
 
   // (2) Terminals that attest — few by construction (one per attempt), lane resolved from the attempt_started row
   // of the same message, exactly as attestedEmptyDays does, because terminal rows do not carry the lane truthfully.
-  const { data, error: tErr } = await supabaseAdmin
+  let terminalsQ = supabaseAdmin
     .from('universe_attempt_log')
     .select('window_start, window_end, message_key, invocation_id')
     .eq('client_id', k.clientId).eq('vendor', k.vendor)
     .eq('phase', 'attempt_finished').in('outcome', ['zero', 'nongrain'])
     .gte('recorded_at', sinceIso)
+  if (prefix) terminalsQ = terminalsQ.like('invocation_id', prefix)
+  const { data, error: tErr } = await terminalsQ
   if (tErr) throw new Error(`[universe-coverage] progress read (attested) failed: ${tErr.message}. ⛔ PROGRESS MUST NOT BE SYNTHESISED FROM A FAILED READ.`)
   const terminals = (data ?? []) as Array<{ window_start: string; window_end: string; message_key: string | null; invocation_id: string | null }>
   const keys = [...new Set(terminals.map((r) => r.message_key).filter((x): x is string => !!x))]

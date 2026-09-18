@@ -108,7 +108,9 @@ export interface RunRowLike {
   last_invocation?: string | null
 }
 export interface RunView {
-  status: string; steps: number; requestsOpened: number; daysCommitted: number
+  status: string; steps: number; requestsOpened: number
+  /** The run's own days no longer owed (universe_run.days_committed) — named for what it measures, never 'committed'. */
+  daysNoLongerOwed: number
   startedAt: string; lastStepAt: string | null; finishedAt: string | null; stopReason: string | null
   endKind: RunEndKind | null
   /** running or stopping with no finished_at. ⛔ finished_at WINS over a stale last_invocation left on an ended row. */
@@ -125,7 +127,7 @@ export function runView(row: RunRowLike | null | undefined, nowMs: number): RunV
   const idleMin = Number.isFinite(lastClock) ? (nowMs - lastClock) / 60_000 : null
   const stalled = live && idleMin !== null && idleMin > RUN_STALL_MINUTES
   return {
-    status: row.status, steps: row.steps, requestsOpened: row.requests_opened, daysCommitted: row.days_committed,
+    status: row.status, steps: row.steps, requestsOpened: row.requests_opened, daysNoLongerOwed: row.days_committed,
     startedAt: row.started_at, lastStepAt: row.last_step_at, finishedAt: row.finished_at, stopReason: row.stop_reason,
     endKind: endKindOf({ status: row.status, stopReason: row.stop_reason, finishedAt: row.finished_at }),
     live, stalled, stalledForMinutes: stalled && idleMin !== null ? Math.floor(idleMin) : null,

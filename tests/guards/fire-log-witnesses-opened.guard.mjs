@@ -104,6 +104,7 @@ module.exports = {
   // universe-idle-skip (LORAMER_IDLE_SKIP_V1) — no memo is passed by these fixtures, so the skip never runs
   ACCOUNT_ACTIVITY_RESOURCE: '__account_activity', IDLE_ATTESTED_MARKER: 'IDLE_ATTESTED_BY_ACCOUNT',
   // universe-v2-contract
+  mintUnitInvocationId: (f, u) => (f ? f + ':' + u() : u()), // LORAMER_OWN_INVOCATION_METER_V1
   VENDOR: 'google', MAX_ATTEMPTS_AT_MIN_SPAN: 3, NARROW_AFTER_ATTEMPTS: 2, EMPTY_STRETCH_REPORT_AFTER: 400, CONSUMER_MAX_DURATION_S: 300, UNIT_RESERVATION_FLOOR_MS: 0,
   // google-quota-store / universe-quota-hold
   readGoogleQuotaPause: async () => ({ paused: false, state: 'not_blocked', until: null, since: null, reason: '' }), holdGoogleWork: () => false, recordQuotaHold: async () => {},

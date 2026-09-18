@@ -193,6 +193,12 @@ export interface UniverseMessageV2 {
    */
   messageKey?: string
   /**
+   * LORAMER_OWN_INVOCATION_METER_V1 — the FIRE's invocation id (universe-resume/route.ts mints one per fire). The worker
+   * prefixes every unit's own invocation id with it (`${fire}:${uuid}`), so the run's step can count the days ITS fire
+   * committed and no others — the rotation fires the same lane beside a run. Absent on the drive's messages.
+   */
+  fireInvocationId?: string
+  /**
    * ⛔ DEAD FIELD — the consumer NEVER reads it (universe-floor-execute-time.guard.mjs fails the build if it
    * does). The floor is resolved at EXECUTE time from universe_account_floor. The field survives only
    * because the resumer still writes it; removing it rides with ★V1-CONSUMER-STILL-ON-A-GLOBAL-FLOOR.
@@ -211,4 +217,13 @@ export interface UniverseMessageV2 {
    * saying "walk to epoch anyway, eyes open". It is never set by code; no default ever supplies it.
    */
   walkToEpoch?: boolean
+}
+
+/**
+ * LORAMER_OWN_INVOCATION_METER_V1 — PURE. The unit's invocation id: unique per delivery (the uuid), prefixed with the
+ * fire's id when the message carries one, so a `like '<fire>:%'` on the ledger selects one fire's rows and nothing else.
+ */
+export function mintUnitInvocationId(fireInvocationId: string | null | undefined, uuid: () => string): string {
+  const u = uuid()
+  return fireInvocationId ? `${fireInvocationId}:${u}` : u
 }

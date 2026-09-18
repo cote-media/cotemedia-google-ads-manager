@@ -512,6 +512,7 @@ const GUARDS = [
   'tests/guards/run-end-kind.guard.mjs', // LORAMER_RUN_END_KIND_V1 — every way a run ends has a named kind (floor / stopped / failed); the two 'done' reasons are constants
   'tests/guards/status-run-fields.guard.mjs', // LORAMER_STATUS_RUN_FIELDS_V1 — the readout carries run/progress/stalled additively; finished_at wins over a stale claim; a dead pump reads stalled (10 min)
   'tests/guards/one-click-start-once.guard.mjs', // LORAMER_ONE_CLICK_RUN_V1 — the press starts the run once (DB-conditional; a live row returns unchanged; floor-done + complete is the meter); preflight keys the token on the connection's email
+  'tests/guards/own-invocation-meter.guard.mjs', // LORAMER_OWN_INVOCATION_METER_V1 — the fire id rides the body and the message, the unit id is prefixed with it, the run's step counts only its own fire's days
   'tests/guards/resume-digest-freshness.guard.mjs',
 ]
 

@@ -71,7 +71,7 @@ if (M) {
   }
   const live = mk(row({ status: 'running', finished_at: null, stop_reason: null, steps: 7, days_committed: 900 }))
   const r1 = await M.startClientRun({ clientId: 'c', vendor: 'google_ads', readout: 'partial', nowMs: NOW }, live.deps)
-  check(r1.action === 'existing' && live.st.inserts === 0 && live.st.restarts === 0 && r1.run.steps === 7 && r1.run.daysCommitted === 900, `(b) a live row must write nothing and come back with its counters intact — got ${JSON.stringify(r1)} writes ${live.st.inserts}/${live.st.restarts}`)
+  check(r1.action === 'existing' && live.st.inserts === 0 && live.st.restarts === 0 && r1.run.steps === 7 && r1.run.daysNoLongerOwed === 900, `(b) a live row must write nothing and come back with its counters intact — got ${JSON.stringify(r1)} writes ${live.st.inserts}/${live.st.restarts}`)
   const stopped = mk(row({}))
   const r2 = await M.startClientRun({ clientId: 'c', vendor: 'google_ads', readout: 'partial', nowMs: NOW }, stopped.deps)
   check(r2.action === 'restart' && stopped.st.restarts === 1 && r2.run.steps === 0 && r2.run.live === true, `(b) a stopped row must restart (conditional update) — got ${JSON.stringify(r2)}`)

@@ -40,9 +40,11 @@ export type StepReport = PumpStepResult & {
 }
 
 /** -1 = UNREADABLE (the caller chains); never 0 from a failed read. */
-async function daysNoLongerOwedThisStep(clientId: string, vendor: string, sinceIso: string): Promise<number> {
+async function daysNoLongerOwedThisStep(clientId: string, vendor: string, sinceIso: string, fireId: string | null): Promise<number> {
   try {
-    return await daysNoLongerOwedSince({ clientId, vendor: ledgerVendorFor(vendor) }, sinceIso)
+    // LORAMER_OWN_INVOCATION_METER_V1 — the run row counts ITS fire's days (rows stamped `${fireId}:%`); the rotation's
+    // fire beside it is not this run's. A fire that did not answer with its id (an older deployment) counts unscoped.
+    return await daysNoLongerOwedSince({ clientId, vendor: ledgerVendorFor(vendor) }, sinceIso, { invocationPrefix: fireId })
   } catch (e: any) {
     console.error(`[universe-run] progress unreadable for ${clientId}: ${e?.message ?? e}`)
     return -1
@@ -101,7 +103,8 @@ export async function runOneStep(a: { clientId: string; vendor: string; fire: ()
   }
   const stepMs = Date.now() - t0
 
-  const committed = fatal ? 0 : await daysNoLongerOwedThisStep(clientId, vendor, stepStartedAt)
+  const fireId: string | null = typeof body?.invocationId === 'string' && body.invocationId.length > 0 ? body.invocationId : null
+  const committed = fatal ? 0 : await daysNoLongerOwedThisStep(clientId, vendor, stepStartedAt, fireId)
   const inst = body?.instrument ?? {}
   // ⛔ AT FLOOR = NOTHING OWED ON ANY LANE, AND ONLY A FIRE THAT SCANNED CAN SAY SO. All three slots must be empty
   // AND the instrument must exist: a held or refused fire answers without one, and its "no candidates" is silence,
