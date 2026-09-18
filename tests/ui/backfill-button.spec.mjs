@@ -6,9 +6,11 @@
 // (LORAMER_UI_FLIGHT_GATE_A_MOUNTS_V1): a -next UI flight's Gate-A mounts the component at a phone-shaped viewport —
 // a render loop or a clipped state is invisible to source guards by construction.
 //
-// FIXTURES: /api/backfill/status is answered at the payload boundary with a scripted platforms.google for each state;
-// /api/clients/backfill is answered with { action: 'existing', run } and COUNTED (a second click while live must issue
-// no POST). Everything else is real: the dev server, the session, the client's other data.
+// FIXTURES: /api/backfill/status is answered WHOLLY at the payload boundary with a scripted platforms.google for each state
+// (the real route's shape is pinned by status-run-fields.guard.mjs — not this spec's job, and the real read takes long
+// enough on a dev server that the first render raced it: measured 2026-09-18); /api/clients/backfill is answered with
+// { action: 'existing', run } and COUNTED (a second click while live must issue no POST). Everything else is real: the dev
+// server, the session, the client's connections (the per-platform buttons come from those).
 import { chromium } from '@playwright/test'
 import { loadLocalEnv, sessionTokenFor, phoneContext } from '../browser/session.mjs'
 
@@ -33,6 +35,14 @@ const STATES = {
 
 const token = await sessionTokenFor(OWNER)
 const browser = await chromium.launch()
+// WARM-UP: the dev server compiles the profile page on first request (measured > 30 s); one plain load before the fixtures.
+{
+  const ctx = await phoneContext(browser, token)
+  const page = await ctx.newPage()
+  await page.goto(`${BASE}/dashboard-next/client-profile?clientId=${CLIENT}`, { waitUntil: 'domcontentloaded', timeout: 180_000 })
+  await page.waitForFunction(() => /Data history/.test(document.body.innerText), null, { timeout: 120_000 }).catch(() => {})
+  await ctx.close()
+}
 for (const [name, fx] of Object.entries(STATES)) {
   console.log(`\n── ${name} ──`)
   const ctx = await phoneContext(browser, token)
@@ -40,19 +50,18 @@ for (const [name, fx] of Object.entries(STATES)) {
   const counts = { status: 0, post: 0 }
   await page.route('**/api/backfill/status**', async (route) => {
     counts.status += 1
-    const res = await route.fetch()
-    const body = await res.json().catch(() => ({ platforms: {} }))
-    body.platforms = { ...(body.platforms || {}), google: fx.google }
-    await route.fulfill({ response: res, body: JSON.stringify(body) })
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ clientId: CLIENT, backfillable: true, platforms: { google: fx.google } }) }).catch(() => {})
   })
   await page.route('**/api/clients/backfill**', async (route) => {
     counts.post += 1
-    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ platform: 'google', action: fx.google.run?.live ? 'existing' : 'insert', run: fx.google.run ?? run({ steps: 0 }), note: 'fixture' }) })
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ platform: 'google', action: fx.google.run?.live ? 'existing' : 'insert', run: fx.google.run ?? run({ steps: 0 }), note: 'fixture' }) }).catch(() => {})
   })
-  await page.goto(`${BASE}/dashboard-next/client-profile?clientId=${CLIENT}`, { waitUntil: 'networkidle' })
+  await page.goto(`${BASE}/dashboard-next/client-profile?clientId=${CLIENT}`, { waitUntil: 'domcontentloaded', timeout: 120_000 })
   await page.waitForFunction(() => /Data history/.test(document.body.innerText), null, { timeout: 25_000 }).catch(() => {})
   const btn = page.locator('button[data-backfill-platform="google"]')
-  await btn.waitFor({ timeout: 10_000 }).catch(() => {})
+  await btn.waitFor({ timeout: 30_000 }).catch(() => {})
+  // the state text arrives with the status fetch, after the button (which comes from the connections read) — wait for it
+  await page.waitForFunction((src) => new RegExp(src).test(document.body.innerText), fx.expect.source, { timeout: 30_000 }).catch(() => {})
   const text = await page.locator('body').innerText()
   ok(`text renders: ${fx.expect}`, fx.expect.test(text))
   const disabled = await btn.isDisabled().catch(() => null)
@@ -80,6 +89,7 @@ for (const [name, fx] of Object.entries(STATES)) {
     await page.waitForTimeout(9000)
     ok('poll continues while the run is live (≥1 status read in 9 s)', counts.status > before, `status reads ${before}→${counts.status}`)
   }
+  await page.unrouteAll({ behavior: 'ignoreErrors' })
   await ctx.close()
 }
 await browser.close()
