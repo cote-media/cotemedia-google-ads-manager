@@ -621,12 +621,19 @@ export function appendLog({ records, sessionId, text, root }) {
     prev = sha256(line)
     n += 1
   }
-  return n
+  return { n, id: n ? id : null }
 }
 
 // ── ENTRY POINT — TOTAL FUNCTION ──────────────────────────────────────────────────────────────────────────
 function emitBlock(reason) { process.stdout.write(JSON.stringify({ decision: 'block', reason })); process.exit(0) }
-function emitAllow() { process.exit(0) }
+// LORAMER_ADVERSARY_UNTIL_CONVERGED_V1 (item 3) — THE ECHO. One plain-text line on allow. Vendor, verbatim
+// (code.claude.com/docs/en/hooks): "For most events, Claude Code writes stdout to the debug log and doesn't show it in
+// the transcript. The exceptions are UserPromptSubmit, UserPromptExpansion, SessionStart, and PostModelSwitch, where
+// Claude Code adds plain-text stdout as context that Claude can see and act on." and "Whether Claude Code reads your
+// stdout as JSON output or as plain text depends on how it starts and ends" — this line never starts with `{`, so it is
+// context, not a decision. The executor prints it as the report's footer (CLAUDE.md, the one-block law); Russ cites the
+// number it printed. No hookSpecificOutput (guard leg (c)); the block path is byte-identical.
+function emitAllow(echo) { if (echo) process.stdout.write(echo); process.exit(0) }
 
 async function main() {
   let raw = ''
@@ -673,14 +680,17 @@ async function main() {
   // — an override nobody can audit is the thing this gate exists to prevent. An unloggable REFUSAL must NOT
   // change the verdict: the paste is already being refused, and turning a logging fault into a second refusal
   // would tell Russ his paste was wrong when it was the disk that failed.
-  try { appendLog({ records, sessionId: input.session_id, text, root: ROOT }) }
+  let minted = null
+  try { minted = appendLog({ records, sessionId: input.session_id, text, root: ROOT }) }
   catch (e) {
     if ((res.applied || []).length) return emitBlock(`⛔ PROTOCOL GATE — an override was accepted but COULD NOT BE LOGGED (${e.message}). An unlogged override is exactly the thing this gate exists to prevent, so it refuses instead.`)
     console.error(`[protocol-gate] log write failed (verdict unchanged): ${e.message}`)
   }
 
   if (res.verdict === 'block') return emitBlock(renderRefusal(res, { text, promptKey }))
-  return emitAllow()
+  if (!records.length) return emitAllow() // exempt: not graded, not logged, no id — "go" is not a round
+  const title = String(res.header?.ROUND || '(no ROUND line)').split('\n')[0]
+  return emitAllow(minted?.id ? `round-id: ${minted.id} · ROUND ${title}` : `round-id: none — the gate could not write its log for this paste; re-send · ROUND ${title}`)
 }
 
 // Only run as a hook when executed directly; the guard imports this file for its fixtures.

@@ -66,7 +66,15 @@ function runGate(payload, root = SANDBOX) {
     env: { ...process.env, LORAMER_GATE_ROOT: root },
   })
   let out = null
-  if (r.stdout && r.stdout.trim()) { try { out = JSON.parse(r.stdout) } catch { out = { __unparsable: r.stdout.slice(0, 200) } } }
+  // LORAMER_ADVERSARY_UNTIL_CONVERGED_V1 (item 3) — THE ECHO. On allow the gate prints ONE plain-text line,
+  // `round-id: <n> · ROUND <title>`, which the vendor adds to the executor's context ("Claude Code adds plain-text
+  // stdout as context that Claude can see and act on" — code.claude.com/docs/en/hooks, UserPromptSubmit). It does not
+  // start with `{`, so it is never read as a decision. Anything else that is not JSON is still a fault.
+  if (r.stdout && r.stdout.trim()) {
+    const t = r.stdout.trim()
+    if (/^round-id: /.test(t)) out = { decision: 'allow', echo: t }
+    else { try { out = JSON.parse(t) } catch { out = { __unparsable: t.slice(0, 200) } } }
+  }
   return { status: r.status, out, stderr: r.stderr }
 }
 
@@ -221,6 +229,7 @@ const fixtures = [
 // ⛔ The override fixture would APPEND to the real log every guard run, so it is driven against a scratch
 // root: the enforcer resolves the log from LORAMER_GATE_ROOT. Never break-and-restore the real file
 // (★GUARD-BREAK-AND-RESTORE-IS-UNSAFE): a crash mid-run would leave the repo's own audit log mutated.
+const echoed = [] // item 3 — (sha, echoed id) pairs, cross-checked against the sandbox log in leg (h2)
 if (existsSync(SCRIPT)) {
   for (const f of fixtures) {
     const res = runGate({ prompt: f.text, session_id: 'guard' })
@@ -235,6 +244,12 @@ if (existsSync(SCRIPT)) {
       findings.push(`(e) fixture "${f.name}" was BLOCKED and must not be — reason: ${String(res.out.reason || '').slice(0, 220)}`)
     }
     if (res.out && res.out.__unparsable) findings.push(`(b) fixture "${f.name}" produced non-JSON stdout: ${res.out.__unparsable}`)
+    // item 3 — every GRADED allow echoes its minted id; exempt pastes (conversation, envelopes) are not graded and stay silent.
+    if (f.expect === 'allow' && !blocked && /^\s*(ROUND|QUESTION|BLAST):/m.test(f.text) && !/^\s*</.test(f.text)) {
+      const m = String(res.out?.echo || '').match(/^round-id: (\d+) · ROUND (.+)$/)
+      if (!m) findings.push(`(e2) fixture "${f.name}" was admitted WITHOUT the echo line \`round-id: <n> · ROUND <title>\` — the executor's report footer has nothing to print and Russ cannot cite the round.`)
+      else echoed.push({ sha: sha256(f.text), id: Number(m[1]) })
+    }
   }
 
   // ── (d2) THE IN-FLIGHT BOX, DRIVEN AGAINST A REAL TRANSCRIPT FILE ─────────────────────────────────────
@@ -305,6 +320,7 @@ if (existsSync(SCRIPT)) {
     }
     const max = Math.max(0, ...ids)
     for (let i = 1; i <= max; i++) if (!ids.has(i)) findings.push(`(h2) id ${i} is missing — ids must be dense (1 + max over the log), refused submissions included.`)
+    for (const e of echoed) if (shaOfId.get(e.id) !== e.sha) findings.push(`(h2) the echoed round-id ${e.id} does not name the paste it was printed for in the log — the echo must be the copy of the log line, never a second counter.`)
     const idsPerSha = new Map()
     for (const [id, sha] of shaOfId) idsPerSha.set(sha, (idsPerSha.get(sha) || 0) + 1)
     if (![...idsPerSha.values()].some((n) => n >= 2)) findings.push('(h2) the (d2) leg re-sends one flight text three times and every send must take a NEW id — the log shows one id per text, so an unchanged re-send after a refusal would inherit the refused standing.')
