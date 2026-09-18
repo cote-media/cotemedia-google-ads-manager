@@ -106,6 +106,8 @@ module.exports = {
   VENDOR: 'google', MAX_ATTEMPTS_AT_MIN_SPAN: 3, NARROW_AFTER_ATTEMPTS: 2, EMPTY_STRETCH_REPORT_AFTER: 400, CONSUMER_MAX_DURATION_S: 300, UNIT_RESERVATION_FLOOR_MS: 0,
   // google-quota-store / universe-quota-hold
   readGoogleQuotaPause: async () => ({ paused: false, state: 'not_blocked', until: null, since: null, reason: '' }), holdGoogleWork: () => false, recordQuotaHold: async () => {},
+  // walk-quota-store (LORAMER_WALK_QUOTA_SCOPE_V1) — no lane hold in these fixtures
+  readWalkLaneHold: async () => ({ held: false, state: 'clear', until: null, reason: null }), holdWalkLane: () => false,
   // lap-budget — scripted answers, then true
   shouldStartAnotherLap: () => { const a = W().lapAnswers; return a.length ? a.shift() : true },
 }

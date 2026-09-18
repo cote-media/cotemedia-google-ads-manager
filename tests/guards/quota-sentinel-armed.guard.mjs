@@ -127,9 +127,13 @@ for (const [file, fn, lane] of BOUNDARIES) {
   if (!existsSync(resolve(ROOT, file))) { findings.push(`(b) ${file} is missing — cannot verify the ${fn} boundary.`); continue }
   const src = code(file)
   if (!new RegExp(`${fn}\\b`).test(src)) { findings.push(`(b) ${file} no longer defines ${fn} — the boundary list is stale.`); continue }
-  if (!/noteGoogleQuotaError/.test(src)) {
+  // LORAMER_WALK_QUOTA_SCOPE_V1: the fifth boundary (the walk) arms through armWalkQuota — scope-keyed, reaching the
+  // same fleet row via writeGoogleQuotaPause for DEVELOPER/scope-less refusals. The four live/legacy boundaries
+  // keep noteGoogleQuotaError unchanged.
+  const armsHere = file.endsWith('universe-vendor-stream.ts') ? /armWalkQuota\s*\(/.test(src) : /noteGoogleQuotaError/.test(src)
+  if (!armsHere) {
     findings.push(
-      `(b) ${file} (${fn}) observes Google rejections for ${lane} but does NOT call noteGoogleQuotaError. ` +
+      `(b) ${file} (${fn}) observes Google rejections for ${lane} but does NOT call ${file.endsWith('universe-vendor-stream.ts') ? 'armWalkQuota' : 'noteGoogleQuotaError'}. ` +
       `A quota error seen here would be lost, and every lane downstream keeps firing into an exhausted token.`)
   }
 }

@@ -63,6 +63,7 @@ import { sizeNextWindow, dayDiff } from '@/lib/backfill/universe-sizing'
 import {
   MAX_ATTEMPTS_AT_MIN_SPAN, LEASE_TTL_S, CONSUMER_MAX_DURATION_S,
   FIRE_WORK_BUDGET_MS, fireDeadlineAt, UNIT_RESERVATION_FLOOR_MS, UNIT_CONCURRENCY,
+  VENDOR as LEDGER_VENDOR, // LORAMER_WALK_QUOTA_SCOPE_V1 — the lane hold is keyed by the ledger's vendor spelling
   type UniverseMessageV2,
 } from '@/lib/backfill/universe-v2-contract'
 // ⛔ LORAMER_QUEUE_REMOVED_INLINE_WALK_V1 — THE FIRE EXECUTES ITS OWN SELECTION. `processMessage` is the
@@ -82,6 +83,7 @@ import { DRIVER_EXCLUDED_CLIENTS } from '@/lib/backfill/forward-driver'
 // ⛔ LORAMER_V2_QUOTA_SENTINEL_WIRED_V1 — the SHARED predicate. `holdGoogleWork`, never `.paused`.
 import { readGoogleQuotaPause, holdGoogleWork } from '@/lib/backfill/google-quota-store'
 import { recordQuotaHold } from '@/lib/backfill/universe-quota-hold' // LORAMER_V2_QUOTA_HOLD_IS_DURABLE_V1
+import { readWalkLaneHold, holdWalkLane } from '@/lib/backfill/walk-quota-store' // LORAMER_WALK_QUOTA_SCOPE_V1 — this lane's own hold
 import {
   assessCoverage, decideRepublish, boundedSelection,
   orderLeastRecentlyServed, pickLeastRecentlyServed, type ServedRow, // 2/2 B — one client per fire, never-served first
@@ -264,6 +266,23 @@ export async function GET(request: Request) {
         : `google quota paused until ${qp.until}`,
       quotaState: qp.state, quotaUntil: qp.until,
       note: 'Nothing published and nothing scanned. Owed-ness is DERIVED, so no state is lost by holding — the next run after the clock-based window elapses re-computes exactly the same answer.',
+      refusals: [],
+    })
+  }
+  // ⛔ LORAMER_WALK_QUOTA_SCOPE_V1 — THIS LANE'S OWN HOLD. An ACCOUNT-scoped refusal parked this client for the delay
+  // Google sent; the fleet row is untouched and every other lane keeps running. Same durable record, scope 'lane'.
+  const lh = await readWalkLaneHold({ clientId, vendor: LEDGER_VENDOR })
+  if (holdWalkLane(lh)) {
+    const lqp = { paused: lh.held, state: (lh.state === 'held' ? 'blocked' : lh.state === 'clear' ? 'not_blocked' : 'unknown') as 'blocked' | 'not_blocked' | 'unknown', until: lh.until, since: null, reason: lh.reason }
+    await recordQuotaHold({ lane: 'resumer', clientId, scope: 'lane', qp: lqp, wouldHaveDone: 'scan the catalog and publish owed windows' })
+    const hbErr = await fireHeartbeat({ fireOutcome: 'quota-hold', held: lh.state === 'unknown' ? `lane hold unreadable: ${lh.reason}` : `this lane held until ${lh.until} (ACCOUNT-scoped refusal)` })
+    return NextResponse.json({
+      ok: true, published: 0, scanned: 0, heartbeatError: hbErr,
+      held: lh.state === 'unknown'
+        ? `this lane's hold record is UNREADABLE — holding this lane (NOT a confirmed hold): ${lh.reason}`
+        : `this lane is held until ${lh.until} — Google named this account's own bucket; other lanes continue`,
+      quotaState: 'lane-hold', quotaUntil: lh.until,
+      note: 'Nothing published and nothing scanned for THIS client. The fleet sentinel is untouched. Owed-ness is DERIVED, so no state is lost by holding.',
       refusals: [],
     })
   }

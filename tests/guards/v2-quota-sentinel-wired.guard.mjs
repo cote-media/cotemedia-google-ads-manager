@@ -94,15 +94,22 @@ for (const [file, lane] of [[CONSUMER, 'consumer'], [RESUMER, 'resumer']]) {
     findings.push(`${VENDOR} is MISSING — the walk's only vendor boundary cannot be checked.`)
   } else {
     const src = strip(raw)
-    if (!/import[^\n]*\bnoteGoogleQuotaError\b/.test(src)) {
-      findings.push(`${VENDOR} DOES NOT IMPORT noteGoogleQuotaError — this is the FIFTH Google error boundary and the only one that never armed. google-quota-store.ts's own header names four and says a fifth "is NOT caught"; this is that fifth.`)
+    // LORAMER_WALK_QUOTA_SCOPE_V1 (route R2, 2026-09-18): the fifth boundary arms through the WALK's scope-keyed
+    // `armWalkQuota` (walk-quota-store.ts), which reaches the SAME fleet row through `writeGoogleQuotaPause` for
+    // DEVELOPER/scope-less refusals and holds ONE lane for ACCOUNT-scoped ones. `noteGoogleQuotaError` stays the
+    // arm of the four live/legacy boundaries and is byte-identical (walk-quota-scope.guard.mjs pins it).
+    if (!/import[^\n]*\barmWalkQuota\b[^\n]*walk-quota-store/.test(src)) {
+      findings.push(`${VENDOR} DOES NOT IMPORT armWalkQuota from ./walk-quota-store — this is the FIFTH Google error boundary and the only one that never armed. It must arm through the walk's scope-keyed hold (LORAMER_WALK_QUOTA_SCOPE_V1).`)
     }
-    if (!/\bnoteGoogleQuotaError\s*\(/.test(src)) {
-      findings.push(`${VENDOR} NEVER CALLS noteGoogleQuotaError(...). A quota refusal observed here must teach the whole fleet, or the walk is the one lane that can burn the developer-scope token silently.`)
+    if (!/\barmWalkQuota\s*\(/.test(src)) {
+      findings.push(`${VENDOR} NEVER CALLS armWalkQuota(...). A quota refusal observed here must hold the lane Google named (or the fleet), or the walk is the one lane that can burn the developer-scope token silently.`)
+    }
+    if (/\bnoteGoogleQuotaError\b/.test(src)) {
+      findings.push(`${VENDOR} still references noteGoogleQuotaError — the walk boundary must arm ONLY through armWalkQuota, or an ACCOUNT-scoped refusal pauses the fleet again.`)
     }
     // The error arrives from the ITERATOR, not the call — so the arm must wrap consumption.
-    if (/\bnoteGoogleQuotaError\s*\(/.test(src) && !/catch\s*\(/.test(src)) {
-      findings.push(`${VENDOR} calls noteGoogleQuotaError but has NO catch block. The vendor library rejects from the async iterator (its handleStreamError converts the streamed error to a GoogleAdsFailure), so an arm that is not inside a catch around CONSUMPTION never runs.`)
+    if (/\barmWalkQuota\s*\(/.test(src) && !/catch\s*\(/.test(src)) {
+      findings.push(`${VENDOR} calls armWalkQuota but has NO catch block. The vendor library rejects from the async iterator (its handleStreamError converts the streamed error to a GoogleAdsFailure) — an arm outside a catch around consumption never fires.`)
     }
   }
 }

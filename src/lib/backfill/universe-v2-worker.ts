@@ -85,6 +85,8 @@ import { VENDOR, MAX_ATTEMPTS_AT_MIN_SPAN, NARROW_AFTER_ATTEMPTS, EMPTY_STRETCH_
 // paused:false, and a lane that tests `.paused` spends the fleet's quota against a pause it could not see.
 import { readGoogleQuotaPause, holdGoogleWork } from '@/lib/backfill/google-quota-store'
 import { recordQuotaHold } from '@/lib/backfill/universe-quota-hold' // LORAMER_V2_QUOTA_HOLD_IS_DURABLE_V1
+// LORAMER_WALK_QUOTA_SCOPE_V1 — beside the fleet sentinel, THIS lane's own hold (an ACCOUNT-scoped refusal holds one client).
+import { readWalkLaneHold, holdWalkLane } from '@/lib/backfill/walk-quota-store'
 // ⛔ LORAMER_V2_WALK_BUDGET_RESERVATION_V1 — the SHIPPED rule, not a second copy. lap-budget.ts:14-17:
 // "A BETWEEN-ITERATION BUDGET CHECK IS ONLY SAFE IF ONE ITERATION CANNOT EXCEED THE REMAINING CEILING."
 import { shouldStartAnotherLap } from '@/lib/backfill/lap-budget'
@@ -202,9 +204,18 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance, opts
     )
     return 0
   }
+  // ⛔ LORAMER_WALK_QUOTA_SCOPE_V1 — THE LANE'S OWN HOLD, read beside the fleet row. An ACCOUNT-scoped refusal
+  // (Google named this customer's bucket) parks THIS lane for the delay Google sent and nobody else; an unreadable
+  // lane record holds for the same reason the unreadable sentinel does.
+  const lh = await readWalkLaneHold({ clientId, vendor: VENDOR })
+  if (holdWalkLane(lh)) {
+    await recordQuotaHold({ lane: 'consumer', clientId, scope: 'lane', qp: { paused: lh.held, state: lh.state === 'held' ? 'blocked' : lh.state === 'clear' ? 'not_blocked' : 'unknown', until: lh.until, since: null, reason: lh.reason }, wouldHaveDone: `walk ${label} ${startDate}..${endDate} and advance` })
+    console.warn(`[universe-v2] LANE HOLD ${clientId} ${label} ${startDate}..${endDate} — ${lh.state === 'unknown' ? `lane hold UNREADABLE, holding: ${lh.reason}` : `this lane held until ${lh.until}`} · no vendor call, no publish.`)
+    return 0
+  }
   // ⛔ THE ADAPTER IS CONSTRUCTED PER INVOCATION with the vendor stream it needs. Nothing about Google is
   // reachable from the core; the core only ever sees `adapter.*`.
-  const streamFor = await googleAdsStreamFor(userEmail, customerId)
+  const streamFor = await googleAdsStreamFor(userEmail, customerId, { clientId, vendor: VENDOR })
   const surface = surfaceOfEntry(entry)
   const adapter = googleAdsCaptureAdapter(streamFor, () => entry)
   const grain = { entityLevel: surface.entityLevel, breakdownType: surface.breakdownType }

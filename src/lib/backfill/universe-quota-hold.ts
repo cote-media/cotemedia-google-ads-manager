@@ -38,8 +38,11 @@ export async function recordQuotaHold(args: {
   qp: GoogleQuotaPause
   /** What the lane was about to do, so the record is readable without reconstructing the caller. */
   wouldHaveDone: string
+  /** LORAMER_WALK_QUOTA_SCOPE_V1 — which record held: the fleet sentinel (default) or this client's own lane hold. */
+  scope?: 'fleet' | 'lane'
 }): Promise<void> {
   const { lane, clientId, qp, wouldHaveDone } = args
+  const scope = args.scope ?? 'fleet'
   try {
     const { error } = await supabaseAdmin.from('capture_pass_log').insert({
       pass_marker: QUOTA_HOLD_MARKER,
@@ -57,9 +60,9 @@ export async function recordQuotaHold(args: {
       rows_touched: 0,
       outcome: 'skipped',
       detail:
-        `QUOTA HOLD (${lane}): ${qp.state === 'unknown'
-          ? `sentinel UNREADABLE — holding, NOT a confirmed pause: ${qp.reason}`
-          : `google quota paused until ${qp.until}`} · would have: ${wouldHaveDone} · ` +
+        `QUOTA HOLD (${lane}${scope === 'lane' ? ', LANE-SCOPED' : ''}): ${qp.state === 'unknown'
+          ? `${scope === 'lane' ? 'lane hold' : 'sentinel'} UNREADABLE — holding, NOT a confirmed pause: ${qp.reason}`
+          : scope === 'lane' ? `this lane held until ${qp.until} (${qp.reason ?? 'ACCOUNT-scoped refusal'}); other lanes continue` : `google quota paused until ${qp.until}`} · would have: ${wouldHaveDone} · ` +
         `NOTHING was asked of the vendor and NO cursor moved. Owed-ness is DERIVED, so no state is lost by holding.`,
     })
     if (error) {

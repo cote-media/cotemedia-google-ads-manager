@@ -40,10 +40,13 @@
 // ⛔ CONSTRUCTED THROUGH THE CHOKE POINT — LORAMER_GOOGLE_CLIENT_CHOKE_POINT_V1 (inert path, migrated first).
 import { withGoogleAdsStream } from '@/lib/google-ads-client' // LORAMER_DIRECT_ACCESS_CUSTOMER_V1 — manager first, direct only on a pre-first-row permission refusal
 import { supabaseAdmin } from '@/lib/supabase'
-import { noteGoogleQuotaError } from './google-quota-store' // LORAMER_QUOTA_ARM_AT_ERROR_BOUNDARY_V1 — boundary 5 of 5
+// LORAMER_WALK_QUOTA_SCOPE_V1 — boundary 5 of 5 arms through the WALK's scope-keyed hold (route R2): an ACCOUNT-scoped
+// refusal holds ONE lane, DEVELOPER/scope-less arms the same fleet row noteGoogleQuotaError always did. The shared
+// google-quota modules are untouched and byte-identical (walk-quota-scope.guard.mjs pins them).
+import { armWalkQuota, type WalkLane } from './walk-quota-store'
 
 export async function googleAdsStreamFor(
-  userEmail: string, customerId: string,
+  userEmail: string, customerId: string, lane?: WalkLane | null,
 ): Promise<(gaql: string) => AsyncGenerator<any>> {
   const { data, error } = await supabaseAdmin
     .from('google_tokens').select('refresh_token').eq('user_email', userEmail).single()
@@ -54,7 +57,7 @@ export async function googleAdsStreamFor(
   // ⛔ THE GENERATOR IS WRAPPED SO THE ERROR BOUNDARY SITS AROUND THE PULL, WHERE THE REJECTION ACTUALLY
   // ARRIVES. `yield*` delegates every row through unchanged — no buffering is introduced, so the streaming
   // property the whole rebuild rests on is untouched — and the catch arms the sentinel before re-throwing.
-  return (gaql: string) => armingStream(() => withGoogleAdsStream(key, (c) => c.queryStream(gaql) as AsyncGenerator<any>))
+  return (gaql: string) => armingStream(() => withGoogleAdsStream(key, (c) => c.queryStream(gaql) as AsyncGenerator<any>), lane ?? null)
 }
 
 /**
@@ -62,11 +65,13 @@ export async function googleAdsStreamFor(
  * sure the FLEET learns that Google refused. `noteGoogleQuotaError` is best-effort and idempotent by
  * construction (one upsert on one sentinel row), so a failed arm can never turn a fetch error into a 500.
  */
-export async function* armingStream<T>(open: () => AsyncGenerator<T>): AsyncGenerator<T> {
+export async function* armingStream<T>(open: () => AsyncGenerator<T>, lane: WalkLane | null = null): AsyncGenerator<T> {
   try {
     yield* open()
   } catch (e) {
-    await noteGoogleQuotaError(e, 'universe-vendor-stream:queryStream')
+    // ⛔ SCOPE-KEYED (LORAMER_WALK_QUOTA_SCOPE_V1): reads details.quota_error_details; ACCOUNT → this lane only,
+    // DEVELOPER / message-only → the fleet row as before, no delay anywhere → 10/20/40 s on this lane.
+    await armWalkQuota(e, 'universe-vendor-stream:queryStream', lane)
     throw e
   }
 }
