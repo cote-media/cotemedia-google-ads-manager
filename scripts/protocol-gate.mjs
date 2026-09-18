@@ -346,6 +346,69 @@ export function adversaryVerdict(value) {
   return { ok: true, why: `both positions present and distinct, collision named in ${n} words` }
 }
 
+// ── CHECK 3b — ROUNDS RESOLVE AGAINST THE LOG (LORAMER_ADVERSARY_UNTIL_CONVERGED_V1, item 6) ─────────────
+// ADVERSARY ROUNDS UNTIL NOTHING CHANGES. A writing paste names its rounds by the ids the gate PRINTED
+// (`rounds=<id>[@sha8],<id>…`), never by titles, dates or sessions. Each id resolves to exactly ONE submission whose
+// standing at acceptance was accepted (accepted / none_justified / override, no refused record) WITH a graded adversary
+// box; zero → refused naming the id and whether it was refused or absent; two (two machines minting before a git sync)
+// → refused naming both sha8s, `@sha8` disambiguates. ADVERSARY_MIN_ROUNDS resolved ids are required, and
+// `last-round-changed=` names in ≥ MIN_COLLISION_WORDS words what the last round changed — "converged" / "nothing" /
+// "none" is a legitimate converging sentence only beside two resolved rounds. A round's standing is its LOG LINE at
+// acceptance, never a re-evaluation of its text (the day's DECISIONS bank its hosts by evening; re-grading would refuse
+// every accepted flight of the day).
+export function roundStandings(lines) {
+  const byId = new Map() // id → { shas: Map<sha, { refused, adversary_present, ts }> }
+  const unstamped = [] // historical lines: id = ordinal among distinct shas in file order
+  const seen = new Set()
+  for (const l of lines) {
+    let o = null
+    try { o = JSON.parse(l) } catch { continue }
+    if (!o?.prompt_sha256) continue
+    let id = o.id
+    if (!Number.isInteger(id)) {
+      if (!seen.has(o.prompt_sha256)) { seen.add(o.prompt_sha256); unstamped.push(o.prompt_sha256) }
+      id = unstamped.indexOf(o.prompt_sha256) + 1
+    }
+    if (!byId.has(id)) byId.set(id, { shas: new Map() })
+    const e = byId.get(id)
+    const cur = e.shas.get(o.prompt_sha256) || { refused: false, adversary_present: false, ts: o.ts || null }
+    if (o.verdict === 'refused') cur.refused = true
+    if (o.adversary_present === true) cur.adversary_present = true
+    cur.ts = cur.ts || o.ts || null
+    e.shas.set(o.prompt_sha256, cur)
+  }
+  return byId
+}
+export function roundsVerdict(value, logLines = []) {
+  const raw = String(value || '')
+  const named = roundsNamed(raw)
+  const lrc = (raw.match(/last-round-changed\s*=\s*([\s\S]+?)(?=\s*(?:·|\|)\s*(?:mine|other|collision|rounds)\s*=|$)/i) || [])[1]?.trim() || ''
+  if (!named.length) return { ok: false, why: `collision names no round ids — two accepted pastes with a graded adversary box are required, cited by the round-id the gate printed (\`rounds=<id>,<id>\`)`, resolved: 0 }
+  const standings = roundStandings(logLines)
+  const bad = []
+  let resolved = 0
+  for (const token of named) {
+    const [idStr, sha8] = token.split('@')
+    const id = Number(idStr)
+    const e = standings.get(id)
+    if (!e) { bad.push(`round-id ${id} resolves to no paste in the log (it does not exist)`); continue }
+    let cands = [...e.shas.entries()]
+    if (sha8) cands = cands.filter(([sha]) => sha.startsWith(sha8))
+    if (!cands.length) { bad.push(`round-id ${id}@${sha8} matches no paste under id ${id}`); continue }
+    if (cands.length > 1) { bad.push(`round-id ${id} names ${cands.length} pastes (${cands.map(([sha, c]) => `${sha.slice(0, 8)} @ ${c.ts}`).join(', ')}) — two machines minted it before a sync; write rounds=${id}@<sha8> to say which`); continue }
+    const [, c] = cands[0]
+    if (c.refused) { bad.push(`round-id ${id} is a REFUSED submission — its re-issue is the round, cite that id`); continue }
+    if (!c.adversary_present) { bad.push(`round-id ${id} was accepted WITHOUT a graded adversary box (mine≠other, ${MIN_COLLISION_WORDS}+ collision words) — it is not a round`); continue }
+    resolved += 1
+  }
+  if (resolved < ADVERSARY_MIN_ROUNDS) bad.push(`${resolved} resolved round(s); ${ADVERSARY_MIN_ROUNDS} are required before a writing paste — two accepted pastes with a graded adversary box, this session or any earlier one, cited by id`)
+  const n = words(lrc)
+  if (!lrc) bad.push(`last-round-changed= is absent — name in ${MIN_COLLISION_WORDS}+ words what the last round changed (or that it changed nothing, beside two resolved rounds)`)
+  else if (n < MIN_COLLISION_WORDS) bad.push(`last-round-changed= carries ${n} word(s); ${MIN_COLLISION_WORDS} are required`)
+  else if (/^(nothing|converged|none)\b/i.test(lrc) && resolved < ADVERSARY_MIN_ROUNDS) bad.push(`"last-round-changed=${lrc.slice(0, 30)}…" on ${resolved} resolved round(s) is a round that met no adversary`)
+  return bad.length ? { ok: false, why: bad.join(' · '), resolved } : { ok: true, why: `${resolved} round(s) resolved by id, last round change named in ${n} words`, resolved }
+}
+
 // ── CHECK 4 — CONSTANT-INHERITED-WITHOUT-DERIVATION ───────────────────────────────────────────────────────
 // Every number must be followed by `⇐` and a real derivation, or `⇐ measured <date> N=<n>`. A bare number
 // fails. This is the box that would have caught FIRST_LAP_MS = 90_000, "~67s fits in one cron fire", and the
@@ -523,7 +586,7 @@ export function signalsOf(h) {
 }
 
 // ── THE EVALUATOR ─────────────────────────────────────────────────────────────────────────────────────────
-export function evaluate({ text, transcriptPath, decisionsText, queueText = '', digestText = '', root = ROOT }) {
+export function evaluate({ text, transcriptPath, decisionsText, queueText = '', digestText = '', root = ROOT, logText = '' }) {
   const h = parseHeader(text)
   const overrides = parseOverrides(text)
   const failures = []
@@ -600,7 +663,12 @@ export function evaluate({ text, transcriptPath, decisionsText, queueText = '', 
     const r = researchVerdict(h.RESEARCH, decisionsText, { priorArtNamed: pa.kind === 'named' ? pa.named : false })
     if (!r.ok) failures.push({ box: 'RESEARCH-WITH-NO-URLS', why: r.why, fix: `TWO accepted forms: (1) \`RESEARCH: vendor=<registrable domain> · <url> · <url> · <url> · <url> · <url>\` — at least ${RESEARCH_MIN_URLS} URLs on at least ${RESEARCH_MIN_DOMAINS} REGISTRABLE DOMAINS (pages of one vendor are one source), the vendor declared and among them, at least one domain neither the vendor's nor already cited in LORAMER_DECISIONS.md · (2) \`RESEARCH: NONE — <at least ${MIN_NONE_APPLICABLE_WORDS} words saying why no external fact is load-bearing>\` (the CONSTANTS spelling; \`NONE-APPLICABLE:\` is accepted too, and a BARE \`NONE\` is not — the reason is the whole point here)` })
     const a = adversaryVerdict(h.ADVERSARY)
-    if (!a.ok) failures.push({ box: 'ADVERSARY-THAT-NEVER-COLLIDED', why: a.why, fix: `ONE accepted form, all three parts on one line: \`ADVERSARY: mine=<your position> | other=<the opposing position> | collision=<what actually changed, ${MIN_COLLISION_WORDS}+ words>\`. mine= and other= must differ. There is NO compressed form on a writing blast radius.` })
+    const ADV_FIX = `ONE accepted form: \`ADVERSARY: mine=<your position> | other=<the opposing position> | collision=rounds=<id>,<id> · last-round-changed=<${MIN_COLLISION_WORDS}+ words>\` — the ids are the round-id lines the gate printed on two accepted pastes that carried a graded adversary box (this session or any earlier one); mine= and other= must differ. There is NO compressed form on a writing blast.`
+    if (!a.ok) failures.push({ box: 'ADVERSARY-THAT-NEVER-COLLIDED', why: a.why, fix: ADV_FIX })
+    else {
+      const rv = roundsVerdict(h.ADVERSARY, String(logText || '').split('\n').filter((l) => l.trim()))
+      if (!rv.ok) failures.push({ box: 'ADVERSARY-THAT-NEVER-COLLIDED', why: rv.why, fix: ADV_FIX })
+    }
   }
 
   // Apply per-box overrides. An INVALID override (unknown box or a short reason) does not lift anything.
@@ -760,7 +828,9 @@ async function main() {
   let digestText = ''
   try { digestText = readFileSync(resolve(ROOT, 'LORAMER_RESUME_DIGEST.md'), 'utf8') } catch { digestText = '' }
 
-  const res = evaluate({ text, transcriptPath: input.transcript_path, decisionsText, queueText, digestText, root: ROOT })
+  let logText = ''
+  try { logText = readFileSync(resolve(ROOT, LOG_REL), 'utf8') } catch { logText = '' }
+  const res = evaluate({ text, transcriptPath: input.transcript_path, decisionsText, queueText, digestText, root: ROOT, logText })
 
   const common = { round: res.header?.ROUND || null, question: res.header?.QUESTION || null, blast: res.header?.BLAST || null, ...(res.signals || {}) }
   const records = []

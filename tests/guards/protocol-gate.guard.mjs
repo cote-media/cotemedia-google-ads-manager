@@ -111,7 +111,10 @@ const PAD = '\n' + ('x. this line exists only to carry the paste past FLIGHT_MIN
 // among them, at least one domain neither the vendor's nor already in DECISIONS. example.com/.net/.org are IANA-
 // reserved and .invalid is RFC 2606's reserved TLD, so none of the four can ever be banked as a source.
 const GOOD_RESEARCH = 'RESEARCH: vendor=example.com · https://example.com/vendor-doc · https://example.com/vendor-doc-2 · https://example.net/c · https://example.org/prior-art · https://gate.invalid/e'
-const GOOD_ADVERSARY = 'ADVERSARY: mine=gate at paste-receipt | other=gate at commit time | collision=a commit-time gate cannot see paste-while-in-flight at all, so receipt wins'
+// LORAMER_ADVERSARY_UNTIL_CONVERGED_V1 (item 6) — a writing paste names its rounds by the ids the gate printed. The two
+// SEED fixtures at the head of the list are read-only rounds with a graded box: they take ids 1 and 2 of the sandbox log.
+const SEED_ADVERSARY = 'ADVERSARY: mine=gate at paste-receipt | other=gate at commit time | collision=a commit-time gate cannot see paste-while-in-flight at all, so receipt wins'
+const GOOD_ADVERSARY = 'ADVERSARY: mine=gate at paste-receipt | other=gate at commit time | collision=rounds=1,2 · last-round-changed=the receipt gate gained the in-flight box after round two measured the lag'
 const GOOD_CONSTANTS = 'CONSTANTS: FLIGHT_MIN_CHARS=400 ⇐ measured 2026-08-23 N=12'
 // LORAMER_ADVERSARY_UNTIL_CONVERGED_V1 (item 5) — PRIOR ART FIRST: a name, a URL on a code host (or a domain not in
 // RESEARCH), and eight words on what it settles; or NONE-FOUND with fifteen words on where you looked.
@@ -124,6 +127,10 @@ const GOOD_QUESTION = 'QUESTION: where does the protocol gate have to live to fi
 const GOOD_CITED = 'CITED: NONE — no prior decision, law or token is load-bearing to this fixture paste'
 
 const fixtures = [
+  { name: 'GREEN seed round 1 (read-only, graded adversary box → id 1)', expect: 'allow',
+    text: `ROUND: 1 — seed\n${GOOD_QUESTION}\nBLAST: read-only\nINFLIGHT: clear\n${SEED_ADVERSARY}\n${GOOD_CITED}\nCONSTANTS: NONE${PAD}` },
+  { name: 'GREEN seed round 2 (read-only, graded adversary box → id 2)', expect: 'allow',
+    text: `ROUND: 2 — seed\n${GOOD_QUESTION}\nBLAST: read-only\nINFLIGHT: clear\n${SEED_ADVERSARY}\n${GOOD_CITED}\nCONSTANTS: NONE${PAD}` },
   { name: 'RED BLAST-UNDECLARED', box: 'BLAST-UNDECLARED', expect: 'block',
     text: `ROUND: SHAPE\n${GOOD_QUESTION}\n${GOOD_RESEARCH}\n${GOOD_ADVERSARY}\n${GOOD_CONSTANTS}${PAD}` },
   { name: 'RED QUESTION-NEVER-FRAMED (statement, not a question)', box: 'QUESTION-NEVER-FRAMED', expect: 'block',
@@ -162,6 +169,18 @@ const fixtures = [
     text: `ROUND: SHAPE\n${GOOD_QUESTION}\nBLAST: backend-writer\nINFLIGHT: clear\nRESEARCH: NONE — this flight re-derives a constant from measurements taken on our own shipped code tonight, so no vendor page is load-bearing\n${GOOD_ADVERSARY}\n${GOOD_PRIOR_ART_NONE}\n${GOOD_CITED}\n${GOOD_CONSTANTS}${PAD}` },
   { name: 'GREEN PRIOR-ART on a domain not in RESEARCH (not a code host) with eight words', expect: 'allow',
     text: `ROUND: SHAPE\n${GOOD_QUESTION}\nBLAST: backend-writer\nINFLIGHT: clear\n${GOOD_RESEARCH}\n${GOOD_ADVERSARY}\nPRIOR-ART: Temporal — https://docs.temporal.io/workflows — a workflow id conflict policy of use-existing returns the running one\n${GOOD_CITED}\n${GOOD_CONSTANTS}${PAD}` },
+  // ── LORAMER_ADVERSARY_UNTIL_CONVERGED_V1 (item 6) — ROUNDS RESOLVE AGAINST THE LOG BY ID. id 3 is 'RED BLAST-UNDECLARED'
+  // above, a REFUSED submission; 99 exists nowhere. Sessions, dates and carried= do not exist.
+  { name: 'RED ADVERSARY names one round (rounds=1) with converged', box: 'ADVERSARY-THAT-NEVER-COLLIDED', expect: 'block',
+    text: `ROUND: SHAPE\n${GOOD_QUESTION}\nBLAST: backend-writer\nINFLIGHT: clear\n${GOOD_RESEARCH}\nADVERSARY: mine=ship | other=hold | collision=rounds=1 · last-round-changed=converged, nothing at all changed in that one round\n${GOOD_PRIOR_ART}\n${GOOD_CITED}\n${GOOD_CONSTANTS}${PAD}` },
+  { name: 'RED ADVERSARY names a round id that resolves to nothing (rounds=1,99)', box: 'ADVERSARY-THAT-NEVER-COLLIDED', expect: 'block',
+    text: `ROUND: SHAPE\n${GOOD_QUESTION}\nBLAST: backend-writer\nINFLIGHT: clear\n${GOOD_RESEARCH}\nADVERSARY: mine=ship | other=hold | collision=rounds=1,99 · last-round-changed=the restart rule gained an end kind and a meter\n${GOOD_PRIOR_ART}\n${GOOD_CITED}\n${GOOD_CONSTANTS}${PAD}` },
+  { name: 'RED ADVERSARY names a REFUSED submission as a round (rounds=1,3)', box: 'ADVERSARY-THAT-NEVER-COLLIDED', expect: 'block',
+    text: `ROUND: SHAPE\n${GOOD_QUESTION}\nBLAST: backend-writer\nINFLIGHT: clear\n${GOOD_RESEARCH}\nADVERSARY: mine=ship | other=hold | collision=rounds=1,3 · last-round-changed=the restart rule gained an end kind and a meter\n${GOOD_PRIOR_ART}\n${GOOD_CITED}\n${GOOD_CONSTANTS}${PAD}` },
+  { name: 'RED ADVERSARY rounds without last-round-changed', box: 'ADVERSARY-THAT-NEVER-COLLIDED', expect: 'block',
+    text: `ROUND: SHAPE\n${GOOD_QUESTION}\nBLAST: backend-writer\nINFLIGHT: clear\n${GOOD_RESEARCH}\nADVERSARY: mine=ship | other=hold | collision=rounds=1,2 and that is all the collision says here\n${GOOD_PRIOR_ART}\n${GOOD_CITED}\n${GOOD_CONSTANTS}${PAD}` },
+  { name: 'GREEN ADVERSARY two resolving ids and the converging sentence', expect: 'allow',
+    text: `ROUND: SHAPE\n${GOOD_QUESTION}\nBLAST: backend-writer\nINFLIGHT: clear\n${GOOD_RESEARCH}\nADVERSARY: mine=ship | other=hold | collision=rounds=1,2 · last-round-changed=round two changed nothing, so the shape converged there\n${GOOD_PRIOR_ART}\n${GOOD_CITED}\n${GOOD_CONSTANTS}${PAD}` },
   { name: 'GREEN CITED second citation carries its own CITED: prefix', expect: 'allow',
     text: `ROUND: ISSUE\n${GOOD_QUESTION}\nBLAST: read-only\nINFLIGHT: clear\nCITED: ★UNDEFER-3-SIZE-READ ⇐ QUEUE\nCITED: NEW ★GENUINELY-NOVEL-TOKEN-QQQQQ\nCONSTANTS: NONE${PAD}` },
   { name: 'RED ADVERSARY-THAT-NEVER-COLLIDED (no collision named)', box: 'ADVERSARY-THAT-NEVER-COLLIDED', expect: 'block',
@@ -304,6 +323,41 @@ if (existsSync(SCRIPT)) {
     if (missing.out?.decision === 'block') findings.push('(d2) a MISSING transcript was treated as in-flight. The vendor writes the transcript asynchronously, so an absent or lagging file must degrade to "clear" — blocking on it would refuse every paste whenever the writer lags.')
   }
 
+  // ── (d3) LORAMER_ADVERSARY_UNTIL_CONVERGED_V1 — THE ROUND ID, DRIVEN AGAINST THE SANDBOX LOG ─────────────
+  // Three shapes need the log's state mid-run: a read-only paste whose box is hollow in SHAPE takes an id but does
+  // not count as a round; a wrapped (indented) multi-line box is graded by the gate's own parser and counts; and a
+  // duplicate id (two machines minting before a git sync) is refused by name and disambiguated by @sha8.
+  {
+    const sandboxLog = join(SANDBOX, 'docs/LORAMER_PROTOCOL_OVERRIDES.jsonl')
+    const readLog = () => readFileSync(sandboxLog, 'utf8').split('\n').filter((l) => l.trim()).map((l) => JSON.parse(l))
+    const idFromEcho = (r) => Number((String(r.out?.echo || '').match(/^round-id: (\d+)/) || [])[1])
+    const hollow = runGate({ prompt: `ROUND: 9 — hollow\n${GOOD_QUESTION}\nBLAST: read-only\nINFLIGHT: clear\nADVERSARY: mine=a | other=a | collision=short\n${GOOD_CITED}\nCONSTANTS: NONE${PAD}`, session_id: 'guard' })
+    const hollowId = idFromEcho(hollow)
+    if (hollow.out?.decision !== 'allow' || !hollowId) findings.push('(d3) a read-only paste with a hollow-shape adversary box must still be ADMITTED (the proportionality rule) and take an id — it was not.')
+    else {
+      const rec = readLog().find((r) => r.id === hollowId)
+      if (rec?.adversary_present !== false) findings.push(`(d3) the hollow-shape box (mine===other, 1-word collision) was recorded with adversary_present=${rec?.adversary_present} — the silent grade must apply adversaryVerdict's shape, not mere presence.`)
+      const cites = runGate({ prompt: `ROUND: SHAPE\n${GOOD_QUESTION}\nBLAST: backend-writer\nINFLIGHT: clear\n${GOOD_RESEARCH}\nADVERSARY: mine=ship | other=hold | collision=rounds=1,${hollowId} · last-round-changed=the restart rule gained an end kind and a meter\n${GOOD_PRIOR_ART}\n${GOOD_CITED}\n${GOOD_CONSTANTS}${PAD}`, session_id: 'guard' })
+      if (cites.out?.decision !== 'block' || !String(cites.out.reason).includes(String(hollowId))) findings.push(`(d3) naming the hollow-shape read-only paste (id ${hollowId}) as a round was ADMITTED — a box the writing leg would refuse must not buy a round.`)
+    }
+    const wrapped = runGate({ prompt: `ROUND: 10 — wrapped\n${GOOD_QUESTION}\nBLAST: read-only\nINFLIGHT: clear\nADVERSARY: mine=gate at paste-receipt | other=gate at commit time\n  | collision=a commit-time gate cannot see paste-while-in-flight at all, so receipt wins\n${GOOD_CITED}\nCONSTANTS: NONE${PAD}`, session_id: 'guard' })
+    const wrappedId = idFromEcho(wrapped)
+    const wrec = wrappedId ? readLog().find((r) => r.id === wrappedId) : null
+    if (wrec?.adversary_present !== true) findings.push(`(d3) a wrapped (indented) multi-line ADVERSARY box was recorded with adversary_present=${wrec?.adversary_present} — the grade must run on the gate's own parsed header, which continues indented lines.`)
+    // duplicate id: copy the id-1 record under a different prompt_sha256 (the two-machine shape), then cite rounds=1,2
+    const before = readLog()
+    const one = before.find((r) => r.id === 1)
+    if (one) {
+      const dup = { ...one, prompt_sha256: 'f'.repeat(64), ts: new Date().toISOString(), prev: sha256(readFileSync(sandboxLog, 'utf8').split('\n').filter((l) => l.trim()).pop()) }
+      writeFileSync(sandboxLog, readFileSync(sandboxLog, 'utf8') + JSON.stringify(dup) + '\n')
+      const amb = runGate({ prompt: `ROUND: SHAPE\n${GOOD_QUESTION}\nBLAST: backend-writer\nINFLIGHT: clear\n${GOOD_RESEARCH}\nADVERSARY: mine=ship | other=hold | collision=rounds=1,2 · last-round-changed=the restart rule gained an end kind and a meter\n${GOOD_PRIOR_ART}\n${GOOD_CITED}\n${GOOD_CONSTANTS}${PAD}`, session_id: 'guard' })
+      const reason = String(amb.out?.reason || '')
+      if (amb.out?.decision !== 'block' || !reason.includes(one.prompt_sha256.slice(0, 8)) || !reason.includes('ffffffff')) findings.push('(d3) a DUPLICATE id (two pastes under id 1) was not refused naming both sha8s — the resolver must refuse the collision rather than guess.')
+      const dis = runGate({ prompt: `ROUND: SHAPE\n${GOOD_QUESTION}\nBLAST: backend-writer\nINFLIGHT: clear\n${GOOD_RESEARCH}\nADVERSARY: mine=ship | other=hold | collision=rounds=1@${one.prompt_sha256.slice(0, 8)},2 · last-round-changed=the restart rule gained an end kind and a meter\n${GOOD_PRIOR_ART}\n${GOOD_CITED}\n${GOOD_CONSTANTS}${PAD}`, session_id: 'guard' })
+      if (dis.out?.decision !== 'allow') findings.push(`(d3) the @sha8 disambiguator did not resolve the duplicate id — ${String(dis.out?.reason || '').slice(0, 200)}`)
+    } else findings.push('(d3) no id-1 record in the sandbox log to build the duplicate-id shape from.')
+  }
+
   // ── (f) FAIL-CLOSED ─────────────────────────────────────────────────────────────────────────────────────
   const bad = spawnSync(process.execPath, [SCRIPT], { input: 'this is not json', encoding: 'utf8', env: { ...process.env, LORAMER_GATE_ROOT: SANDBOX } })
   let badOut = null
@@ -350,6 +404,7 @@ if (existsSync(SCRIPT)) {
     for (const r of recs) {
       if (!Number.isInteger(r.id) || r.id < 1) { findings.push(`(h2) a log record carries no positive integer id (got ${JSON.stringify(r.id)}) — the gate must mint the round id, not the author.`); break }
       ids.add(r.id)
+      if (r.prompt_sha256 === 'f'.repeat(64)) continue // the (d3) leg's deliberate two-machine duplicate
       if (shaOfId.has(r.id) && shaOfId.get(r.id) !== r.prompt_sha256) findings.push(`(h2) id ${r.id} names two different pastes (${shaOfId.get(r.id).slice(0, 8)} and ${String(r.prompt_sha256).slice(0, 8)}) — an id must resolve to exactly one prompt_sha256.`)
       shaOfId.set(r.id, r.prompt_sha256)
     }
