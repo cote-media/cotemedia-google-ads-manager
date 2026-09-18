@@ -277,6 +277,11 @@ if (existsSync(SCRIPT)) {
   if (!refused.length) findings.push('(h) the fixtures produced NO verdict:"refused" records. Refusals are unlogged, so the gate cannot measure its own false-positive rate — the exact blind spot the 2026-08-23 double-refusal exposed.')
   if (!overrides.length) findings.push('(h) no verdict:"override" record was written by the override fixture.')
   if (!nones.length) findings.push('(h) no verdict:"none_justified" record — an accepted justification is being DISCARDED, so the gate learns nothing from the pastes it lets through.')
+  // LORAMER_ADVERSARY_UNTIL_CONVERGED_V1 (item 1) — THE ACCEPTED RECORD. Measured 2026-09-18: an accepted paste whose
+  // CONSTANTS box was DERIVED and that took no override wrote NO line at all — the day's two build pastes (rounds 6
+  // and 10) were the two the log never saw. A minted round id cannot reach a paste that leaves no record.
+  const accepted = recs.filter((r) => r.verdict === 'accepted')
+  if (!accepted.length) findings.push('(h) no verdict:"accepted" record — an accepted paste with a derived CONSTANTS box and no override leaves NO line (measured 2026-09-18: rounds 6 and 10, the day\'s two build pastes, were never logged), so no id can ever name it.')
   for (const r of refused) {
     if (!Array.isArray(r.boxes_failed) || !r.boxes_failed.length) findings.push('(h) a refusal record carries no boxes_failed — a refusal that does not say WHICH box is not a measurement.')
     if (!r.prompt_sha256) findings.push('(h) a refusal record carries no prompt_sha256 — the refusal cannot be tied to a paste.')

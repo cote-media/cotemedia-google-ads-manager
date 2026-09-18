@@ -608,6 +608,12 @@ async function main() {
   for (const a of res.applied || []) records.push({ verdict: 'override', box: a.box, reason: a.reason, ...common })
   if (res.noneReason) records.push({ verdict: 'none_justified', reason: res.noneReason, ...common })
   if (res.verdict === 'block') records.push({ verdict: 'refused', boxes_failed: res.failures.map((f) => f.box), ...common })
+  // LORAMER_ADVERSARY_UNTIL_CONVERGED_V1 (item 1) — THE ACCEPTED RECORD, UNCONDITIONAL FOR EVERY GRADED PASTE.
+  // Measured 2026-09-18: an accepted paste whose CONSTANTS was DERIVED and that took no override wrote no line —
+  // the day's two build pastes (rounds 6 and 10, FLIGHT 1 and FLIGHT 2) were the two the log never saw. A round
+  // id (item 2) can only name a paste that left a record. Exempt pastes (conversation, machine envelopes) are
+  // not graded and stay unlogged: "go" is not a round.
+  if (res.verdict === 'allow' && !res.exempt && !records.length) records.push({ verdict: 'accepted', ...common })
 
   // ⛔ THE TWO FAILURE MODES ARE NOT THE SAME AND ARE NOT TREATED THE SAME. An unloggable OVERRIDE must refuse
   // — an override nobody can audit is the thing this gate exists to prevent. An unloggable REFUSAL must NOT
