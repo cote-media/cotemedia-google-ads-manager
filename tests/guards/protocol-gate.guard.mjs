@@ -26,6 +26,13 @@
 //      WITHOUT research/adversary (Russ's ruling: rounds attach to consequence, not to question-shape).
 //  (f) FAIL-CLOSED — malformed stdin and a missing prompt field must not admit anything they cannot grade.
 //  (g) OVERRIDE BURN-DOWN — the log is monotonic against the baseline and its hash chain is intact.
+//  (h) THE LOG RECORDS — refusals, overrides, justified NONEs, and (LORAMER_ADVERSARY_UNTIL_CONVERGED_V1) the
+//      unconditional accepted record; (h2) the minted id: dense, one sha per id, a new id per submission, the echo's
+//      id is the log's id; (e2) every graded allow echoes `round-id: <n> · ROUND <title>`; (d3) the round resolver
+//      driven against the sandbox log — the hollow-shape read-only box takes an id and is not a round, the wrapped
+//      box is graded by the gate's own parser, a duplicate id is refused by name and resolved by @sha8.
+//  ⛔ EVERY FIXTURE STILL DRIVES THE REAL CONTRACT OVER STDIN. On allow the contract is ONE plain-text line
+//  (`round-id: …`) — runGate reads it as {decision:'allow', echo}; any other non-JSON stdout is still a fault.
 
 import { readFileSync, existsSync, mkdtempSync, writeFileSync, mkdirSync, copyFileSync } from 'node:fs'
 import { resolve, join } from 'node:path'
