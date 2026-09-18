@@ -30,10 +30,10 @@
     "line_count": 145
   },
   "LORAMER_DECISIONS.md": {
-    "content_hash": "9c548953cb2ed8da7b22c7f5308aa248ff6e709ec900d78c5ca11d1c126789f4",
+    "content_hash": "5b68f35697f8bd276ce2894dd856c6b9f19a4b3e451fc11ada11ed656a2834ee",
     "last_reconciled_date": "2026-09-18",
-    "last_reconciled_head": "467cade",
-    "line_count": 2801
+    "last_reconciled_head": "fc2204a",
+    "line_count": 2829
   },
   "LORAMER_ESSENCE.md": {
     "content_hash": "492b85a4c0f1d9ce4f4a00f287480df35b5ea4af727385c0c6816b7996b9112f",
@@ -54,10 +54,10 @@
     "line_count": 58
   },
   "LORAMER_MAP.md": {
-    "content_hash": "525cdc1d46ff1a5a3f93d36e070d22000ef16d7ab6f5ba93f5e91bb7b9f027da",
+    "content_hash": "1f5377f8f11a6842bad6aa269ffce2408cc64de76e7c8f855cca8a5ac53f3ca1",
     "last_reconciled_date": "2026-09-18",
-    "last_reconciled_head": "467cade",
-    "line_count": 223
+    "last_reconciled_head": "fc2204a",
+    "line_count": 225
   },
   "LORAMER_NAV_REGROUP_PLAN.md": {
     "content_hash": "c59a8d8df5c2483b7c9c349b502b64793260ccffdfcafea11cc22b46193a82d5",
@@ -66,16 +66,16 @@
     "line_count": 16
   },
   "LORAMER_QUEUE_OF_RECORD.md": {
-    "content_hash": "6a2a854dcb0f97f767c37b49757a0ad339be2169946238cb54ccc0a7a03c6c80",
+    "content_hash": "5c6d088062abc5f85687a3a9b5b84f20f11431aaad82d5f68901168d32f94be6",
     "last_reconciled_date": "2026-09-18",
-    "last_reconciled_head": "467cade",
-    "line_count": 1298
+    "last_reconciled_head": "fc2204a",
+    "line_count": 1299
   },
   "LORAMER_RESUME_DIGEST.md": {
-    "content_hash": "74fddec841eeaff087be315a61cc7a24be99d06b37db40527b51805b1cac14af",
+    "content_hash": "4f13c021efd66155ca218773c211b64a3bc1f27f391f3f697e9b2a1df35d3c85",
     "last_reconciled_date": "2026-09-18",
-    "last_reconciled_head": "467cade",
-    "line_count": 3677
+    "last_reconciled_head": "fc2204a",
+    "line_count": 3684
   },
   "LORAMER_WOO_CAPTURED_E1_V1.md": {
     "content_hash": "31ec61bce2866fc8b4368ee370e92f5ee415c41c45080da068e3447caf3d813e",

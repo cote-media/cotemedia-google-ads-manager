@@ -7,19 +7,19 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-09-18T15:21:19.976Z
-- built_from HEAD: 467cade380e07f818c817ce713d486b45dd8b4b8  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-09-18T16:49:57.917Z
+- built_from HEAD: fc2204ab9e26d775be2529e38f5a771d42039faa  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
   exactly as fresh as the manifest is honest; the wrap-step regenerates manifest + digest together.
   Source-doc content_hash at build time:
-    - LORAMER_MAP.md: 525cdc1d46ff1a5a3f93d36e070d22000ef16d7ab6f5ba93f5e91bb7b9f027da
+    - LORAMER_MAP.md: 1f5377f8f11a6842bad6aa269ffce2408cc64de76e7c8f855cca8a5ac53f3ca1
     - LORAMER_ESSENCE.md: 492b85a4c0f1d9ce4f4a00f287480df35b5ea4af727385c0c6816b7996b9112f
     - LORAMER_HANDOFF.md: 9f349d7d232366b1bb0b29f797f7225540b3ff6c8b43fbbea32eb0db4e761680
     - CONTINUE_HERE.md: 19c2062b44c25cf8a43c1a191ac596f950b6db70c514cbc91f349f04f1b52c9e
-    - LORAMER_DECISIONS.md: 9c548953cb2ed8da7b22c7f5308aa248ff6e709ec900d78c5ca11d1c126789f4
-    - LORAMER_QUEUE_OF_RECORD.md: 6a2a854dcb0f97f767c37b49757a0ad339be2169946238cb54ccc0a7a03c6c80
+    - LORAMER_DECISIONS.md: 5b68f35697f8bd276ce2894dd856c6b9f19a4b3e451fc11ada11ed656a2834ee
+    - LORAMER_QUEUE_OF_RECORD.md: 5c6d088062abc5f85687a3a9b5b84f20f11431aaad82d5f68901168d32f94be6
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: f4bef31497a46984a3a54acc5be044d48000688ba74ed59689e7c4bfafca21a1
     - RESUME_INSTRUCTIONS.md: 3fb45b93b57ac4e73664dc2a7c0984b03c9ed6152b21d93c2c481dd7e0de9601
     - docs/LORAMER_ASSET_LAYER_SCOPE_V1.md: 5550c754b2bf30624360a47cb54bbfd190bf8fc3cda958ab9b843497eb61050d
@@ -1677,6 +1677,9 @@ The 2026-06-29 inventory pre-dates 6 shipped writers and was NOT trusted. | do n
 ## LORAMER_DESCENT_SHAPE_CONVERGED_V1 (2026-09-18) — ROUNDS 2–5 BANKED: THE LEVER IS DAYS PER REQUEST, THE 23/MIN WALL WAS AN AVERAGE, quota_error 2 IS RESOURCE_EXHAUSTED, THE ROWS-BASED RESERVATION FELL, AND THE SHAPE THAT SHIPPED (FLIGHT 1, ROUTE R2) IS TAGGED ADOPTED-FROM / KEPT WITH ITS SOURCE. Sequel to [[LORAMER_SESSION_2026_09_17_18_RATE_AND_WALL_V1]]; every figure below is quoted from rounds 2–5 (reports and their own ledger queries) and from flight 1's guards.
 ## LORAMER_WALL_HOLD_NEVER_RETIRE_V1 (2026-09-18) — [LAW — RUSS, Q6 RULED] PAST THE 37-MONTH WALL, SILENCE IS NOT EVIDENCE: AN EMPTY ANSWER IS HELD, NEVER RETIRED; THE WALK STOPS WHEN GOOGLE SAYS THIS IS THE FIRST DAY OF ANYTHING, OR REFUSES THE RANGE. Overturns the canary-conditioned half of [[LORAMER_RETENTION_WALL_CANARY_V1]]; closes MAP open question 6.
   | LORAMER_WALL_HOLD_NEVER_RETIRE_V1, 2026-09-18 | do not relitigate.
+## LORAMER_ONE_CLICK_RUN_V1 (2026-09-18) — [DECIDED + SHIPPED, flight 2] THE BACKFILL BUTTON STARTS THE CONTINUOUS RUN ONCE, A SECOND PRESS IS THE METER, ONE BUTTON PER PLATFORM; rounds 7–9 banked. Sequel to [[LORAMER_DESCENT_SHAPE_CONVERGED_V1]]; every rule below is quoted from rounds 7–9 (reports and their own code reads) and from flight 2's guards.
+## LORAMER_COLD_PROOF_RIG_V1 (2026-09-18) — [DECIDED — RUSS] THE COLD-CONNECTION PROOF ACCOUNT (MAP Q1 ANSWERED): VETERINARY MASTERMIND, CONNECTED BY A FRESH GMAIL ADDED AS A DIRECT USER, PRESSED COLD AFTER FOAM OH PROVES; ESCENTIAL STAYS THE UNTOUCHED REFERENCE.
+  | LORAMER_COLD_PROOF_RIG_V1, 2026-09-18 | do not relitigate.
 
 ## H. OPEN-QUEUE INDEX — still-open items only (DONE appendix excluded)  (source: LORAMER_QUEUE_OF_RECORD.md)
 - ★CHECKDATA-PUSHED-OVER-RED — ⛔ **NEW 2026-08-22. I PUSHED TO MAIN TWICE TONIGHT OVER A RED `check:data`, DISCLOSED BOTH TIMES, AND THAT IS EXACTLY WHY THIS NEEDS A DECISION RATHER THAN A HABIT.** CLAUDE.md requires the gate to be RUN and REPORTED before any push to origin main; it does not say whether a red BLOCKS. So the gate is currently **NEITHER A GATE NOR ADVISORY** — it is whatever the executor argues in the moment, which is the weakest possible state for a check that exists to stop bad data. THE READS: 13 red before the cutover, **9 red after**, and FOUR cleared *because delivery resumed* (`check-consumer-liveness` had been reading "DELIVERY IS DARK", plus check-capture-landing, check-frozen-cursors, check-parent-analyze). ⚠ **THE COUNT ALSO MOVED 11 → 13 BETWEEN TWO RUNS TWENTY MINUTES APART ON IDENTICAL CODE** — proof these track warehouse STATE, not the diff, which is precisely what makes a blanket block wrong AND a blanket pass wrong. **THE WORK IS A DECISION RUSS OWNS:** (a) hard gate with a named baseline of accepted reds, (b) advisory with the verdict quoted in every push report, or (c) split it — the state checks advisory, the correctness checks blocking. Until one is chosen, every push over a red is a judgement call re-litigated from scratch. src: the 2026-08-22 cutover pushes. open [LC]
@@ -2403,6 +2406,7 @@ DATA COMPLETENESS ONBOARDING (customer-facing surface): non-blocking progress me
 - ★GEO-PRESENCE-LABEL-UNSPECIFIED — ⛔ **NEW 2026-08-25 — WIRE, fold into [[★LORA-CANNOT-REACH-VENDOR-GRAINS]]'s flight (same function family, ~5 lines).** metrics-query.ts:508 derives geoLocationType from a `user_geo_*` bt prefix or a `:TYPE` value suffix; the walk writes bt `geo_target_city`/`geo_target_county` at entity_level `user_location_view` with a BARE value — neither trigger — so presence-vs-target, the entire reason the city/county families were ruled indispensable, labels as **'unspecified'**. entity_level=user_location_view IS the presence signal; teach the labeler to read it. src: 2026-08-25 un-defer seams read. open [WIRE]
 - ★CITED-GOVERNANCE-LOOPHOLE — ⛔ **NEW 2026-08-26 (banked, not fixed — found the day the gate shipped).** The CITED box verifies a `★TOKEN ⇐ home` EXISTS at its claimed home, NOT that it GOVERNS the paste's topic — a real-but-unrelated token passes the gate, and that novelty loophole let a duplicate be minted this session. The `NEW ★TOKEN` §L-miss check only fires when the paste CLAIMS novelty; relevance is unenforced. Fix shape open (topical match is judgment, not grep) — [[★DECISION-TOPIC-INDEX]] may be the mechanical half. src: 2026-08-26 wrap. open
 - ★THROTTLE-IS-NOT-THE-DAILY-CAP — ⇒ ⛔ **SUPERSEDED 2026-09-18 BY THE SCOPE-KEYED WALK HOLD (LORAMER_WALK_QUOTA_SCOPE_V1, DECISIONS LORAMER_DESCENT_SHAPE_CONVERGED_V1 (b)(c)).** The split this item asked for keyed on the CODE, and the stored payload was `{"quota_error":2}` = RESOURCE_EXHAUSTED — the same code as the daily cap — so a code split could never have told a lane throttle from the token's cap. What shipped keys on Google's own `quota_error_details.rate_scope`: ACCOUNT holds one lane (universe_lane_hold, 097), DEVELOPER or a scope-less "Retry in N" holds the fleet as before, no delay anywhere backs off 10/20/40 s on the lane. Still open beneath it: the LIVE path's classifier (R1, its own rounds) and ★SEVERAL-LANES-AT-ONCE (needs a live throttle's rate_scope read first). superseded [walk half shipped] — HISTORICAL TEXT FOLLOWS — ⛔ **NEW 2026-09-18 (measured, ruled next build in DECISIONS LORAMER_SESSION_2026_09_17_18_RATE_AND_WALL_V1 (c)).** At ~23 requests/min the vendor answered `{"quota_error":2} Too many requests. Retry in 900 seconds.` and the sentinel paused the FLEET. Split the classifier: RESOURCE_TEMPORARILY_EXHAUSTED backs off ONE lane for the seconds the vendor names; RESOURCE_EXHAUSTED (the daily cap) pauses the fleet as today. Supersedes the deferral in ★QUOTA-CLASSIFIER-CONFLATES-DAILY-EXHAUSTION-WITH-RATE-LIMITING and is the precondition for ★SEVERAL-LANES-AT-ONCE.
+- ★ORG-ADMIN-PRESS-IS-A-PRODUCT-FORK — **NEW 2026-09-18 (DECISIONS LORAMER_ONE_CLICK_RUN_V1 (a)).** The Backfill press is owner-only, as clients/backfill/route.ts always was (members/editors/viewers rejected). Whether an org admin may press it is a DESTINATION question (ACCESS-LAYER LAW: share-runs-on-the-owner — the fire would run on the connection's token either way), not a route decision. Russ rules; until then owner-only stands. open [product fork]
 
 ## I. LESSONS INDEX 1–60 (+ dated)  (source: LORAMER_DECISIONS.md)
 1 Silent-skip via shared marker — use content-based idempotency, not marker-presence.
@@ -2492,8 +2496,8 @@ HOW TO USE: before writing "NEW" on any finding, gap or correction, GREP THIS SE
 LORAMER_*_V* marker you are about to mint. A token collision is DECIDABLE; a topic match is not. This is
 ESSENCE law 7 made mechanical — the law is a rule about behaviour, and on 2026-07-31 four already-decided
 topics were discussed as open while it was in force.
-TOTALS: 1162 tokens indexed · 368 resolve to BOTH a decision and a queue item ·
-145 decision-only · 649 queue-only.
+TOTALS: 1165 tokens indexed · 368 resolve to BOTH a decision and a queue item ·
+146 decision-only · 651 queue-only.
 ⛔ UNINDEXABLE — THIS COUNT IS THE BACKLOG, NOT A DISCLAIMER: 164 DECISIONS entries and
 261 QUEUE items carry NO token at all, so they cannot be found this way. An untokened decision
 is invisible to the enforcer; the fix is to mint a token when banking, not to widen the matcher. Samples —
@@ -2919,6 +2923,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★ORDER-LEVEL-STORAGE — OPEN · decisions 3 · queue 9 · last 2026-09-30
 - ★ORDINAL-CLASS-REMAINDER — DONE · decisions 0 · queue 1 · last 2026-09-10
 - ★ORDINAL-HOUR-CLASS-UNMEASURED — DONE · decisions 0 · queue 1 · last 2026-08-26
+- ★ORG-ADMIN-PRESS-IS-A-PRODUCT-FORK — OPEN · decisions 0 · queue 1 · last 2026-09-18
 - ★ORPHAN-SHOPIFY-TOKEN-ROWS — OPEN · decisions 0 · queue 2 · last 2026-07-31
 - ★ORPHANED-CURSOR-CLEANUP — OPEN · decisions 0 · queue 2 · last 2026-07-31
 - ★OVER-REFUSAL-ON-CAPTURED-DISCONTINUITY — DONE · decisions 0 · queue 1 · last 2026-08-16
@@ -3204,6 +3209,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_CLEANUP_DELETE_RENEE_JASON_V1 — OPEN · decisions 1 · queue 1 · last 2026-07-14
 - LORAMER_CLIENT_VALUE_MODEL_V1 — OPEN · decisions 1 · queue 1 · last 2026-07-03
 - LORAMER_COLD_PROOF_ESCENTIAL_COMPLETE_V1 — OPEN · decisions 0 · queue 3 · last 2026-10-28
+- LORAMER_COLD_PROOF_RIG_V1 — DECIDED · decisions 1 · queue 0 · last 2026-09-18
 - LORAMER_COMMITTED_DAY_CLOSES_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-17
 - LORAMER_COMPARE_LABEL_YEAR_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-16
 - LORAMER_COMPLETENESS_AUDIT_PLAN_V1 — OPEN · decisions 0 · queue 1
@@ -3494,6 +3500,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_OBJECTIVE_RULES_PRIORITIZE_NOT_DENY_V1 — DECIDED · decisions 6 · queue 0 · last 2026-07-15
 - LORAMER_ONBOARD_DRAIN_V1 — OPEN · decisions 0 · queue 3 · last 2026-06-25
 - LORAMER_ONE_BLOCK_OUTPUT_V1 — DECIDED · decisions 2 · queue 0 · last 2026-08-05
+- LORAMER_ONE_CLICK_RUN_V1 — OPEN · decisions 0 · queue 1 · last 2026-09-18
 - LORAMER_ONE_CLICK_WALK_V1 — OPEN · decisions 0 · queue 3 · last 2026-09-13
 - LORAMER_ONE_LORA_ONE_MODEL_V1 — DECIDED · decisions 1 · queue 0 · last 2026-07-17
 - LORAMER_ONE_SURFACE_PROVEN_TO_INCEPTION_V1 — OPEN · decisions 0 · queue 2 · last 2026-12-14

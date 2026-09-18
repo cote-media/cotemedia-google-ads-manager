@@ -8,7 +8,7 @@
 >
 > ⛔ **EVERY FACTUAL LINE HERE IS VERIFIED AGAINST THE CODE, and is dated.** If a line and the code disagree,
 > THE CODE IS RIGHT and this file is stale — say so and fix it the same day.
-> Last verified against the code: **2026-09-18** (flight 1 of the descent shape)
+> Last verified against the code: **2026-09-18** (flight 2: the one-click run)
 
 ---
 
@@ -73,7 +73,7 @@ frozen onto a dated row. Only one client is populated so far; the daily refresh 
 | Signs in with Google | They are signed in, and the same prompt also asks for Google Ads permission, whether or not they will ever use Google Ads |
 | Connects Google Ads on the client profile | Their permission is stored; choosing which ad account it is **starts the OLD deep backfill**, not the engine |
 | Connects Shopify, Analytics or WooCommerce | Starts the OLD deep backfill for that platform |
-| Presses Backfill | **One button covering every connected platform.** It starts the old deep backfill for each of them, plus **a single burst of the engine** for Google |
+| Presses a platform's Backfill button | **One button per connected platform** (since 2026-09-18). Google's starts the **continuous run** once — a second press while it runs shows the meter and starts nothing; a press after it reached the account's first day is the meter too. Meta, Analytics, Shopify and WooCommerce buttons start the old deep backfill for that platform, as before |
 | Nothing — the schedule | Daily capture of yesterday for all five platforms · repair of gaps in recent history for all five · the old deep backfill for all five · the engine's Google rotation, every five minutes · the engine's Google daily sweep · a Shopify order job |
 
 **The engine's rotation serves one client per turn**, so a client waits roughly **eighty-five minutes**
@@ -85,7 +85,7 @@ invokes every minute: the pump takes the active run and runs step after step ins
 eight minutes of stepping, then the next minute's pump resumes). **The run never calls its own web address.**
 This project's Vercel deployment addresses sit behind Vercel's login wall (the custom domain does not), and an
 automated call to one is answered with a login page, not an error; so the run calls the capture code directly
-inside the same process (ruled 2026-09-17). Nothing starts a run yet except an operator — no button.
+inside the same process (ruled 2026-09-17). The Google Backfill button starts a run (2026-09-18); an operator can still start one by hand.
 Before the surfaces are asked about a window, the engine asks Google once, at the account level, whether the account did
 anything in it; a window with no activity is retired for every surface on that one answer, and a window with any activity
 is walked surface by surface (ruled 2026-09-18). Google has published a limit — daily data older than thirty-seven months
@@ -102,8 +102,8 @@ changed. Days older than the limit are asked; an empty answer there is held and 
 | Someone signs up, not necessarily with Google | Google sign-in works and stays. Other ways in come after the data work |
 | They connect a platform from inside the app | Works on the new surface, for every platform |
 | Connecting starts everyday capture on its own | **Happens** — the daily jobs pick up a new connection with no prompting, within hours at worst |
-| Each connected platform has its own Backfill button | **Not yet.** There is one button for all of them |
-| A press runs without interruption to the account's first day | **Not yet.** A press buys one turn of a rotation. The continuous run that fixes this exists but is not connected |
+| Each connected platform has its own Backfill button | **Built 2026-09-18.** One button per connected platform on the profile |
+| A press runs without interruption to the account's first day | **Built for Google Ads 2026-09-18** — the press starts the continuous run; the button shows queued / importing (days no longer owed of the total) / complete / stopped / failed / no progress. The other four platforms still take turns on the old engine |
 | The screens and the assistant show what the engine captured | **Not yet.** They read the old writers' rows for Google |
 | A customer's own Google Ads account, outside Russ's manager account, works | **Works.** Proven against five real accounts |
 | Names on screen are the entity's current name | **Works** for the client whose names have been collected |
@@ -137,7 +137,8 @@ changed. Days older than the limit are asked; an empty answer there is held and 
 - The engine is platform-agnostic; each platform's quirks are handled per platform.
 - Connecting a platform starts everyday capture automatically.
 - **Each connected platform has its own Backfill button.** A press runs uninterrupted from the press to the
-  account's first day. When it is done, it is done. Backfill does not take turns.
+  account's first day. When it is done, it is done. Backfill does not take turns. *(Built 2026-09-18 for Google Ads;
+  the other four platforms have their own button but still run the old engine.)*
 - When this work is finished, **no Backfill button starts anything old**, and any client connected on the new
   surface always shows on screen — so nothing that feeds the screens stops before the screens and the
   assistant read the engine's rows.
@@ -154,7 +155,7 @@ changed. Days older than the limit are asked; an empty answer there is held and 
 
 **2026-09-17**
 
-- **Pressing a platform's Backfill button while that platform's backfill is already running does NOTHING.**
+- **Pressing a platform's Backfill button while that platform's backfill is already running does NOTHING.** *(Built for Google Ads on 2026-09-18: the server returns the running import and its meter; no second run, no second turn.)*
   The button shows an accurate progress meter instead, tied to the capture families and to REAL progress —
   **days no longer owed**, never rows written and never requests spent.
   The meter counts **349 surfaces** per Google account, and that number is measured rather than chosen: the
@@ -205,8 +206,9 @@ changed. Days older than the limit are asked; an empty answer there is held and 
 
 ## OPEN QUESTIONS FOR RUSS
 
-1. **Which account is reserved for the outside-the-manager proof?** OPEN — Russ picks tomorrow. Five
-   reachable accounts outside the manager account were found and read successfully.
+1. **Which account is reserved for the outside-the-manager proof?** ANSWERED 2026-09-18: Veterinary Mastermind,
+   connected by a fresh Gmail added as a direct user, pressed cold after Foam OH proves; Escential stays the untouched
+   reference (decisions record: LORAMER_COLD_PROOF_RIG_V1).
 2. **Should an unnamed ad show its first headline or its number?** ANSWERED IN PRINCIPLE, awaiting Russ's
    yes: first headline, number only when an ad has no text.
 3. **How does the Shopify reviewer get in once the old screens go?** DEFERRED until data completeness is
