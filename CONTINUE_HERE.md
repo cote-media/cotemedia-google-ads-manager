@@ -20,8 +20,10 @@
 ── ▶▶ NEXT STEP, IN ORDER ──
 (1) FOAM OH WIPE — scratch/foamoh-wipe-2026-09-18/WIPE-DRAFT.sql via the direct-DB runner, one partition per
     transaction, abort on deleted ≠ expected, checkpoints per table, Russ present for the confirm; the snapshot in that
-    folder stands; est. 35–60 min; press within 5 min of the last checkpoint. ⚠ The wipe paste writes: under the new
-    gate it needs two round ids — today's rounds are citable by ORDINAL id (see the flight-3 report), or two fresh rounds.
+    folder stands; est. 35–60 min; press within 5 min of the last checkpoint. ⚠ THE WIPE PASTE WRITES, so under the
+    new gate it must cite TWO round ids — and NO pre-law paste can be cited (its log line carries no grade): send two
+    fresh read-only adversary rounds on the wipe first; each prints its `round-id:`; the wipe paste cites those two,
+    carries `vendor=` + five URLs on four domains, and a PRIOR-ART line (or NONE-FOUND with where you looked).
 (2) PRESS Backfill on Foam OH from the -next profile; six states; ~8 h descent.
 (3) After-snapshot + diff.mjs (same folder, same query text); one month against the Google Ads app.
 (4) Q1 cold proof: Veterinary Mastermind, fresh Gmail as direct user, connect, press.

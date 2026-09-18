@@ -389,8 +389,9 @@ export function roundStandings(lines) {
     }
     if (!byId.has(id)) byId.set(id, { shas: new Map() })
     const e = byId.get(id)
-    const cur = e.shas.get(o.prompt_sha256) || { refused: false, adversary_present: false, ts: o.ts || null }
+    const cur = e.shas.get(o.prompt_sha256) || { refused: false, adversary_present: false, graded: false, ts: o.ts || null }
     if (o.verdict === 'refused') cur.refused = true
+    if (typeof o.adversary_present === 'boolean') cur.graded = true // stamped by this law; a pre-law line carries no grade at all
     if (o.adversary_present === true) cur.adversary_present = true
     cur.ts = cur.ts || o.ts || null
     e.shas.set(o.prompt_sha256, cur)
@@ -416,6 +417,7 @@ export function roundsVerdict(value, logLines = []) {
     if (cands.length > 1) { bad.push(`round-id ${id} names ${cands.length} pastes (${cands.map(([sha, c]) => `${sha.slice(0, 8)} @ ${c.ts}`).join(', ')}) — two machines minted it before a sync; write rounds=${id}@<sha8> to say which`); continue }
     const [, c] = cands[0]
     if (c.refused) { bad.push(`round-id ${id} is a REFUSED submission — its re-issue is the round, cite that id`); continue }
+    if (!c.graded) { bad.push(`round-id ${id} predates the minted-id law — its log line carries no grade, so it cannot be cited; run a fresh round (it will print its id)`); continue }
     if (!c.adversary_present) { bad.push(`round-id ${id} was accepted WITHOUT a graded adversary box (mine≠other, ${MIN_COLLISION_WORDS}+ collision words) — it is not a round`); continue }
     resolved += 1
   }
