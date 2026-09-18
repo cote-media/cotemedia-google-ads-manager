@@ -322,6 +322,35 @@ export interface SizeVerdict {
   estimateRowsPerDay: number | null
   sizedOnRowsPerDay: number | null
   reason: string
+  /**
+   * LORAMER_UNIT_RESERVE_PER_SURFACE_V1 — the surface's worst observed seconds-per-day over the sizing history
+   * (duration_ms ÷ window days, max of the last 12 measured attempts); null when nothing was measured.
+   */
+  maxSecPerDay?: number | null
+  /** The ms a unit of `days` on this surface must reserve before it is admitted: unitReserveMs(maxSecPerDay, days). */
+  reserveMs?: number
+}
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+// THE UNIT RESERVE — LORAMER_UNIT_RESERVE_PER_SURFACE_V1 (round 4, 2026-09-18)
+// ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+// ⛔ A UNIT RESERVES WHAT ITS OWN SURFACE HAS COST PER DAY, NOT A FLAT 10 SECONDS. The flat floor was derived from a
+// 6,768 ms p99 on ≤30-day units; at 90 days a row-budget-capped unit runs ~70 s, and a rows-based predictor
+// (rows ÷ 3,429 × 1.48 + 1.3 s) failed 629 of 666 attempts because VENDOR LATENCY, not rows, sets the floor: ≤1,000-row
+// requests run p99 8.3 s, p99.9 16.9 s, max 34.5 s (n=26,724, 2026-09-01..18). The per-surface predictor from the
+// ledger's own durations covered 23,093 of 23,096 warm attempts (3 misses, max excess 48.3 s).
+//   UNIT_RESERVE_MS = 18,000 + maxSecPerDay₁₂ × days × 1,480   (floor 18,000; cold surfaces stay at coldStartDays)
+// The 1.48 is the contract's declared safety factor, inherited; the three misses say measure a factor of ~2 at 90 d.
+/** The vendor-latency floor: p99.9 of ≤1,000-row requests, fleet-wide, 2026-09-01..18. */
+export const UNIT_RESERVE_FLOOR_MS = 18_000
+/** The declared safety factor, inherited from universe-v2-contract.ts (×1.48 on the measured p99). */
+export const UNIT_RESERVE_FACTOR = 1.48
+
+/** PURE. The reservation for one unit of `days` on a surface whose worst observed cost is `maxSecPerDay` seconds per day. */
+export function unitReserveMs(a: { maxSecPerDay: number | null; days: number }): number {
+  const spd = a.maxSecPerDay !== null && Number.isFinite(a.maxSecPerDay) && a.maxSecPerDay > 0 ? a.maxSecPerDay : 0
+  const days = Math.max(1, Math.floor(a.days))
+  return Math.max(UNIT_RESERVE_FLOOR_MS, Math.round(UNIT_RESERVE_FLOOR_MS + spd * days * UNIT_RESERVE_FACTOR * 1000))
 }
 
 /** ≥ this share of prior windows returning ZERO makes a series intermittent; its median is zero by construction. */

@@ -140,7 +140,8 @@ if (bite !== null && budgetMs !== null && cycleMs !== null && floorMs !== null) 
 // ── (c) THE LOOP STILL CONSULTS THE RULE, AND STILL RECORDS WHAT IT DEFERRED ─────────────────────────────
 {
   const route = read('src/app/api/cron/universe-resume/route.ts')
-  if (!/shouldStartAnotherLap\(\s*Date\.now\(\) - startedAt,\s*maxUnitMs,\s*FIRE_WORK_BUDGET_MS,\s*UNIT_RESERVATION_FLOOR_MS\s*\)/.test(route)) {
+  // LORAMER_UNIT_RESERVE_PER_SURFACE_V1 (2026-09-18): the fourth argument is the unit's OWN reserve (c.reserveMs ≥ the floor), no longer the flat floor.
+  if (!/shouldStartAnotherLap\(\s*Date\.now\(\) - startedAt,\s*maxUnitMs,\s*FIRE_WORK_BUDGET_MS,\s*c\.reserveMs\s*\)/.test(route)) {
     findings.push('(c) the execution loop no longer admits units through shouldStartAnotherLap against the FIRE budget on the FIRE clock. Raising the bite is only safe BECAUSE that gate exists; without it the bite becomes an unbounded promise.')
   }
   // ⛔ RE-CUT 2026-09-15 — LORAMER_FIRE_UNITS_CONCURRENT_V1. The loop is now per-surface queues run

@@ -108,6 +108,8 @@ module.exports = {
   readGoogleQuotaPause: async () => ({ paused: false, state: 'not_blocked', until: null, since: null, reason: '' }), holdGoogleWork: () => false, recordQuotaHold: async () => {},
   // walk-quota-store (LORAMER_WALK_QUOTA_SCOPE_V1) — no lane hold in these fixtures
   readWalkLaneHold: async () => ({ held: false, state: 'clear', until: null, reason: null }), holdWalkLane: () => false,
+  // capture-adapter unitReserveMs (LORAMER_UNIT_RESERVE_PER_SURFACE_V1) — these fixtures reserve nothing
+  unitReserveMs: () => 0,
   // lap-budget — scripted answers, then true
   shouldStartAnotherLap: () => { const a = W().lapAnswers; return a.length ? a.shift() : true },
 }

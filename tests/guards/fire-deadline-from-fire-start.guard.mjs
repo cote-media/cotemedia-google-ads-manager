@@ -170,7 +170,8 @@ try {
 if (!/deadlineAt: fireDeadlineAt\(startedAt\)/.test(route)) {
   findings.push(`(d) ${ROUTE} does not set its unit deadline to fireDeadlineAt(startedAt). The deadline must ride the FIRE's clock; anything later than startedAt hides the phase before it.`)
 }
-if (!/shouldStartAnotherLap\(\s*Date\.now\(\) - startedAt,\s*maxUnitMs,\s*FIRE_WORK_BUDGET_MS,\s*UNIT_RESERVATION_FLOOR_MS\s*\)/.test(route)) {
+// LORAMER_UNIT_RESERVE_PER_SURFACE_V1 (2026-09-18): the reservation argument is the unit's own reserve (c.reserveMs ≥ the floor); the CLOCK (startedAt) and the BUDGET are what this leg pins.
+if (!/shouldStartAnotherLap\(\s*Date\.now\(\) - startedAt,\s*maxUnitMs,\s*FIRE_WORK_BUDGET_MS,\s*(UNIT_RESERVATION_FLOOR_MS|c\.reserveMs)\s*\)/.test(route)) {
   findings.push(`(d) ${ROUTE}'s between-unit admission does not measure elapsed from startedAt against FIRE_WORK_BUDGET_MS. Two clocks in one fire is the defect, whichever one the deadline uses.`)
 }
 // `captureStartedAt` may exist for REPORTING. It may NOT feed admission.

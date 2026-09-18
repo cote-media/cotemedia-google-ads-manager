@@ -16,7 +16,7 @@
 // Coverage is answered from `metrics_daily` by `universe-coverage.ts`, which may not import the attempt-log
 // module. Sizing is an OPTIMISATION: with `day_committed`, a wrong guess costs one re-fetch.
 import { supabaseAdmin } from '@/lib/supabase'
-import { sizeFromPolicy, type CaptureAdapter, type SizeVerdict } from '@/lib/backfill/capture-adapter'
+import { sizeFromPolicy, unitReserveMs, type CaptureAdapter, type SizeVerdict } from '@/lib/backfill/capture-adapter'
 
 export type { SizeVerdict }
 
@@ -39,7 +39,7 @@ export async function sizeNextWindow(
 ): Promise<SizeVerdict> {
   const { data, error } = await supabaseAdmin
     .from('universe_attempt_log')
-    .select('window_start, window_end, rows_written')
+    .select('window_start, window_end, rows_written, duration_ms')
     .eq('client_id', k.clientId).eq('vendor', adapter.platform)
     .eq('resource', k.resource).eq('segment', k.segment)
     .eq('phase', 'attempt_finished')
@@ -52,14 +52,23 @@ export async function sizeNextWindow(
     return {
       days: adapter.sizing.coldStartDays, basis: 'cold-start-no-history',
       estimateRowsPerDay: null, sizedOnRowsPerDay: null,
+      maxSecPerDay: null, reserveMs: unitReserveMs({ maxSecPerDay: null, days: adapter.sizing.coldStartDays }),
       reason: `sizing history unreadable (${error.message}) — falling back to the cold-start ${adapter.sizing.coldStartDays}-day window rather than assuming capacity`,
     }
   }
   const rowsPerDay: number[] = [], totals: number[] = []
+  // LORAMER_UNIT_RESERVE_PER_SURFACE_V1 — the same read carries duration_ms (098), so the reserve costs no extra round trip.
+  let maxSecPerDay: number | null = null
   for (const r of data ?? []) {
     const days = Math.max(1, dayDiff(String(r.window_start), String(r.window_end)) + 1)
     const rows = Number(r.rows_written ?? 0)
     rowsPerDay.push(rows / days); totals.push(rows)
+    const dur = r.duration_ms == null ? null : Number(r.duration_ms)
+    if (dur !== null && Number.isFinite(dur) && dur >= 0) {
+      const spd = dur / 1000 / days
+      maxSecPerDay = maxSecPerDay === null ? spd : Math.max(maxSecPerDay, spd)
+    }
   }
-  return sizeFromPolicy(adapter.sizing, adapter.meter.costDirection, rowsPerDay, totals)
+  const verdict = sizeFromPolicy(adapter.sizing, adapter.meter.costDirection, rowsPerDay, totals)
+  return { ...verdict, maxSecPerDay, reserveMs: unitReserveMs({ maxSecPerDay, days: verdict.days }) }
 }

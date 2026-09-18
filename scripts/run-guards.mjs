@@ -505,6 +505,7 @@ const GUARDS = [
   'tests/guards/walk-quota-scope.guard.mjs', // LORAMER_WALK_QUOTA_SCOPE_V1 — the walk reads quota_error_details and keys its hold on scope (ACCOUNT → one lane, DEVELOPER/message-only → fleet, no delay → 10/20/40 s); google-quota(.store).ts pinned byte-identical (route R2)
   'tests/guards/attempt-timing.guard.mjs', // LORAMER_ATTEMPT_TIMING_V1 — stream_ms / upsert_ms / duration_ms on the attempt row: the vendor's share and ours, measured separately (098)
   'tests/guards/descend-window-90.guard.mjs', // LORAMER_DESCEND_WINDOW_90_V1 — maxDays 90 / MISSED_WINDOW_DAYS 90 pinned; deriveWindow and the missed lane never straddle the retention line (Airbyte clip form)
+  'tests/guards/unit-reserve-per-surface.guard.mjs', // LORAMER_UNIT_RESERVE_PER_SURFACE_V1 — a unit reserves 18 s + its surface's s/day × days × 1.48 (floor 18 s) from the ledger's duration_ms; the fire and the worker admit against it
   'tests/guards/resume-digest-freshness.guard.mjs',
 ]
 

@@ -62,7 +62,7 @@ import { captureSurfaceStreaming, serializeVendorError } from '@/lib/backfill/un
 // floor, the operations meter, the sizing policy AND its cost direction, and the day-closure entitlement.
 // This route now contains no vendor constant at all — `capture-adapter-seam.guard.mjs` enforces that.
 import { googleAdsCaptureAdapter, surfaceOfEntry, isRetentionWallRefusal } from '@/lib/backfill/capture-adapters/google-ads.adapter'
-import { mayFetch } from '@/lib/backfill/capture-adapter'
+import { mayFetch, unitReserveMs } from '@/lib/backfill/capture-adapter'
 import { rangesStillOwed } from '@/lib/backfill/universe-coverage'
 import { appendAttemptStarted, appendDayCommitted, appendAttemptFinished, appendMessageFinished, readAttemptsAtSpan, readAttemptLaneSpendToday, type AttemptKey, type WriteProvenance } from '@/lib/backfill/universe-attempt-log'
 import { sizeNextWindow, dayDiff } from '@/lib/backfill/universe-sizing'
@@ -165,6 +165,8 @@ export interface DeadlineOpts {
   canary?: CanaryReading
   /** LORAMER_RETENTION_WALL_CANARY_V1 — called once per empty answer past the wall that could not be resolved. */
   onUnresolvedPastWall?: () => void
+  /** LORAMER_UNIT_RESERVE_PER_SURFACE_V1 — this surface's worst observed seconds-per-day (null = unmeasured); range admission reserves per range from it. */
+  maxSecPerDay?: number | null
 }
 
 // LORAMER_FIRE_LOG_WITNESSES_OPENED_V1 — RETURNS THE NUMBER OF REQUESTS THIS INVOCATION OPENED: one per
@@ -508,8 +510,10 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance, opts
     // consumer's own narrowing — a range that repeatedly fails at span is halved (MIS-SIZED), and at the
     // minimum span it becomes BROKEN and reportable rather than retried. The reservation removes the
     // dispatched-just-under-the-line class; it does not promise no range is ever too slow.
+    // LORAMER_UNIT_RESERVE_PER_SURFACE_V1 — per RANGE: 18 s + this surface's s/day × the range's days × 1.48 (floor 18 s).
+    const rangeReserveMs = unitReserveMs({ maxSecPerDay: opts.maxSecPerDay ?? null, days: dayDiff(range.start, range.end) + 1 })
     const pastFireDeadline = opts.deadlineAt !== undefined &&
-      Date.now() + Math.max(maxRangeMs, UNIT_RESERVATION_FLOOR_MS) > opts.deadlineAt
+      Date.now() + Math.max(maxRangeMs, rangeReserveMs) > opts.deadlineAt
     if (!shouldStartAnotherLap(Date.now() - started, maxRangeMs, WALK_BUDGET_MS) || pastFireDeadline) {
       deferredForBudget = owed.ranges.length - owed.ranges.indexOf(range)
       break

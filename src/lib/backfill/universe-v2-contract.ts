@@ -113,7 +113,11 @@ export const LEASE_TTL_S = CONSUMER_MAX_DURATION_S + 30
  * that did no work. Bounding the scan is the ENTRY-CAP flight (QUEUE ★SCAN-ALLOWANCE-IS-16S-SHORT's
  * sibling ★COVERAGE-DAY-SET-RPC), deliberately not done here.
  */
-export const UNIT_RESERVATION_FLOOR_MS = 10_000
+// ⛔ RE-DERIVED 2026-09-18 (LORAMER_UNIT_RESERVE_PER_SURFACE_V1): 18,000 = the vendor-latency floor (p99.9 of ≤1,000-row
+// requests, n=26,724), the FLOOR under the per-surface reserve in capture-adapter.ts unitReserveMs — the flat 10,000
+// (p99 6,768 × 1.48 on ≤30-day units) admitted a 70 s unit 60 s from the kill at 90-day windows. Kept as a literal here
+// (this module is compiled standalone by guards); unit-reserve-per-surface.guard.mjs pins the two equal.
+export const UNIT_RESERVATION_FLOOR_MS = 18_000
 export const FIRE_WORK_BUDGET_MS = (CONSUMER_MAX_DURATION_S * 1000) - UNIT_RESERVATION_FLOOR_MS
 
 /**

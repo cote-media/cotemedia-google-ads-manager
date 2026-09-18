@@ -60,6 +60,7 @@ import { rangesStillOwed } from '@/lib/backfill/universe-coverage'
 import { randomUUID } from 'node:crypto'
 import { appendAttemptStarted, appendAttemptFinished, readAttemptsAtSpan, type AttemptKey, type WriteProvenance } from '@/lib/backfill/universe-attempt-log'
 import { sizeNextWindow, dayDiff } from '@/lib/backfill/universe-sizing'
+import { unitReserveMs } from '@/lib/backfill/capture-adapter' // LORAMER_UNIT_RESERVE_PER_SURFACE_V1
 import {
   MAX_ATTEMPTS_AT_MIN_SPAN, LEASE_TTL_S, CONSUMER_MAX_DURATION_S,
   FIRE_WORK_BUDGET_MS, fireDeadlineAt, UNIT_RESERVATION_FLOOR_MS, UNIT_CONCURRENCY,
@@ -434,6 +435,9 @@ export async function GET(request: Request) {
     // LORAMER_V2_METER_CHARGES_THE_PROGRAM_V1 — `ranges` is the COUNT and was all the meter ever saw; the
     // spans are what `costOf` is defined over, and they were being computed here and thrown away.
     rangeSpans: number[]
+    /** LORAMER_UNIT_RESERVE_PER_SURFACE_V1 — the surface's worst observed s/day (null = unmeasured) and this unit's reserve. */
+    maxSecPerDay: number | null
+    reserveMs: number
   }
   const candidates: Candidate[] = []
   // ⛔ THE SECOND LANE — LORAMER_LOOKBACK_LANE_V1 (the top-edge lane of LORAMER_TOP_EDGE_LANE_V1 CONVERTED, ruling
@@ -527,6 +531,7 @@ export async function GET(request: Request) {
                     anchorBasis: `boundary window above the SEALED descent's last window ${rotPrior ? String(rotPrior.last_window_end) : '(none)'} / lookback frontier ${lookbackFrontier.get(sealKey) ?? '(none)'}; ends ≤ T−${boundary.days} = ${sealedStrip.boundaryEnd}`,
                     receded: false, stopBasis: `boundary T−${boundary.days} — ${boundary.basis}`,
                     rangeSpans: sealedOwed.ranges.map((r) => dayDiff(r.start, r.end) + 1),
+                    maxSecPerDay: null, reserveMs: unitReserveMs({ maxSecPerDay: null, days: dayDiff(sealedStrip.windowStart, sealedStrip.windowEnd) + 1 }),
                   })
                 } catch (e: any) {
                   refusals.push({ label: sealedLabel, verdict: 'lookback-coverage-error', reason: String(e?.message ?? e) })
@@ -594,6 +599,7 @@ export async function GET(request: Request) {
             anchorBasis: `boundary window above the descent's last window ${rot ? String(rot.last_window_end) : '(none)'} / lookback frontier ${lookbackFrontier.get(`${entry.resource}|${entry.segment ?? ''}`) ?? '(none)'}; ends ≤ T−${boundary.days} = ${strip.boundaryEnd}`,
             receded: false, stopBasis: `boundary T−${boundary.days} — ${boundary.basis}`,
             rangeSpans: stripOwed.ranges.map((r) => dayDiff(r.start, r.end) + 1),
+            maxSecPerDay: sizing.maxSecPerDay ?? null, reserveMs: unitReserveMs({ maxSecPerDay: sizing.maxSecPerDay ?? null, days: dayDiff(strip.windowStart, strip.windowEnd) + 1 }),
           })
         } catch (e: any) {
           // ⛔ A COVERAGE READ THAT THREW IS NOT AN EMPTY STRIP. Record it and let the DESCENT continue — the
@@ -789,6 +795,8 @@ export async function GET(request: Request) {
       // ⛔ ONE OWED RANGE IS ONE VENDOR REQUEST (universe-resumer.ts:201-203), so this is the program the
       // meter must be charged for — not its length, which is what it used to be handed.
       rangeSpans: owed.ranges.map((r) => dayDiff(r.start, r.end) + 1),
+      // LORAMER_UNIT_RESERVE_PER_SURFACE_V1 — sizing already read duration_ms; the reserve is for THIS window's days.
+      maxSecPerDay: sizing.maxSecPerDay ?? null, reserveMs: unitReserveMs({ maxSecPerDay: sizing.maxSecPerDay ?? null, days: dayDiff(windowStart, windowEnd) + 1 }),
     })
   }
 
@@ -845,9 +853,17 @@ export async function GET(request: Request) {
         missedSurfacesWithHoles = new Set(page.uncovered.map((h) => `${h.surface.resource}|${h.surface.segment}`)).size
         // OLDEST FIRST across every hole this page found; each contiguous span is split into ≤30-day windows.
         const spans = [...page.uncovered].sort((a, b) => (a.start < b.start ? -1 : a.start > b.start ? 1 : 0))
+        // LORAMER_UNIT_RESERVE_PER_SURFACE_V1 — one sizing read per surface with holes (≤ MISSED_SURFACES_PER_RUN), cached.
+        const missedSpd = new Map<string, number | null>()
         for (const h of spans) {
           const entry = byKey.get(`${h.surface.resource}|${h.surface.segment}`)
           if (!entry) continue
+          const spdKey = `${h.surface.resource}|${h.surface.segment}`
+          if (!missedSpd.has(spdKey)) {
+            const sz = await sizeNextWindow(adapter, { clientId, resource: h.surface.resource, segment: h.surface.segment })
+            missedSpd.set(spdKey, sz.maxSecPerDay ?? null)
+          }
+          const spd = missedSpd.get(spdKey) ?? null
           const label = `${h.surface.resource}${h.surface.segment ? ' / ' + h.surface.segment : ''}`
           // LORAMER_DESCEND_WINDOW_90_V1 — a hole crossing the retention line is split at it first, so no request straddles it.
           for (const part of splitAtWall(h.start, h.end, wallLine))
@@ -858,6 +874,7 @@ export async function GET(request: Request) {
               anchorBasis: `hole ${h.start}..${h.end} (${h.days} day(s)) from the hole map, cursor ${missedFrom}→${missedCursorNext ?? '?'} of ${entries.length} (sweep ${missedSweep}); window ${w.start}..${w.end} ≤ T−B ${missedBoundaryEnd}`,
               receded: false, stopBasis: `boundary T−${boundary.days} — ${boundary.basis}`,
               rangeSpans: [w.days],
+              maxSecPerDay: spd, reserveMs: unitReserveMs({ maxSecPerDay: spd, days: w.days }),
             })
           }
         }
@@ -1013,7 +1030,9 @@ export async function GET(request: Request) {
       // ⛔ ADMISSION BEFORE EVERY UNIT, per queue — the reservation rule at the fire grain, unchanged. A queue
       // that is refused stops and reports the units it did not reach; the other queues keep going, because a
       // slow surface must not spend another surface's budget.
-      if (!dryRun && !shouldStartAnotherLap(Date.now() - startedAt, maxUnitMs, FIRE_WORK_BUDGET_MS, UNIT_RESERVATION_FLOOR_MS)) {
+      // LORAMER_UNIT_RESERVE_PER_SURFACE_V1 — the reservation is the unit's OWN (18 s + its surface's s/day × days × 1.48),
+      // never the flat floor: a 90-day unit on a heavy surface reserves ~2 min, a light 1-day unit 18 s.
+      if (!dryRun && !shouldStartAnotherLap(Date.now() - startedAt, maxUnitMs, FIRE_WORK_BUDGET_MS, c.reserveMs)) {
         deferredUnits += queue.length - qi
         console.warn(`[universe-resume] FIRE BUDGET STOP: deferred ${queue.length - qi} unit(s) on ${c.entry.resource}${c.entry.segment ? '/' + c.entry.segment : ''} — ` +
           `${Date.now() - startedAt}ms of ${FIRE_WORK_BUDGET_MS}ms fire budget (scan ${captureStartedAt - startedAt}ms of that), ` +
@@ -1059,7 +1078,7 @@ export async function GET(request: Request) {
         // so the fire RECORDS AND CONTINUES — one broken surface must not cost the other 41 their pass.
         const unitStartedAt = Date.now()
         try {
-          const unitResult = await processMessage({ ...msg, messageKey: idempotencyKey } satisfies UniverseMessageV2, unitOpts)
+          const unitResult = await processMessage({ ...msg, messageKey: idempotencyKey } satisfies UniverseMessageV2, { ...unitOpts, maxSecPerDay: c.maxSecPerDay })
           requestsOpened += unitResult.requestsOpened
           executed.push({ label: c.label, lane, window: `${c.windowStart}..${c.windowEnd}`, ms: Date.now() - unitStartedAt })
         } catch (e: any) {
