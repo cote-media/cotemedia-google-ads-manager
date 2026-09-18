@@ -8,7 +8,7 @@
 >
 > ⛔ **EVERY FACTUAL LINE HERE IS VERIFIED AGAINST THE CODE, and is dated.** If a line and the code disagree,
 > THE CODE IS RIGHT and this file is stale — say so and fix it the same day.
-> Last verified against the code: **2026-09-18** (flight 2: the one-click run)
+> Last verified against the code: **2026-09-18** (flight 3: the unskippable law — the gate mints round ids)
 
 ---
 
@@ -183,6 +183,14 @@ changed. Days older than the limit are asked; an empty answer there is held and 
   resumes a failed request from the last day it landed, reuses each month's account-activity answer, and holds one
   customer's lane — not the whole fleet — when Google names that customer's own bucket. Nothing on the screens or on
   the assistant's path changed (route R2).
+- **Prior art first, research is many places, adversary rounds until nothing changes** — the unskippable law, and it
+  is code, not advice (evening): before anything is built, the instruction names what already exists or says where it
+  looked and found nothing; its sources are at least five pages on four different sites with the vendor named; and it
+  cites two earlier adversary rounds by the numbers the gate itself printed, the last of which changed nothing. The
+  gate refuses an instruction that lacks any of these. Its first catch was its own build: five build instructions
+  refused for a citation the reader had silently dropped.
+- **Round numbers are minted by the process, never typed.** Every graded instruction gets a number back
+  (`round-id: <n>`), printed at the foot of the report; that number is what the next instruction cites.
 
 **Earlier, still standing**
 
