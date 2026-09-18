@@ -573,6 +573,7 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance, opts
       }
       await appendAttemptFinished(rangeKey, opened.attemptNo, outcome, {
         rowsWritten: res.rowsWritten, requestsSpent: 1, diskFreeBytes: floor.freeBytes,
+        streamMs: res.streamMs, upsertMs: res.upsertMs, durationMs: Date.now() - rangeStartedAt, // LORAMER_ATTEMPT_TIMING_V1
         error: unresolvedNote ?? res.error ?? (res.orderViolation ? 'ORDER VIOLATION: the vendor returned a row for an already-committed day, so this attempt\'s day commits do not prove closure' : res.skipped ? res.skipped.requirement : null),
       }, prov)
       maxRangeMs = Math.max(maxRangeMs, Date.now() - rangeStartedAt)
@@ -585,7 +586,7 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance, opts
       // A refusal can arrive as a throw rather than in `res.error` — the same signal, the same rule.
       noteWall(range.start, lastError)
       await appendAttemptFinished(rangeKey, opened.attemptNo, 'error',
-        { rowsWritten: 0, requestsSpent: 1, diskFreeBytes: floor.freeBytes, error: lastError }, prov)
+        { rowsWritten: 0, requestsSpent: 1, diskFreeBytes: floor.freeBytes, durationMs: Date.now() - rangeStartedAt, error: lastError }, prov)
     }
   }
 

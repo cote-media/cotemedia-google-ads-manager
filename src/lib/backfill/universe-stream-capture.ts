@@ -73,6 +73,13 @@ export interface StreamCaptureResult {
    * because "we cannot say why we stored nothing" must keep the window OWED, never seal it.
    */
   nonGrainOnly: boolean
+  /**
+   * LORAMER_ATTEMPT_TIMING_V1 — the attempt's wall time SPLIT: ms spent awaiting the vendor's iterator (pulls) and ms
+   * spent awaiting metrics_daily upserts. Summed over the attempt; the two never overlap because the loop is
+   * sequential (a pull, then possibly a flush). Round 3 could not say which side dominated a 192k-row request.
+   */
+  streamMs: number
+  upsertMs: number
 }
 
 /**
@@ -115,6 +122,7 @@ export async function captureSurfaceStreaming<TRow>(args: StreamCaptureArgs<TRow
     skipped: null, exhaustion: null, error: null, entityLevel: surface.entityLevel, grainDeclines: 0,
     orderViolation: false,
     seen: 0, droppedNoDate: 0, droppedEmptySegment: 0, droppedAllZeroMetrics: 0, nonGrainOnly: false,
+    streamMs: 0, upsertMs: 0,
   }
 
   const source = args.stream
@@ -146,7 +154,11 @@ export async function captureSurfaceStreaming<TRow>(args: StreamCaptureArgs<TRow
     out.droppedNoDate += built.droppedNoDate
     out.droppedEmptySegment += built.droppedEmptySegment
     out.droppedAllZeroMetrics += built.droppedAllZeroMetrics
-    if (built.rows.length) out.rowsWritten += (await upsert(built.rows)).written
+    if (built.rows.length) {
+      const t0 = Date.now()
+      out.rowsWritten += (await upsert(built.rows)).written
+      out.upsertMs += Date.now() - t0
+    }
     committed.add(day)
     out.daysCommitted.push(day)
     // ⛔ THE APPEND HAPPENS **AFTER** THE UPSERT RESOLVES, NEVER BEFORE. A `day_committed` written first
@@ -156,7 +168,15 @@ export async function captureSurfaceStreaming<TRow>(args: StreamCaptureArgs<TRow
   }
 
   try {
-    for await (const row of source()) {
+    // ⛔ THE ITERATOR IS PULLED BY HAND so each pull's wait is measured (LORAMER_ATTEMPT_TIMING_V1). Semantically this
+    // is `for await (const row of source())` — no buffering, one row at a time, the flush still runs between pulls.
+    const it = source()[Symbol.asyncIterator]()
+    for (;;) {
+      const t0 = Date.now()
+      const next = await it.next()
+      out.streamMs += Date.now() - t0
+      if (next.done) break
+      const row = next.value
       const d = adapter.dateOf(row)
       out.apiRows++
       if (!d) continue                                     // no date ⇒ not a daily grain

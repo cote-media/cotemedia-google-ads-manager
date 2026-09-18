@@ -244,6 +244,10 @@ export async function appendAttemptFinished(
     refusedRows?: number
     diskFreeBytes?: number | null
     error?: string | null
+    /** LORAMER_ATTEMPT_TIMING_V1 — ms awaiting the vendor iterator / the upserts / the attempt's whole life. NULL = not measured. */
+    streamMs?: number | null
+    upsertMs?: number | null
+    durationMs?: number | null
   } = {},
   prov?: WriteProvenance,
 ): Promise<void> {
@@ -257,6 +261,9 @@ export async function appendAttemptFinished(
     refused_rows: detail.refusedRows ?? null,
     disk_free_bytes: detail.diskFreeBytes ?? null,
     error: detail.error ?? null,
+    stream_ms: detail.streamMs ?? null,
+    upsert_ms: detail.upsertMs ?? null,
+    duration_ms: detail.durationMs ?? null,
   })
   if (error) fail('attempt_finished', error)
 }

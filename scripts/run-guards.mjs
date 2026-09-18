@@ -503,6 +503,7 @@ const GUARDS = [
   'tests/guards/fleet-cap-injection-is-guard-only.guard.mjs', // LORAMER_CAP_FOLLOWS_GRANT_V1 — the cap/allocations override is a GUARD HANDLE; no src/ call may pass it, and every live lane allocation is null (unlimited) or 0 (stopped by decision)
   'tests/guards/instrument-client-literal.guard.mjs', // LORAMER_INSTRUMENT_CLIENT_LITERAL_GUARD_V1 — a client-id-shaped literal (uuid / 10-digit customer id / act_) in a scripts/ or tests/guards/ code line fails the build unless allowlisted or WHY-annotated on its line; hermetic; classifier fixture-proven
   'tests/guards/walk-quota-scope.guard.mjs', // LORAMER_WALK_QUOTA_SCOPE_V1 — the walk reads quota_error_details and keys its hold on scope (ACCOUNT → one lane, DEVELOPER/message-only → fleet, no delay → 10/20/40 s); google-quota(.store).ts pinned byte-identical (route R2)
+  'tests/guards/attempt-timing.guard.mjs', // LORAMER_ATTEMPT_TIMING_V1 — stream_ms / upsert_ms / duration_ms on the attempt row: the vendor's share and ours, measured separately (098)
   'tests/guards/resume-digest-freshness.guard.mjs',
 ]
 
