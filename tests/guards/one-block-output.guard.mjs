@@ -59,6 +59,16 @@ for (const t of targets) {
   }
 }
 
+// (a2) LORAMER_ADVERSARY_UNTIL_CONVERGED_V1 — THE FOOTER LINE lives INSIDE the one-block section of CLAUDE.md (the
+// executor reads it with the rule it belongs to): `round-id: <n> · ROUND <title>` before "— END OF REPORT —". Placement
+// only, like everything else here; obedience is Russ seeing a report without its footer.
+{
+  const md = read('CLAUDE.md') || ''
+  const start = md.indexOf(TOKEN)
+  const end = md.indexOf('## ', start + 1)
+  const section = start >= 0 ? md.slice(start, end > start ? end : undefined) : ''
+  if (!/round-id: <n> · ROUND <title>/.test(section)) findings.push('CLAUDE.md\'s one-block section no longer carries the footer rule `round-id: <n> · ROUND <title>` (LORAMER_ADVERSARY_UNTIL_CONVERGED_V1) — the id the gate mints has nowhere to be printed.')
+}
 // (a) STRICTER FOR CLAUDE.md — it must be the FIRST gate, ahead of the IN-FLIGHT GATE.
 {
   const md = read('CLAUDE.md') || ''
