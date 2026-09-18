@@ -1,4 +1,8 @@
 // LORAMER_NEXT_FULL_BACKFILL_AFFORDANCE_V1 — owner-gated manual "Backfill history" trigger for -next.
+// ⛔ LORAMER_ONE_CLICK_RUN_V1 (flight 2, 2026-09-18): ONE BUTTON PER PLATFORM (`?platform=`, MAP §7). google → the continuous run,
+// started ONCE (client-run-start.ts: a live run is returned unchanged, floor-done + complete is the meter, an ended run
+// restarts by a conditional update) after a preflight on the CONNECTION's email; the one-turn resumer kick (kickoffWalk)
+// is retired. Every other platform → exactly the kicks below, byte-identical (their drains are live; Google's is allocation-0).
 // THIN WRAPPER over the existing self-serve spine — ZERO new backfill logic (+ LORAMER_ONE_CLICK_WALK_V1 (2/2 A): the
 // walk's first touch for google rides the same click, step (3) below — a kick, like (1) and (2)):
 //   (1) kickoffBackfill per connected platform → the deep-history DRAIN (all registry grains, deepest-first, to the
@@ -13,7 +17,10 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
-import { kickoffBackfill, kickoffGapBackfill, kickoffWalk } from '@/lib/backfill/kickoff'
+import { kickoffBackfill, kickoffGapBackfill } from '@/lib/backfill/kickoff'
+// LORAMER_ONE_CLICK_RUN_V1 — the google press starts the CONTINUOUS RUN once (DB-conditional), never a one-turn kick.
+import { startClientRun, preflightGoogle } from '@/lib/backfill/client-run-start'
+import { googleWalkStatus, RUN_VENDOR } from '@/lib/backfill/google-walk-status'
 import { resolveDateWindow, addDaysIso } from '@/lib/date-range'
 
 export const runtime = 'nodejs'
@@ -30,37 +37,48 @@ export async function POST(request: Request) {
   const email = session?.user?.email
   if (!email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const id = new URL(request.url).searchParams.get('id')
+  const url = new URL(request.url)
+  const id = url.searchParams.get('id')
   if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
+  // LORAMER_ONE_CLICK_RUN_V1 — one button per platform: the press names its platform.
+  const platform = url.searchParams.get('platform')
+  if (!platform) return NextResponse.json({ error: 'platform required' }, { status: 400 })
 
   // OWNER-ONLY gate (mirror restore + status): the client must be OWNED by the caller (user_email === caller).
   // Rejects members/editors/viewers. Active clients only (an archived client uses restore, not this).
+  // (Widening to org admins is a product fork for Russ — DECISIONS LORAMER_ONE_CLICK_RUN_V1.)
   const { data: owned } = await supabaseAdmin
-    .from('clients').select('id').eq('id', id).eq('user_email', email).is('deleted_at', null).maybeSingle()
+    .from('clients').select('id, user_email').eq('id', id).eq('user_email', email).is('deleted_at', null).maybeSingle()
   if (!owned) return NextResponse.json({ error: 'Client not found or not owner' }, { status: 404 })
 
-  // Connected platforms for this client (NO connection created/changed).
+  // The pressed platform must be connected (NO connection created/changed).
   const { data: conns } = await supabaseAdmin
-    .from('platform_connections').select('platform').eq('client_id', id)
-  const platforms = Array.from(new Set((conns || []).map((c: any) => c.platform).filter(Boolean))) as string[]
-  if (platforms.length === 0) return NextResponse.json({ kicked: [], note: 'no connected platforms' })
+    .from('platform_connections').select('platform').eq('client_id', id).eq('platform', platform)
+  if (!conns || conns.length === 0) return NextResponse.json({ error: `${platform} is not connected on this client` }, { status: 409 })
 
-  const origin = new URL(request.url).origin
+  const origin = url.origin
   const since = addDaysIso(resolveDateWindow('YESTERDAY').startDate, -(GAP_REPAIR_DAYS - 1))
 
-  // (1) deep-history drain to floor, per platform. (2) interior-gap repair over [since, today].
-  for (const p of platforms) kickoffBackfill(origin, id, p)
+  // (1) deep-history drain for THIS platform (Google's lane is allocation-0 by decision — LORAMER_WALK_TAKES_THE_LANE_V1 —
+  //     and declines cleanly; the four other platforms' drains are live). (2) interior-gap repair over [since, today].
+  //     ⛔ Kept byte-for-byte for every platform — ruling (n): the legacy family remains the one writer of the 52 legacy
+  //     keys; the walk owns the catalogue spelling; disjoint surfaces, no row written twice.
+  kickoffBackfill(origin, id, platform)
   kickoffGapBackfill(origin, id, since)
 
-  // (3) LORAMER_ONE_CLICK_WALK_V1 (2/2 A) — THE WALK STARTS ON THE SAME CLICK, AS A KICK. For a google connection, fire
-  // the resumer once for THIS client (kickoffWalk → /api/cron/universe-resume?clientId=…&dryRun=0). The resumer runs the
-  // v2 worker inline; on a cold client the worker discovers the account's inception (first touch) and the first descend
-  // attempts land in universe_attempt_log — the ledgers the Data-history readout reads. Ruling (n): the drain kick above
-  // stays — the legacy family remains the one writer of the 52 legacy keys; the walk owns the catalogue spelling;
-  // disjoint surfaces, no row written twice. A repeat click no-ops against the resumer's own lease. The v1 publish
-  // (round 15: universe-start's core → the V1 topic consumer, universe_window_log, no inception) is RETIRED here.
-  const walk = platforms.includes('google') ? 'fired' : 'not-google'
-  if (walk === 'fired') kickoffWalk(origin, id)
+  if (platform !== 'google') {
+    return NextResponse.json({ platform, kicked: [platform], gapRepairSince: since })
+  }
 
-  return NextResponse.json({ kicked: platforms, gapRepairSince: since, walk })
+  // (3) GOOGLE → THE CONTINUOUS RUN, ONCE. Preflight on the CONNECTION's email (the fire runs on
+  //     `conn.user_email || client.user_email`, never the presser's session), then the DB-conditional start.
+  const pre = await preflightGoogle({ clientId: id, ownerEmail: owned.user_email as string })
+  if (!pre.ok) return NextResponse.json({ platform, error: pre.reason, kicked: [platform], gapRepairSince: since }, { status: 409 })
+  const readout = await googleWalkStatus(id)
+  const started = await startClientRun({ clientId: id, vendor: RUN_VENDOR, readout: readout.state })
+  return NextResponse.json({
+    platform, kicked: [platform], gapRepairSince: since,
+    action: started.action, run: started.run, note: started.note, readout: readout.state,
+    pumpedBy: started.action === 'insert' || started.action === 'restart' ? '/api/cron/universe-run-pump (next minute)' : null,
+  })
 }

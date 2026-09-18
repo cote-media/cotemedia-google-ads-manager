@@ -511,6 +511,7 @@ const GUARDS = [
   'tests/guards/wall-hold-never-retire.guard.mjs', // LORAMER_WALL_HOLD_NEVER_RETIRE_V1 — Q6: past the wall an empty is UNRESOLVED under every canary state, no idle verdict there, past-wall windows are asked and past-wall holes re-asked
   'tests/guards/run-end-kind.guard.mjs', // LORAMER_RUN_END_KIND_V1 — every way a run ends has a named kind (floor / stopped / failed); the two 'done' reasons are constants
   'tests/guards/status-run-fields.guard.mjs', // LORAMER_STATUS_RUN_FIELDS_V1 — the readout carries run/progress/stalled additively; finished_at wins over a stale claim; a dead pump reads stalled (10 min)
+  'tests/guards/one-click-start-once.guard.mjs', // LORAMER_ONE_CLICK_RUN_V1 — the press starts the run once (DB-conditional; a live row returns unchanged; floor-done + complete is the meter); preflight keys the token on the connection's email
   'tests/guards/resume-digest-freshness.guard.mjs',
 ]
 

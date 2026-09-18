@@ -40,14 +40,19 @@ else {
 const btn = strip(read(BTN))
 if (!btn) findings.push(`(b) ${BTN} missing`)
 else {
-  const walk = btn.indexOf('kickoffWalk(')
+  // LORAMER_ONE_CLICK_RUN_V1 (flight 2, 2026-09-18): the google press STARTS THE CONTINUOUS RUN once (startClientRun,
+  // DB-conditional) after the two legacy kicks; the one-turn resumer kick (kickoffWalk) is retired — a kick beside a
+  // run is a wasted lease. one-click-start-once.guard.mjs owns the start-once behaviour; this leg pins the ORDER and the
+  // absence of the retired kicks.
+  const start = btn.indexOf('startClientRun(')
   const kickI = btn.indexOf('kickoffBackfill(')
   const gap = btn.indexOf('kickoffGapBackfill(')
-  if (walk === -1) findings.push(`(b) ${BTN} never calls kickoffWalk( — the button does not fire the resumer`)
+  if (start === -1) findings.push(`(b) ${BTN} never calls startClientRun( — the button does not start the run`)
   if (kickI === -1 || gap === -1) findings.push(`(b) ${BTN} dropped kickoffBackfill( or kickoffGapBackfill( — ruling (n): the legacy family keeps filling on the same click`)
-  if (walk !== -1 && kickI !== -1 && walk < kickI) findings.push(`(b) ${BTN} fires the walk BEFORE the June-engine kick — the order is kick, then walk`)
-  if (/publishWalkStart|universe-start-publish/.test(btn)) findings.push(`(b) ${BTN} still imports or calls publishWalkStart — the v1 publish branch must be gone (it feeds the v1 topic consumer, not the v2 walk)`)
-  if (!/['"]google['"]/.test(btn)) findings.push(`(b) ${BTN} does not gate the walk kick on a google connection`)
+  if (start !== -1 && kickI !== -1 && start < kickI) findings.push(`(b) ${BTN} starts the run BEFORE the June-engine kick — the order is kick, then start`)
+  if (/kickoffWalk\(/.test(btn)) findings.push(`(b) ${BTN} still calls kickoffWalk( — the one-turn kick is retired; the run's own steps are the fires`)
+  if (/publishWalkStart|universe-start-publish/.test(btn)) findings.push(`(b) ${BTN} still imports or calls publishWalkStart — the v1 publish branch must be gone (it feeds the v1 topic consumer, not the walk)`)
+  if (!/['"]google['"]/.test(btn)) findings.push(`(b) ${BTN} does not gate the run start on the google platform`)
 }
 const start = strip(read(START))
 if (start && !/publishWalkStart\s*\(/.test(start)) findings.push(`(c) ${START} no longer calls publishWalkStart( — the manual v1 path moved`)
