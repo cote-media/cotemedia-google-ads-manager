@@ -488,7 +488,8 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance, opts
           const o = await appendAttemptStarted(actKey, 1, undefined, prov, 'descend')
           await appendAttemptFinished(actKey, o.attemptNo, answer.ok ? (answer.activeDays.length ? 'ok' : 'zero') : 'error', {
             rowsWritten: 0, requestsSpent: 1, diskFreeBytes: floor.freeBytes,
-            error: answer.ok ? `ACCOUNT_ACTIVITY — ${answer.activeDays.length} active day(s) named by the vendor in ${w.windowStart}..${w.windowEnd}` : `ACCOUNT_ACTIVITY unanswered — ${answer.error}`,
+            // LORAMER_IDLE_REUSE_MONTH_V1 — the named days ride the row so the next fire can reuse the answer by month.
+            error: answer.ok ? `ACCOUNT_ACTIVITY — ${answer.activeDays.length} active day(s) named by the vendor in ${w.windowStart}..${w.windowEnd} days=[${answer.activeDays.slice(0, 92).join(',')}]` : `ACCOUNT_ACTIVITY unanswered — ${answer.error}`,
           }, prov)
         } catch (e: any) {
           console.error(`[universe-v2] IDLE-SKIP ledger write failed for ${clientId} ${w.windowStart}..${w.windowEnd}: ${String(e?.message ?? e)}`)

@@ -102,7 +102,7 @@ import {
 // LORAMER_RETENTION_WALL_CANARY_V1 — the fire reads the canary once; past the wall it spends nothing without a green one.
 import { readRetentionCanary, wallLineFor, isPastWall } from '@/lib/backfill/retention-wall'
 // LORAMER_IDLE_SKIP_V1 — the per-fire memo is CREATED here (pure) and asked INSIDE the worker; this route still fetches nothing.
-import { createIdleMemo } from '@/lib/backfill/universe-idle-skip'
+import { createIdleMemo, priorActivityFromLedger, ACCOUNT_ACTIVITY_RESOURCE } from '@/lib/backfill/universe-idle-skip'
 import { boundaryDaysFor } from '@/lib/backfill/lookback-boundary' // LORAMER_LOOKBACK_LANE_V1 — the boundary, read from the store per account per fire
 import { enumerateGoogleHoles } from '@/lib/backfill/google-hole-map' // LORAMER_MISSED_DAY_WALK_V1 — the fourth lane's candidates come from the hole map, never from the clock
 import { readMissedCursor, writeMissedCursor } from '@/lib/backfill/universe-missed-cursor' // LORAMER_MISSED_CURSOR_V1 — the enumeration resumes where the allowance cut it
@@ -366,7 +366,16 @@ export async function GET(request: Request) {
   let missedPastWallHeld = 0  // missed-lane windows past the wall dropped for the same reason
   let unresolvedPastWall = 0  // empty answers past the wall the worker could not resolve this fire
   // LORAMER_IDLE_SKIP_V1 — one memo per fire; the worker asks the account through it, once per window.
-  const idleMemo = createIdleMemo({ wallLine, canary: canary.state })
+  // LORAMER_IDLE_REUSE_MONTH_V1 — seeded from the ledger's prior __account_activity answers (one read per fire), so a
+  // month already answered active/idle is never asked again in the run. An unreadable ledger seeds nothing (asks as before).
+  const { data: idleRows, error: idleErr } = await supabaseAdmin.from('universe_attempt_log')
+    .select('window_start, window_end, outcome, error')
+    .eq('client_id', clientId).eq('vendor', LEDGER_VENDOR).eq('resource', ACCOUNT_ACTIVITY_RESOURCE)
+    .eq('phase', 'attempt_finished').in('outcome', ['ok', 'zero'])
+    .order('recorded_at', { ascending: false }).limit(600)
+  if (idleErr) console.error(`[universe-resume] idle prior read failed — the memo starts empty this fire (asks as before): ${idleErr.message}`)
+  const idlePrior = priorActivityFromLedger((idleRows ?? []) as Array<{ window_start: string; window_end: string; outcome: string; error?: string | null }>)
+  const idleMemo = createIdleMemo({ wallLine, canary: canary.state, prior: idlePrior })
 
   // ── THE ROTATION — LORAMER_RESUMER_SCAN_ROTATES_V1 ────────────────────────────────────────────────────
   // ⛔ WHAT THIS FIXES, MEASURED BEFORE IT WAS CHANGED. The scan ran the catalog IN ORDER and broke at
@@ -1131,6 +1140,7 @@ export async function GET(request: Request) {
     idleWindowsAsked: idleMemo.stats.windowsAsked, idleRequestsSpent: idleMemo.stats.requestsSpent,
     idleWindowsIdle: idleMemo.stats.idle, idleWindowsActive: idleMemo.stats.active, idleWindowsUnknown: idleMemo.stats.unknown,
     idleSurfacesRetired: idleMemo.stats.surfacesRetired, idleDaysRetired: idleMemo.stats.daysRetired,
+    idleReused: idleMemo.stats.reused, idlePriorMonths: idlePrior.size, // LORAMER_IDLE_REUSE_MONTH_V1
     receded: published.filter((p) => p.receded).length,
     oldestWindowStart: published.reduce<string | null>((m, p) => {
       const s = String(p.window).slice(0, 10); return m === null || s < m ? s : m

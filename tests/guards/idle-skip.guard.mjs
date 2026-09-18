@@ -99,7 +99,8 @@ if (M) {
   check(/resource: ACCOUNT_ACTIVITY_RESOURCE[\s\S]{0,400}appendAttemptStarted\(actKey, 1, undefined, prov, 'descend'\)[\s\S]{0,400}requestsSpent: 1/.test(w), `(d) ${WORKER}: the account request must be charged under ACCOUNT_ACTIVITY_RESOURCE with requestsSpent 1 — an unledgered vendor op is invisible to every governor.`)
   check(!/verdict\.kind === 'active'[\s\S]{0,200}return 0/.test(w.slice(iIdle, iLoop)), `(d) ${WORKER}: an ACTIVE window must fall through to the range loop — every surface still walks.`)
   const r = strip(read(ROUTE))
-  check(/const idleMemo = createIdleMemo\(\{ wallLine, canary: canary\.state \}\)/.test(r) && /idle: idleMemo/.test(r), `(d) ${ROUTE}: the fire must create ONE memo per fire and pass it through unitOpts.`)
+  // LORAMER_IDLE_REUSE_MONTH_V1 (2026-09-18): the memo is seeded from the ledger's prior answers (prior: idlePrior).
+  check(/const idleMemo = createIdleMemo\(\{ wallLine, canary: canary\.state(, prior: idlePrior)? \}\)/.test(r) && /idle: idleMemo/.test(r), `(d) ${ROUTE}: the fire must create ONE memo per fire and pass it through unitOpts.`)
   check(!/askAccountActivity|activityGaql|googleAdsStreamFor/.test(r), `(d) ${ROUTE}: the fire route must not ask the account itself — the scheduler does not fetch.`)
   check(/idleWindowsAsked: idleMemo\.stats\.windowsAsked/.test(r) && /idleSurfacesRetired/.test(r), `(d) ${ROUTE}: the instrument must report the idle tallies.`)
 }

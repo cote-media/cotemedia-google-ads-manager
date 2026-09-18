@@ -87,6 +87,71 @@ export async function askAccountActivity(stream: (gaql: string) => AsyncGenerato
   }
 }
 
+// ── LORAMER_IDLE_REUSE_MONTH_V1 — AN ANSWER IS KEYED BY CALENDAR MONTH AND NEVER RE-ASKED IN A RUN ─────────────────────
+// Measured 2026-09-18 (Tri-Copy): 49 checks bought 570 owed days; the memo was per WINDOW per FIRE, so 349 surfaces at
+// their own windows rarely shared one, and the next fire asked the same months again. An 'active'/'idle' answer for a
+// month never changes (★IDLE-CHECK-REUSES-ITS-ANSWERS): the ledger row carries the named days, the fire reads the prior
+// rows once, and any window whose months are ALL answered is judged from them for zero requests.
+/** 'YYYY-MM' for each calendar month the window touches, in order. Pure. */
+export function monthsOf(windowStart: string, windowEnd: string): string[] {
+  const out: string[] = []
+  let y = Number(windowStart.slice(0, 4)), m = Number(windowStart.slice(5, 7))
+  const endKey = windowEnd.slice(0, 7)
+  for (let i = 0; i < 1200; i++) {
+    const key = `${y}-${String(m).padStart(2, '0')}`
+    out.push(key)
+    if (key === endKey) break
+    m++; if (m > 12) { m = 1; y++ }
+  }
+  return out
+}
+function monthBounds(key: string): { start: string; end: string } {
+  const y = Number(key.slice(0, 4)), m = Number(key.slice(5, 7))
+  const last = new Date(Date.UTC(y, m, 0)).getUTCDate()
+  return { start: `${key}-01`, end: `${key}-${String(last).padStart(2, '0')}` }
+}
+/** month 'YYYY-MM' → the active days Google named in it ([] = idle month). Only months an answer FULLY covers. */
+export type PriorActivity = Map<string, string[]>
+/** The days a ledger row's text names: `days=[2025-10-03,2025-10-20]` (written by the worker since 2026-09-18). null = not carried. */
+export function namedDaysFromLedgerText(error: string | null | undefined): string[] | null {
+  const m = String(error ?? '').match(/days=\[([^\]]*)\]/)
+  if (!m) return null
+  return m[1].split(',').map((d) => d.trim()).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d))
+}
+/**
+ * Pure. Builds the reusable prior from finished __account_activity rows (newest first is fine; the first answer for a
+ * month wins). A 'zero' row marks every month it fully covers idle; an 'ok' row marks the months it fully covers with
+ * the days it names; an 'ok' row without named days (text from before 2026-09-18) is NOT reusable; a month only
+ * partially inside the row's window is never marked — a partial answer cannot stand for the whole month.
+ */
+export function priorActivityFromLedger(rows: Array<{ window_start: string; window_end: string; outcome: string; error?: string | null }>): PriorActivity {
+  const prior: PriorActivity = new Map()
+  for (const r of rows) {
+    const ws = String(r.window_start).slice(0, 10), we = String(r.window_end).slice(0, 10)
+    let days: string[] | null
+    if (r.outcome === 'zero') days = []
+    else if (r.outcome === 'ok') { days = namedDaysFromLedgerText(r.error); if (days === null) continue }
+    else continue
+    for (const key of monthsOf(ws, we)) {
+      const b = monthBounds(key)
+      if (ws > b.start || we < b.end) continue // partially covered month — never reused
+      if (!prior.has(key)) prior.set(key, days.filter((d) => d.slice(0, 7) === key).sort())
+    }
+  }
+  return prior
+}
+/** The months of a window that `prior` answers; null when any month is unanswered (no partial synthesis). */
+export function priorAnswerFor(prior: PriorActivity | undefined, windowStart: string, windowEnd: string): ActivityAnswer | null {
+  if (!prior) return null
+  const days: string[] = []
+  for (const key of monthsOf(windowStart, windowEnd)) {
+    const have = prior.get(key)
+    if (!have) return null
+    days.push(...have)
+  }
+  return { ok: true, activeDays: [...new Set(days)].sort() }
+}
+
 // ── THE PER-FIRE MEMO — ONE ACCOUNT REQUEST PER WINDOW, SHARED BY EVERY UNIT OF THAT WINDOW ─────────────────────────
 /**
  * ⛔ THE FIRE ROUTE MAY NOT FETCH (universe-resumer.guard.mjs: "a scheduler that fetches is a scheduler that can spend
@@ -96,7 +161,7 @@ export async function askAccountActivity(stream: (gaql: string) => AsyncGenerato
  * the first caller creates it, the rest await it, and the window is asked exactly once per fire.
  * ⛔ BOUNDED: after IDLE_CHECKS_PER_FIRE distinct windows, every further window reads 'unknown' and walks as before.
  */
-export interface IdleMemoStats { windowsAsked: number; requestsSpent: number; idle: number; active: number; unknown: number; surfacesRetired: number; daysRetired: number }
+export interface IdleMemoStats { windowsAsked: number; requestsSpent: number; idle: number; active: number; unknown: number; surfacesRetired: number; daysRetired: number; reused: number }
 export interface IdleMemo {
   verdictFor(a: {
     windowStart: string; windowEnd: string
@@ -108,10 +173,20 @@ export interface IdleMemo {
   readonly stats: IdleMemoStats
 }
 
-export function createIdleMemo(a: { wallLine: string; canary: CanaryState; maxWindows?: number }): IdleMemo {
+export function createIdleMemo(a: { wallLine: string; canary: CanaryState; maxWindows?: number; prior?: PriorActivity }): IdleMemo {
   const max = a.maxWindows ?? IDLE_CHECKS_PER_FIRE
   const memo = new Map<string, Promise<IdleVerdict>>()
-  const stats: IdleMemoStats = { windowsAsked: 0, requestsSpent: 0, idle: 0, active: 0, unknown: 0, surfacesRetired: 0, daysRetired: 0 }
+  // LORAMER_IDLE_REUSE_MONTH_V1 — the month-keyed prior: seeded from the ledger by the fire, grown by every live answer.
+  const prior: PriorActivity = a.prior ?? new Map()
+  const stats: IdleMemoStats = { windowsAsked: 0, requestsSpent: 0, idle: 0, active: 0, unknown: 0, surfacesRetired: 0, daysRetired: 0, reused: 0 }
+  const learn = (windowStart: string, windowEnd: string, answer: ActivityAnswer) => {
+    if (!answer.ok) return
+    for (const key of monthsOf(windowStart, windowEnd)) {
+      const b = monthBounds(key)
+      if (windowStart > b.start || windowEnd < b.end) continue
+      if (!prior.has(key)) prior.set(key, answer.activeDays.filter((d) => d.slice(0, 7) === key).sort())
+    }
+  }
   return {
     stats,
     noteRetired(surfaces, days) { stats.surfacesRetired += surfaces; stats.daysRetired += days },
@@ -119,7 +194,18 @@ export function createIdleMemo(a: { wallLine: string; canary: CanaryState; maxWi
       const key = `${q.windowStart}..${q.windowEnd}`
       const have = memo.get(key)
       if (have) return have
-      if (memo.size >= max) {
+      // ⛔ REUSE BEFORE ASKING: every month of the window already answered → judged from the prior, zero requests.
+      const reused = priorAnswerFor(prior, q.windowStart, q.windowEnd)
+      if (reused) {
+        stats.reused++
+        const v = idleVerdict({ windowStart: q.windowStart, windowEnd: q.windowEnd, wallLine: a.wallLine, canary: a.canary, answer: reused })
+        if (v.kind === 'idle') stats.idle++; else if (v.kind === 'active') stats.active++; else stats.unknown++
+        const p = Promise.resolve<IdleVerdict>({ ...v, reason: `${v.reason} [reused: every month of this window was already answered]` } as IdleVerdict)
+        memo.set(key, p)
+        return p
+      }
+      // The budget counts LIVE asks only — a reused answer costs nothing and must not spend it (LORAMER_IDLE_REUSE_MONTH_V1).
+      if (stats.windowsAsked >= max) {
         stats.unknown++
         return Promise.resolve<IdleVerdict>({ kind: 'unknown', reason: `idle-check budget spent (${max} window(s) this fire) — ${key} walks surface by surface` })
       }
@@ -127,6 +213,7 @@ export function createIdleMemo(a: { wallLine: string; canary: CanaryState; maxWi
         stats.windowsAsked++; stats.requestsSpent++
         const answer = await askAccountActivity(q.stream, q.windowStart, q.windowEnd)
         await q.ledger({ windowStart: q.windowStart, windowEnd: q.windowEnd }, answer)
+        learn(q.windowStart, q.windowEnd, answer)
         const v = idleVerdict({ windowStart: q.windowStart, windowEnd: q.windowEnd, wallLine: a.wallLine, canary: a.canary, answer })
         if (v.kind === 'idle') stats.idle++; else if (v.kind === 'active') stats.active++; else stats.unknown++
         return v
