@@ -28,15 +28,11 @@ const KICK = 'src/lib/backfill/kickoff.ts'
 const BTN = 'src/app/api/clients/backfill/route.ts'
 const START = 'src/app/api/backfill/universe-start/route.ts'
 
+// LORAMER_ONE_CLICK_RUN_V1 (flight 2, 2026-09-18): leg (a) — kickoffWalk's body — is DELETED with the export. The kick is
+// retired (the run's own steps are the fires); a guard on a dead export would be a guard on nothing. kickoff.ts must
+// not grow it back.
 const kick = strip(read(KICK))
-if (!/export function kickoffWalk\s*\(/.test(kick)) findings.push(`(a) ${KICK} does not export kickoffWalk`)
-else {
-  const body = kick.slice(kick.indexOf('export function kickoffWalk'))
-  if (!/\/api\/cron\/universe-resume\?clientId=/.test(body)) findings.push(`(a) kickoffWalk does not fetch /api/cron/universe-resume?clientId=…`)
-  if (!/dryRun=0/.test(body)) findings.push(`(a) kickoffWalk omits dryRun=0 — the resumer's default is DRY, the kick would fire nothing`)
-  if (!/Authorization:\s*`Bearer \$\{secret\}`/.test(body)) findings.push(`(a) kickoffWalk does not send the CRON_SECRET bearer`)
-  if (!/waitUntil\s*\(/.test(body)) findings.push(`(a) kickoffWalk is not fire-and-forget under waitUntil — the button would block on a 300 s fire`)
-}
+if (/kickoffWalk\s*\(/.test(kick)) findings.push(`(a) ${KICK} still defines kickoffWalk( — the one-turn kick is retired (LORAMER_ONE_CLICK_RUN_V1)`)
 const btn = strip(read(BTN))
 if (!btn) findings.push(`(b) ${BTN} missing`)
 else {
