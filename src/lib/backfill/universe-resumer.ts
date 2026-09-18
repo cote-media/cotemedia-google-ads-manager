@@ -220,12 +220,14 @@ export const LOOKBACK_REQUESTS_PER_RUN = 2
  *   · MISSED_ALLOWANCE_MS = 20_000 ⇐ the enumerator probes coverage per day per surface (windowCoverage); a 200-day
  *     interior is ~200 reads per surface, so 16 surfaces stay inside a 20 s slice of the fire; the enumerator returns
  *     nextEntry when the allowance cuts it short and the next page is simply the next fire's.
- *   · MISSED_WINDOW_DAYS = 30 ⇐ one vendor request per contiguous ≤30-day range (GAQL bills BETWEEN as one op).
+ *   · MISSED_WINDOW_DAYS = 90 ⇐ one vendor request per contiguous ≤90-day range (GAQL bills BETWEEN as one op);
+ *     the same derivation as the descend window (LORAMER_DESCEND_SHAPE_CONVERGED_V1) — the missed lane re-asks holes on
+ *     the same searchStream path. Was 30 until 2026-09-18.
  */
 export const MISSED_REQUESTS_PER_RUN = 8
 export const MISSED_SURFACES_PER_RUN = 16
 export const MISSED_ALLOWANCE_MS = 20_000
-export const MISSED_WINDOW_DAYS = 30
+export const MISSED_WINDOW_DAYS = 90
 
 /**
  * LORAMER_MISSED_CURSOR_V1 — where the NEXT fire's enumeration starts, from what THIS fire actually enumerated.
@@ -712,12 +714,30 @@ export function deriveWindow(a: {
   anchorEnd: string
   sizingDays: number
   stopDate: string | null
+  /**
+   * LORAMER_DESCEND_WINDOW_90_V1 — the retention line (retention-wall.ts wallLineFor). A window that would STRADDLE it
+   * starts AT it (Airbyte utils.py:284-291, `start = max(start, today − days_of_data_storage)`), so the past-wall
+   * remainder is asked in its own window next time and an empty answer there is judged on its own. A window entirely
+   * above or entirely past the line is untouched. Absent = the plain window (callers that predate the clip).
+   */
+  wallLine?: string | null
 }): { windowStart: string; windowEnd: string } | null {
   const { anchorEnd, sizingDays, stopDate } = a
   if (stopDate !== null && anchorEnd < stopDate) return null
   const raw = addDaysISO(anchorEnd, -(sizingDays - 1))
-  const windowStart = stopDate !== null && raw < stopDate ? stopDate : raw
+  let windowStart = stopDate !== null && raw < stopDate ? stopDate : raw
+  const wall = a.wallLine ?? null
+  if (wall !== null && windowStart < wall && anchorEnd >= wall) windowStart = wall
   return { windowStart, windowEnd: anchorEnd }
+}
+
+/**
+ * LORAMER_DESCEND_WINDOW_90_V1 — split ONE contiguous span at the retention line so no request straddles it. Pure.
+ * [start..end] crossing `wallLine` → [start..wallLine−1], [wallLine..end]; a span on one side passes through whole.
+ */
+export function splitAtWall(start: string, end: string, wallLine: string | null): Array<{ start: string; end: string }> {
+  if (wallLine === null || !(start < wallLine && end >= wallLine)) return [{ start, end }]
+  return [{ start, end: addDaysISO(wallLine, -1) }, { start: wallLine, end }]
 }
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────────────────

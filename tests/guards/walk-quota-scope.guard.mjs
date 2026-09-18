@@ -117,6 +117,7 @@ if (M) {
 
 if (M && S) {
   // (c) the store touches ONE record per scope
+  const LANE_CLIENT = '11111111-1111-1111-1111-111111111111' // fixture: a made-up lane id — this leg proves WHICH record is written (lane vs fleet), never anything about a real client
   globalThis.__fleet = []
   const laneRows = []
   const deps = {
@@ -125,10 +126,10 @@ if (M && S) {
     readLane: async () => null,
   }
   const kA = M.classifyWalkQuotaError(failure(2, 'Too many requests. Retry in 4 seconds.', { rate_scope: 2, rate_name: 'Requests per service per method', retry_delay: { seconds: 4 } }))
-  await S.applyWalkHold({ kind: kA, lane: { clientId: '11111111-1111-1111-1111-111111111111', vendor: 'google' }, site: 'guard', nowMs: NOW }, deps)
-  check(globalThis.__fleet.length === 0 && laneRows.length === 1 && laneRows[0].client_id === '11111111-1111-1111-1111-111111111111' && laneRows[0].rate_scope === 'ACCOUNT', `(c) an ACCOUNT hold must write the lane record and leave the fleet row untouched — fleet=${globalThis.__fleet.length} lane=${laneRows.length}`)
+  await S.applyWalkHold({ kind: kA, lane: { clientId: LANE_CLIENT, vendor: 'google' }, site: 'guard', nowMs: NOW }, deps)
+  check(globalThis.__fleet.length === 0 && laneRows.length === 1 && laneRows[0].client_id === LANE_CLIENT && laneRows[0].rate_scope === 'ACCOUNT', `(c) an ACCOUNT hold must write the lane record and leave the fleet row untouched — fleet=${globalThis.__fleet.length} lane=${laneRows.length}`)
   const kD = M.classifyWalkQuotaError(failure(2, 'Too many requests. Retry in 900 seconds.', { rate_scope: 3, rate_name: 'Get requests for standard access', retry_delay: { seconds: 900 } }))
-  await S.applyWalkHold({ kind: kD, lane: { clientId: '11111111-1111-1111-1111-111111111111', vendor: 'google' }, site: 'guard', nowMs: NOW }, deps)
+  await S.applyWalkHold({ kind: kD, lane: { clientId: LANE_CLIENT, vendor: 'google' }, site: 'guard', nowMs: NOW }, deps)
   check(globalThis.__fleet.length === 1 && laneRows.length === 1 && /"rate_scope":"DEVELOPER"/.test(globalThis.__fleet[0].detail), `(c) a DEVELOPER hold must arm the fleet row (with the scope in its reason) and write no lane record — fleet=${globalThis.__fleet.length} lane=${laneRows.length}`)
   // an ACCOUNT answer with NO lane context (a caller that did not say which lane) falls back to the fleet — today's behaviour, never a dropped hold
   await S.applyWalkHold({ kind: kA, lane: null, site: 'guard', nowMs: NOW }, deps)

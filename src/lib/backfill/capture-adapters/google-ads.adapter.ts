@@ -157,7 +157,11 @@ const meter: Meter = {
  * rows ≈ 124 s. Under `'rises-with-range'` that arithmetic points the wrong way, which is why the direction
  * travels with the meter rather than being assumed by the sizer.
  */
-const sizing: SizingPolicy = { rowBudget: 300_000, coldStartDays: 7, minDays: 1, maxDays: 30 }
+// ⛔ maxDays 90 ⇐ LORAMER_DESCEND_SHAPE_CONVERGED_V1 (rounds 2–5, 2026-09-18): no Google date-range cap exists; the
+// 14-day / 1-day prior-art slices (Airbyte, Singer) are `search`-pagination artefacts and this path streams; 90 halves
+// Foam OH's requests (20,103 → 7,941) while the 25 heavy surfaces stay capped by rowBudget/maxRowsPerDay. 365 waits
+// on a measured 90-day p99. GOOGLE_DESCEND_MAX_DAYS — pinned by descend-window-90.guard.mjs.
+const sizing: SizingPolicy = { rowBudget: 300_000, coldStartDays: 7, minDays: 1, maxDays: 90 }
 
 export function googleAdsCaptureAdapter(
   streamFor: (gaql: string) => AsyncGenerator<any>,

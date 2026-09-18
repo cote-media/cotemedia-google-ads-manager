@@ -46,6 +46,7 @@ import { processMessage } from '@/lib/backfill/universe-v2-worker'
 import { acquireFireLease, releaseFireLease } from '@/lib/backfill/universe-fire-lease'
 import { readGoogleQuotaPause, holdGoogleWork } from '@/lib/backfill/google-quota-store'
 import { deriveAnchorEnd, deriveWindow, WINDOWS_PER_PUBLISHED_MESSAGE } from '@/lib/backfill/universe-resumer'
+import { wallLineFor } from '@/lib/backfill/retention-wall' // LORAMER_DESCEND_WINDOW_90_V1 — the drive's window never straddles the retention line either
 
 export const dynamic = 'force-dynamic'
 export const fetchCache = 'force-no-store'
@@ -136,7 +137,8 @@ export async function GET(request: Request) {
     lastWindowFullyAnswered: lastCoverage === null ? true : lastCoverage.coverage.uncovered.length === 0,
     lastWindowKnown: rot ? rot.parent_known === true : false,
   })
-  const win = deriveWindow({ anchorEnd: anchor.anchorEnd, sizingDays: sizing.days, stopDate: stop.stopDate })
+  const wallLine = wallLineFor(new Date().toISOString().slice(0, 10))
+  const win = deriveWindow({ anchorEnd: anchor.anchorEnd, sizingDays: sizing.days, stopDate: stop.stopDate, wallLine })
   if (win === null) {
     // ⛔ NOT A FAILURE — THE SURFACE IS DONE. The drive's PROVEN halt.
     return NextResponse.json({

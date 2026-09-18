@@ -93,7 +93,7 @@ import {
   MAX_REQUESTS_PER_RUN, MAX_ENTRIES_SCANNED_PER_RUN, WINDOWS_PER_PUBLISHED_MESSAGE,
   LOOKBACK_REQUESTS_PER_RUN, LOOKBACK_WINDOW_DAYS_BASIC,
   SEALED_STRIP_DERIVATIONS_PER_RUN,
-  MISSED_REQUESTS_PER_RUN, MISSED_SURFACES_PER_RUN, MISSED_ALLOWANCE_MS, MISSED_WINDOW_DAYS, chunkSpanOldestFirst, advanceMissedCursor, // LORAMER_MISSED_DAY_WALK_V1 / LORAMER_MISSED_CURSOR_V1
+  MISSED_REQUESTS_PER_RUN, MISSED_SURFACES_PER_RUN, MISSED_ALLOWANCE_MS, MISSED_WINDOW_DAYS, chunkSpanOldestFirst, splitAtWall, advanceMissedCursor, // LORAMER_MISSED_DAY_WALK_V1 / LORAMER_MISSED_CURSOR_V1
   missedFireColumns, // LORAMER_MISSED_FIRE_DURABILITY_V1 — the fire row carries the lane's cursor facts (092)
   addDaysISO,
   type LastAttempt,
@@ -628,7 +628,7 @@ export async function GET(request: Request) {
       lastWindowFullyAnswered: lastCoverage === null ? true : lastCoverage.coverage.uncovered.length === 0,
       lastWindowKnown: rot ? rot.parent_known === true : false,
     })
-    const win = deriveWindow({ anchorEnd: anchor.anchorEnd, sizingDays: sizing.days, stopDate: stop.stopDate })
+    const win = deriveWindow({ anchorEnd: anchor.anchorEnd, sizingDays: sizing.days, stopDate: stop.stopDate, wallLine }) // LORAMER_DESCEND_WINDOW_90_V1 — never straddle the retention line
     if (win === null) {
       // ⛔ NOT A FAILURE — THE SURFACE IS DONE. The anchor has receded below the RESOLVED stop, so there is no
       // ground left to ask for. Recorded so a completion can be told apart from a silence.
@@ -849,7 +849,9 @@ export async function GET(request: Request) {
           const entry = byKey.get(`${h.surface.resource}|${h.surface.segment}`)
           if (!entry) continue
           const label = `${h.surface.resource}${h.surface.segment ? ' / ' + h.surface.segment : ''}`
-          for (const w of chunkSpanOldestFirst(h.start, h.end, MISSED_WINDOW_DAYS)) {
+          // LORAMER_DESCEND_WINDOW_90_V1 — a hole crossing the retention line is split at it first, so no request straddles it.
+          for (const part of splitAtWall(h.start, h.end, wallLine))
+          for (const w of chunkSpanOldestFirst(part.start, part.end, MISSED_WINDOW_DAYS)) {
             missed.push({
               entry, label, ranges: 1, owedDays: w.days,
               windowStart: w.start, windowEnd: w.end, sizingBasis: 'missed-hole',
