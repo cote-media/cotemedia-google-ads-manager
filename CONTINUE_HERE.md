@@ -1,4 +1,44 @@
-╔═══ SESSION CLOSE 2026-09-17/18 (OVERNIGHT) — THE RUN NOW WALKS AT A MEASURED RATE, THE RETENTION WALL IS UNDERSTOOD AND GUARDED, AND EVERY ESTIMATE LEFT RESTS ON ONE NUMBER ═══╗
+╔═══ SESSION CLOSE 2026-09-18 (EVENING) — TWO FLIGHTS SHIPPED, THE WIPE PREPARED, AND THE LAW THAT CAUGHT ITS OWN WRONG BUILD IS NOW CODE ═══╗
+
+⛔ READ LORAMER_MAP.md FIRST (the resume command prints it). This block is the session narrative; the MAP is the picture.
+
+── WHAT SHIPPED, newest-first (all READY, polled to terminal) ──
+· LORAMER_ADVERSARY_UNTIL_CONVERGED_V1 (flight 3, 11 commits) — the gate mints and echoes a round id on every graded
+  paste, logs every accepted paste, demands PRIOR-ART and `vendor=` on writing pastes, resolves `rounds=<id>,<id>`
+  against its own log, and refuses a citation on a bare second line instead of dropping it. Rounds 12–16 banked.
+· `81c40b4` LORAMER_ONE_CLICK_RUN_V1 (flight 2, rounds 7–9) — one Backfill button per platform; Google's press starts
+  the continuous run ONCE (DB-conditional), a second press is the meter; six states from the run row; kickoffWalk gone.
+· `6a079a8` LORAMER_DESCENT_SHAPE_CONVERGED_V1 + LORAMER_WALL_HOLD_NEVER_RETIRE_V1 (flight 1, rounds 1–5) — scope-keyed
+  quota hold, 90-day windows clipped at the wall, per-surface reservation, resume-from-committed-day, idle reuse.
+
+── THE WIPE IS PREPARED, NOT RUN (round 11) ──
+· Foam OH google rows: 122,673,720 over 53 partitions (not ~70 M). Before-snapshot TAKEN: scratch/foamoh-wipe-2026-09-18/
+  (snapshot.tsv 353,169 keys · counts.json · small-tables.json · WIPE-DRAFT.sql · diff.mjs); scratch/ is untracked.
+· Timing basis: two rolled-back EXPLAIN ANALYZE deletes, 137–170 k rows/s → 35–60 min, WAL-bound; VACUUM after.
+· Quiet windows 21:40–00:15Z or 00:25–06:15Z; hold Foam OH out of the rotation with the step-0 sentinel fire row.
+
+── ▶▶ NEXT STEP, IN ORDER ──
+(1) FOAM OH WIPE — scratch/foamoh-wipe-2026-09-18/WIPE-DRAFT.sql via the direct-DB runner, one partition per
+    transaction, abort on deleted ≠ expected, checkpoints per table, Russ present for the confirm; the snapshot in that
+    folder stands; est. 35–60 min; press within 5 min of the last checkpoint. ⚠ The wipe paste writes: under the new
+    gate it needs two round ids — today's rounds are citable by ORDINAL id (see the flight-3 report), or two fresh rounds.
+(2) PRESS Backfill on Foam OH from the -next profile; six states; ~8 h descent.
+(3) After-snapshot + diff.mjs (same folder, same query text); one month against the Google Ads app.
+(4) Q1 cold proof: Veterinary Mastermind, fresh Gmail as direct user, connect, press.
+(5) Fire 300 → 740 + entry cap 60 → ~240 on the measured night.
+(6) R1 live-path classifier, own rounds.
+DEPARTURE FROM RANKING: the ranking head ★BACKFILL-DONE-DONE-ACCOUNT-WIDE is what (1)–(3) prove on Foam OH — the wipe
+and the press ARE the done-done path, taken in the order the rounds converged on. Clocks: 12 days to 9/30.
+
+── STANDING ──
+· ⛔ LEGACY IS FROZEN for the other four platforms; Google's old writers stay until the reader cutover.
+· One-block output with the round-id footer · deploy-poll-until-terminal · the CITED gate · pushes gated · check:data
+  before a push — all bind. check:data standing reds unchanged (7): completion-claims · drain-alias-coverage ·
+  coverage-density · fleet-meter-visibility (−528) · anchor (C) · no-owed-day · top-edge-is-held.
+
+╚═══════════════════════════════════════════════════════════════════════════════════════════════════════════════╝
+
+╔═══ ⛔ SUPERSEDED 2026-09-18 (EVENING) · HISTORY · DO NOT ACT ON ITS HEAD — SESSION CLOSE 2026-09-17/18 (OVERNIGHT) — THE RUN NOW WALKS AT A MEASURED RATE, THE RETENTION WALL IS UNDERSTOOD AND GUARDED, AND EVERY ESTIMATE LEFT RESTS ON ONE NUMBER ═══╗
 
 ⛔ READ LORAMER_MAP.md FIRST (the resume command prints it). This block is the session narrative; the MAP is the picture.
 

@@ -630,6 +630,11 @@ under a declared cap), verify (the meter hole) — and every round changed the n
 ENFORCEMENT, honest about its limit: `tests/guards/five-step-rounds.guard.mjs` asserts this section and the
 five names stay present and intact in ESSENCE — placement, like the ONE-BLOCK law. **Instruction-level
 obedience lives in chat, where no repo guard can observe it; the enforcer of the header convention is Russ.**
+⛔ **THE UNSKIPPABLE LAW — [[LORAMER_ADVERSARY_UNTIL_CONVERGED_V1]] (Russ, 2026-09-18; DECISIONS owns the text):** on a
+writing paste the gate REFUSES, it does not advise — PRIOR-ART first (a code host or NONE-FOUND with where you looked),
+RESEARCH as registrable domains with the vendor declared, and ADVERSARY rounds cited by the ids the gate itself minted and
+printed (`round-id:`), resolved against its own log until a round changes nothing. Nine fields now: PRIOR-ART sits between
+RESEARCH and ADVERSARY. Read-only pastes are graded silently for the count and never refused for it.
 
 ## ⛔ RESEARCH-BEFORE-DESIGN — LORAMER_RESEARCH_BEFORE_DESIGN_V1 (LAW — RUSS, banked 2026-08-10)
 
