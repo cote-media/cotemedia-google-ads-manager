@@ -19,33 +19,22 @@
 //         (expects a dev server already listening; start it yourself so its logs stay yours to read)
 
 import { chromium } from '@playwright/test'
-import { encode } from 'next-auth/jwt'
+import { loadLocalEnv, sessionTokenFor, phoneContext } from './session.mjs' // LORAMER_ONE_CLICK_RUN_V1 — the session mint lives in one place
 import { readFileSync } from 'node:fs'
 
-for (const l of readFileSync('.env.local', 'utf8').split('\n')) {
-  const m = l.match(/^([A-Z_]+)=(.*)$/)
-  if (m) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '')
-}
+loadLocalEnv()
 
 const BASE = process.env.GATEA_BASE || 'http://localhost:3000'
 const OWNER = 'cotebrandmarketing@gmail.com'
 const FOAM = '957d484e-d0c4-4dd0-b382-d8499d556252' // PROOF-TARGET DEFAULT (DECISIONS): a client with real data
-const VIEWPORT = { width: 390, height: 844 } // iPhone 14/15 CSS pixels
 const results = []
 const ok = (name, pass, detail = '') => { results.push({ name, pass, detail }); console.log(`  ${pass ? 'PASS' : '⛔ FAIL'}  ${name}${detail ? ' — ' + detail : ''}`) }
 
-const token = await encode({ token: { name: 'Gate-A', email: OWNER, sub: 'gate-a' }, secret: process.env.NEXTAUTH_SECRET })
+const token = await sessionTokenFor(OWNER)
 const browser = await chromium.launch()
 
 async function openMer({ induceUnknown }) {
-  const ctx = await browser.newContext({
-    viewport: VIEWPORT,
-    deviceScaleFactor: 3,
-    isMobile: true,
-    hasTouch: true,
-    userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
-  })
-  await ctx.addCookies([{ name: 'next-auth.session-token', value: token, domain: 'localhost', path: '/', httpOnly: true, sameSite: 'Lax' }])
+  const ctx = await phoneContext(browser, token)
   const page = await ctx.newPage()
   const counts = { doc: 0, metrics: 0, rsc: 0 }
   page.on('request', (r) => {

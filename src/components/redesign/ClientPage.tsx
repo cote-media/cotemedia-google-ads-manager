@@ -90,14 +90,18 @@ export default function ClientPage({ clientId, clientName, connections, hasGoogl
   const [disconnectingId, setDisconnectingId] = useState<string | null>(null)
   const [connError, setConnError] = useState('')
 
-  // LORAMER_NEXT_FULL_BACKFILL_AFFORDANCE_V1 — owner-only "Backfill history". Fire-and-forget POST /api/clients/backfill
-  // kicks the deep-history drain (+ interior-gap repair) for every connected platform; we then POLL
-  // /api/backfill/status for per-platform captured depth. NOT a synchronous watch — the drain runs for minutes/hours
-  // on its own invocations; polling shows the earliest captured day advancing, then backs off to background.
-  const [bfStatus, setBfStatus] = useState<Record<string, { earliestDate: string | null; complete: boolean; state?: string }>>({})
-  const [bfLoading, setBfLoading] = useState(false)
-  const [bfKicked, setBfKicked] = useState(false)
-  const [bfError, setBfError] = useState('')
+  // LORAMER_NEXT_FULL_BACKFILL_AFFORDANCE_V1 → LORAMER_ONE_CLICK_RUN_V1 (flight 2, 2026-09-18) — ONE BUTTON PER CONNECTED
+  // PLATFORM (MAP §7). Each press POSTs /api/clients/backfill?id=…&platform=…: google starts the CONTINUOUS RUN once
+  // (server-side, DB-conditional — a second press returns the live run and its meter, never a second run); the other
+  // platforms kick their existing drain + gap repair. We then POLL /api/backfill/status: for google until the run leaves
+  // running/stopping (the meter is the run row + the client-scoped ledger progress), for the others ~1.5 min as before.
+  type BfRun = { status: string; steps: number; requestsOpened: number; daysNoLongerOwed: number; startedAt: string; lastStepAt: string | null; finishedAt: string | null; stopReason: string | null; endKind: string | null; live: boolean; stalled: boolean; stalledForMinutes: number | null }
+  type BfPlatformStatus = { earliestDate: string | null; complete: boolean; state?: string; inception?: string | null; run?: BfRun | null; progress?: { daysNoLongerOwed: number | null; denominator: number | null }; stalled?: boolean }
+  const [bfStatus, setBfStatus] = useState<Record<string, BfPlatformStatus>>({})
+  const [bfLoading, setBfLoading] = useState<Record<string, boolean>>({})
+  const [bfKicked, setBfKicked] = useState<Record<string, boolean>>({})
+  const [bfError, setBfError] = useState<Record<string, string>>({})
+  const [bfNote, setBfNote] = useState<Record<string, string>>({})
 
   async function loadBackfillStatus() {
     try {
@@ -105,34 +109,56 @@ export default function ClientPage({ clientId, clientName, connections, hasGoogl
       if (!r.ok) return
       const d = await r.json()
       if (d && d.platforms) {
-        const next: Record<string, { earliestDate: string | null; complete: boolean; state?: string }> = {}
-        for (const [pf, v] of Object.entries<any>(d.platforms)) next[pf] = { earliestDate: v?.earliestDate ?? null, complete: !!v?.complete, state: typeof v?.state === 'string' ? v.state : undefined }
+        const next: Record<string, BfPlatformStatus> = {}
+        for (const [pf, v] of Object.entries<any>(d.platforms)) {
+          next[pf] = {
+            earliestDate: v?.earliestDate ?? null, complete: !!v?.complete, state: typeof v?.state === 'string' ? v.state : undefined,
+            inception: v?.inception ?? null, run: v?.run ?? null, progress: v?.progress ?? undefined, stalled: !!v?.stalled,
+          }
+        }
         setBfStatus(next)
       }
     } catch { /* non-fatal — depth is best-effort */ }
   }
 
-  async function runBackfill() {
-    if (bfLoading || bfKicked) return
-    setBfLoading(true); setBfError('')
+  const googleRunLive = !!bfStatus.google?.run?.live
+
+  async function runBackfill(platform: string) {
+    if (bfLoading[platform]) return
+    if (platform === 'google' && googleRunLive) return // disabled while a run is live — the meter is the answer
+    setBfLoading((m) => ({ ...m, [platform]: true })); setBfError((m) => ({ ...m, [platform]: '' })); setBfNote((m) => ({ ...m, [platform]: '' }))
     try {
-      const r = await fetch('/api/clients/backfill?id=' + encodeURIComponent(clientId), { method: 'POST' })
+      const r = await fetch('/api/clients/backfill?id=' + encodeURIComponent(clientId) + '&platform=' + encodeURIComponent(platform), { method: 'POST' })
       const d = await r.json().catch(() => ({} as any))
-      if (!r.ok) { setBfError(d?.error || 'Could not start the import.'); setBfLoading(false); return }
-      setBfKicked(true); setBfLoading(false)
-    } catch { setBfError('Could not start the import.'); setBfLoading(false) }
+      if (!r.ok) { setBfError((m) => ({ ...m, [platform]: d?.error || 'Could not start the import.' })); setBfLoading((m) => ({ ...m, [platform]: false })); return }
+      if (platform === 'google') {
+        if (d?.action === 'meter') setBfNote((m) => ({ ...m, [platform]: 'Nothing to import — this account is complete.' }))
+        if (d?.run) setBfStatus((st) => ({ ...st, google: { ...(st.google ?? { earliestDate: null, complete: false }), run: d.run } }))
+      } else {
+        setBfKicked((m) => ({ ...m, [platform]: true }))
+      }
+      setBfLoading((m) => ({ ...m, [platform]: false }))
+      loadBackfillStatus()
+    } catch { setBfError((m) => ({ ...m, [platform]: 'Could not start the import.' })); setBfLoading((m) => ({ ...m, [platform]: false })) }
   }
 
   // Initial per-platform depth on mount (shows current history state before any click).
   useEffect(() => { loadBackfillStatus() }, [clientId]) // eslint-disable-line react-hooks/exhaustive-deps
-  // After a kick, poll depth ~every 8s for ~1.5 min to show progress, then stop (the drain continues in the
-  // background; depth is re-read on the next page load). Fire-and-forget, never a synchronous watch.
+  // GOOGLE: poll every 8 s for as long as the run is live (running/stopping) — the exit condition is the RUN's state, never a
+  // counter. A dead pump reads 'stalled' from the server (RUN_STALL_MINUTES) rather than "Importing" forever.
   useEffect(() => {
-    if (!bfKicked) return
+    if (!googleRunLive) return
+    const iv = setInterval(() => { loadBackfillStatus() }, 8000)
+    return () => clearInterval(iv)
+  }, [googleRunLive]) // eslint-disable-line react-hooks/exhaustive-deps
+  // OTHER PLATFORMS: after a kick, poll ~every 8 s for ~1.5 min, then stop (the drain continues in the background).
+  const anyOtherKicked = Object.entries(bfKicked).some(([pf, k]) => k && pf !== 'google')
+  useEffect(() => {
+    if (!anyOtherKicked) return
     let n = 0
     const iv = setInterval(() => { n += 1; loadBackfillStatus(); if (n >= 12) clearInterval(iv) }, 8000)
     return () => clearInterval(iv)
-  }, [bfKicked]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [anyOtherKicked]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function disconnect(conn: Conn) {
     const label = (PLATFORM_META[conn.platform] || { label: conn.platform }).label
@@ -621,47 +647,73 @@ export default function ClientPage({ clientId, clientName, connections, hasGoogl
         {(() => {
           const bfPlatforms = Array.from(new Set(connections.map((c) => c.platform).filter(Boolean)))
           if (bfPlatforms.length === 0) return null
+          // LORAMER_ONE_CLICK_RUN_V1 — the six Google states, from the run row + the readout (server truth, never client memory):
+          //   not-started · queued (live, steps 0) · importing (live, steps ≥ 1) · stopping · complete · needs-attention (failed / stalled / stopped)
+          const googleView = (st: BfPlatformStatus | undefined): { text: string; color: string; enabled: boolean; sub?: string } => {
+            const run = st?.run ?? null
+            if (run && run.live) {
+              if (run.status === 'stopping') return { text: 'Stopping…', color: '#d97706', enabled: false }
+              if (run.stalled) return { text: `No progress for ${run.stalledForMinutes ?? '?'} min`, color: '#b91c1c', enabled: false, sub: 'The import is queued every minute; if this persists, the pump is not running.' }
+              if (run.steps === 0) return { text: 'Queued — starts within a minute', color: '#d97706', enabled: false }
+              const n = st?.progress?.daysNoLongerOwed, m = st?.progress?.denominator
+              const of = typeof n === 'number' && typeof m === 'number' && m > 0 ? `${n.toLocaleString()} of ${m.toLocaleString()} days` : typeof n === 'number' ? `${n.toLocaleString()} days` : 'working'
+              return { text: `Importing — ${of}`, color: '#d97706', enabled: false }
+            }
+            if (st?.state === 'complete' || st?.complete) return { text: 'Complete — back to ' + (st?.earliestDate || st?.inception || 'start'), color: '#16a34a', enabled: true }
+            if (run && run.endKind === 'failed') return { text: 'Last run failed — ' + (run.stopReason || 'no reason recorded'), color: '#b91c1c', enabled: true, sub: 'Press to try again.' }
+            if (run && run.endKind === 'stopped') return { text: 'Stopped — back to ' + (st?.earliestDate || 'start'), color: '#64748b', enabled: true, sub: 'Press to continue.' }
+            if (st?.state === 'partial') return { text: 'Partial — back to ' + (st?.earliestDate || 'start'), color: '#64748b', enabled: true }
+            if (st?.state === 'not-started') return { text: 'Not started', color: '#64748b', enabled: true }
+            return { text: 'Not imported yet', color: '#64748b', enabled: true }
+          }
           return (
             <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid #eef0f3' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 8 }}>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a' }}>Data history</div>
-                  <div style={{ fontSize: 11.5, color: '#94a3b8', marginTop: 2 }}>Import all available history for every connected platform, back to each platform’s limit.</div>
-                </div>
-                <button
-                  type="button"
-                  onClick={runBackfill}
-                  disabled={bfLoading || bfKicked}
-                  style={{ ...connectBtnActiveStyle, marginLeft: 0, opacity: bfLoading || bfKicked ? 0.6 : 1, cursor: bfLoading || bfKicked ? 'default' : 'pointer' }}
-                >
-                  {bfLoading ? 'Starting…' : bfKicked ? 'Importing…' : 'Backfill history'}
-                </button>
+              <div style={{ minWidth: 0, marginBottom: 8 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a' }}>Data history</div>
+                <div style={{ fontSize: 11.5, color: '#94a3b8', marginTop: 2 }}>Import all available history, one platform at a time, back to each platform’s limit. Google Ads runs without interruption to the account’s first day.</div>
               </div>
-              <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {bfPlatforms.map((pf) => {
                   const label = (PLATFORM_META[pf] || { label: pf }).label
                   const st = bfStatus[pf]
                   let text: string
                   let color = '#64748b'
-                  // LORAMER_ONE_CLICK_WALK_V1 — google's line is the WALK's answer (state from /api/backfill/status googleWalkStatus):
-                  // not-started · complete (floor-sealed on every catalogue surface, back to the account floor) · partial (back to the
-                  // walk's earliest window). Other platforms keep the June-engine cursor + earliest-row readout below.
-                  if (st?.state === 'not-started') { text = bfKicked ? 'Starting…' : 'Not started'; color = bfKicked ? '#d97706' : '#64748b' }
-                  else if (st?.state === 'partial') { text = 'Partial — back to ' + (st.earliestDate || 'start'); color = bfKicked ? '#d97706' : '#64748b' }
-                  else if (st?.complete) { text = 'Complete back to ' + (st.earliestDate || 'start'); color = '#16a34a' }
-                  else if (bfKicked) { text = st?.earliestDate ? 'Importing… back to ' + st.earliestDate : 'Importing…'; color = '#d97706' }
+                  let enabled = true
+                  let sub: string | undefined
+                  if (pf === 'google') {
+                    const v = googleView(st); text = v.text; color = v.color; enabled = v.enabled; sub = v.sub
+                  } else if (st?.complete) { text = 'Complete back to ' + (st.earliestDate || 'start'); color = '#16a34a' }
+                  else if (bfKicked[pf]) { text = st?.earliestDate ? 'Importing… back to ' + st.earliestDate : 'Importing…'; color = '#d97706'; enabled = false }
                   else if (st?.earliestDate) { text = 'Partial — back to ' + st.earliestDate }
                   else { text = 'Not imported yet' }
+                  const busy = !!bfLoading[pf]
+                  const disabled = busy || !enabled || (pf === 'google' && googleRunLive)
                   return (
-                    <li key={pf} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12, color: '#334155' }}>
-                      <span>{label}</span>
-                      <span style={{ color, fontWeight: 500, textAlign: 'right' }}>{text}</span>
+                    <li key={pf} style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 12, color: '#334155' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                        <span style={{ minWidth: 0 }}>{label}</span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                          <span style={{ color, fontWeight: 500, textAlign: 'right', overflowWrap: 'anywhere' }}>{text}</span>
+                          <button
+                            type="button"
+                            data-backfill-platform={pf}
+                            onClick={() => runBackfill(pf)}
+                            disabled={disabled}
+                            aria-disabled={disabled}
+                            style={{ ...connectBtnActiveStyle, marginLeft: 0, opacity: disabled ? 0.6 : 1, cursor: disabled ? 'default' : 'pointer' }}
+                          >
+                            {busy ? 'Starting…' : 'Backfill history'}
+                          </button>
+                        </span>
+                      </div>
+                      {sub && <span style={{ fontSize: 11, color: '#94a3b8' }}>{sub}</span>}
+                      {bfNote[pf] && <span style={{ fontSize: 11, color: '#94a3b8' }}>{bfNote[pf]}</span>}
+                      {bfError[pf] && <span style={{ fontSize: 12, color: '#b91c1c' }} role="alert">{bfError[pf]}</span>}
                     </li>
                   )
                 })}
               </ul>
-              {bfKicked && <p style={{ margin: '8px 0 0', fontSize: 11, color: '#94a3b8' }}>Importing in the background — deep history can take a while. You can leave this page.</p>}
-              {bfError && <p style={{ margin: '8px 0 0', fontSize: 12, color: '#b91c1c' }} role="alert">{bfError}</p>}
+              {(googleRunLive || anyOtherKicked) && <p style={{ margin: '8px 0 0', fontSize: 11, color: '#94a3b8' }}>Importing in the background — deep history can take a while. You can leave this page.</p>}
             </div>
           )
         })()}
