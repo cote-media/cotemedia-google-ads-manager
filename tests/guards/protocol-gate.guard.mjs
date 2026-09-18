@@ -287,6 +287,32 @@ if (existsSync(SCRIPT)) {
     if (!r.prompt_sha256) findings.push('(h) a refusal record carries no prompt_sha256 — the refusal cannot be tied to a paste.')
   }
   for (const r of recs) if (Object.prototype.hasOwnProperty.call(r, 'prompt')) findings.push('(h) a log record stores the PASTE. Only prompt_sha256 may be stored.')
+  // LORAMER_ADVERSARY_UNTIL_CONVERGED_V1 (item 2) — THE MINTED ROUND ID. The process assigns the identifier at
+  // submission (PEP 1: editors assign PEP numbers; rust-lang/rfcs: the PR number becomes the RFC number) and the
+  // author cites it as printed. AN ID NAMES A SUBMISSION, NOT A TEXT: every record carries a positive integer id;
+  // every record of one id carries ONE prompt_sha256; ids are dense 1..N over the sandbox log; and the same text
+  // sent twice (the (d2) leg re-sends one flight text against three transcripts) takes a NEW id each time — the
+  // gate's own refusal says "re-send this paste unchanged", and that re-send is a new submission with its own
+  // standing, never a rewrite of the refused one's.
+  {
+    const shaOfId = new Map()
+    const ids = new Set()
+    for (const r of recs) {
+      if (!Number.isInteger(r.id) || r.id < 1) { findings.push(`(h2) a log record carries no positive integer id (got ${JSON.stringify(r.id)}) — the gate must mint the round id, not the author.`); break }
+      ids.add(r.id)
+      if (shaOfId.has(r.id) && shaOfId.get(r.id) !== r.prompt_sha256) findings.push(`(h2) id ${r.id} names two different pastes (${shaOfId.get(r.id).slice(0, 8)} and ${String(r.prompt_sha256).slice(0, 8)}) — an id must resolve to exactly one prompt_sha256.`)
+      shaOfId.set(r.id, r.prompt_sha256)
+    }
+    const max = Math.max(0, ...ids)
+    for (let i = 1; i <= max; i++) if (!ids.has(i)) findings.push(`(h2) id ${i} is missing — ids must be dense (1 + max over the log), refused submissions included.`)
+    const idsPerSha = new Map()
+    for (const [id, sha] of shaOfId) idsPerSha.set(sha, (idsPerSha.get(sha) || 0) + 1)
+    if (![...idsPerSha.values()].some((n) => n >= 2)) findings.push('(h2) the (d2) leg re-sends one flight text three times and every send must take a NEW id — the log shows one id per text, so an unchanged re-send after a refusal would inherit the refused standing.')
+    for (const k of ['adversary_present', 'research_domains', 'prior_art', 'vendor', 'rounds_named']) {
+      if (!recs.every((r) => Object.prototype.hasOwnProperty.call(r, k))) { findings.push(`(h2) log records lack the "${k}" field — the resolver and the audit read it on every record.`) }
+    }
+    if (!recs.some((r) => r.adversary_present === true) || !recs.some((r) => r.adversary_present === false)) findings.push('(h2) adversary_present must be a graded boolean (adversaryVerdict on the parsed box, silently, on every paste) — the fixtures carry both shapes and the log shows only one value.')
+  }
 }
 
 // ── (g) OVERRIDE BURN-DOWN ────────────────────────────────────────────────────────────────────────────────

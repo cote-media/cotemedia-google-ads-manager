@@ -399,6 +399,35 @@ export function citedVerdict(value, { docs = {}, root = ROOT } = {}) {
   return { ok: true, declaredNew, why: `${entries.length} citation(s), each verified against the repo${docsEmpty ? ' (record docs unreadable — token legs indeterminate, treated as clear)' : ''}` }
 }
 
+// ── THE SIGNALS — LORAMER_ADVERSARY_UNTIL_CONVERGED_V1 (item 2) ───────────────────────────────────────────
+// Five fields stamped on every log record so the resolver (rounds=) and the audit read the paste's standing
+// AT ACCEPTANCE, never a re-evaluation of its text later. Graded SILENTLY on every paste, including read-only:
+// adversary_present is adversaryVerdict().ok on the gate's own parsed box (round 15: a box the writing leg would
+// refuse is not a round; a box that passes the shape with hollow words is the banked limit, :234-238), and it
+// never becomes a refusal by another door — the proportionality rule (:472) is untouched.
+export function researchSignals(raw) {
+  const text = String(raw || '')
+  const vendor = (text.match(/\bvendor\s*=\s*([a-z0-9.-]+)/i) || [])[1]?.toLowerCase() || null
+  const urls = [...text.matchAll(/https?:\/\/[^\s<>()\[\]"']+/g)].map((m) => m[0])
+  const hosts = [...new Set(urls.map((u) => { try { return new URL(u).hostname.replace(/^www\./, '') } catch { return null } }).filter(Boolean))]
+  return { vendor, urls, hosts }
+}
+export function roundsNamed(raw) {
+  const m = String(raw || '').match(/\brounds\s*=\s*(\d+(?:@[0-9a-f]{8})?(?:\s*,\s*\d+(?:@[0-9a-f]{8})?)*)/i)
+  return m ? m[1].split(',').map((t) => t.trim()) : []
+}
+export function signalsOf(h) {
+  const r = researchSignals(h.RESEARCH)
+  const pa = String(h['PRIOR-ART'] || '').trim()
+  return {
+    adversary_present: adversaryVerdict(h.ADVERSARY).ok,
+    research_domains: h.RESEARCH ? r.hosts.length : null,
+    prior_art: !pa ? 'absent' : /^NONE-FOUND\b/i.test(pa) ? 'none-found' : 'named',
+    vendor: r.vendor,
+    rounds_named: roundsNamed(h.ADVERSARY),
+  }
+}
+
 // ── THE EVALUATOR ─────────────────────────────────────────────────────────────────────────────────────────
 export function evaluate({ text, transcriptPath, decisionsText, queueText = '', digestText = '', root = ROOT }) {
   const h = parseHeader(text)
@@ -484,7 +513,7 @@ export function evaluate({ text, transcriptPath, decisionsText, queueText = '', 
     return true
   })
 
-  return { verdict: surviving.length ? 'block' : 'allow', failures: surviving, overrides, applied, blast, header: h, inFlight: inf, noneReason: c.noneReason || null }
+  return { verdict: surviving.length ? 'block' : 'allow', failures: surviving, overrides, applied, blast, header: h, inFlight: inf, noneReason: c.noneReason || null, signals: signalsOf(h) }
 }
 
 // ── THE REFUSAL, IN ENGLISH ───────────────────────────────────────────────────────────────────────────────
@@ -541,15 +570,39 @@ export function renderRefusal(res, meta) {
 //   'override'       — as before: a box skipped on purpose, with the reason that cost something to type.
 //   'none_justified' — an ACCEPTED paste whose CONSTANTS carried a reason. Evidence, kept rather than binned.
 // ⛔ prompt_sha256 ON ALL THREE, NEVER THE PASTE — a paste can carry a token or a customer's name.
+// ── THE ROUND ID — LORAMER_ADVERSARY_UNTIL_CONVERGED_V1 (item 2) ──────────────────────────────────────────
+// THE PROCESS MINTS THE IDENTIFIER, THE AUTHOR CITES IT AS PRINTED. PEP 1: "assigning PEP numbers" is the editors'
+// job; rust-lang/rfcs: "Don't assign an RFC number yet … use the issue number of the PR to rename the file". Here
+// the log is the counter: id = 1 + the highest id already stamped. THE SOURCE IS THE LOG, NOT THE LINE COUNT (one
+// paste writes up to three lines) AND NOT A COUNTER FILE (a second file to keep in sync across two machines when
+// the log already travels in git). ⛔ THE LINES WRITTEN BEFORE THIS SHIPPED CARRY NO id — they are NOT rewritten
+// (the hash chain, guard leg (g)); an unstamped paste's id IS ITS ORDINAL among the log's distinct pastes in file
+// order, and stamping continues from there, so today's rounds can be cited by id tomorrow without touching a line.
+// Refused pastes get ids too — dense, auditable, and a refused id named later is itself a refusal. A gate fault
+// writes nothing: a paste the gate could not grade is not a paste the gate saw. TWO MACHINES minting before a git
+// sync can both mint one id; the resolver refuses that duplicate by name rather than guessing (★TWO-MACHINE-GATE-LOG-MERGE).
+export function nextRoundId(lines) {
+  let maxStamped = 0
+  const unstamped = new Set()
+  for (const l of lines) {
+    let o = null
+    try { o = JSON.parse(l) } catch { continue }
+    if (Number.isInteger(o?.id)) maxStamped = Math.max(maxStamped, o.id)
+    else if (o?.prompt_sha256) unstamped.add(o.prompt_sha256)
+  }
+  return Math.max(maxStamped, unstamped.size) + 1
+}
 export function appendLog({ records, sessionId, text, root }) {
   if (!records?.length) return 0
   const p = resolve(root, LOG_REL)
   try { mkdirSync(dirname(p), { recursive: true }) } catch { /* already there */ }
   let prev = 'genesis'
+  let id = 1
   try {
     if (existsSync(p)) {
       const lines = readFileSync(p, 'utf8').split('\n').filter((l) => l.trim())
       if (lines.length) prev = sha256(lines[lines.length - 1])
+      id = nextRoundId(lines)
     }
   } catch { /* an unreadable log must not stop the gate; the guard reports on the log itself */ }
   let n = 0
@@ -559,6 +612,7 @@ export function appendLog({ records, sessionId, text, root }) {
       session_id: sessionId || null,
       machine: hostname(),
       prompt_sha256: sha256(text),
+      id,
       ...r,
       prev,
     }
@@ -603,7 +657,7 @@ async function main() {
 
   const res = evaluate({ text, transcriptPath: input.transcript_path, decisionsText, queueText, digestText, root: ROOT })
 
-  const common = { round: res.header?.ROUND || null, question: res.header?.QUESTION || null, blast: res.header?.BLAST || null }
+  const common = { round: res.header?.ROUND || null, question: res.header?.QUESTION || null, blast: res.header?.BLAST || null, ...(res.signals || {}) }
   const records = []
   for (const a of res.applied || []) records.push({ verdict: 'override', box: a.box, reason: a.reason, ...common })
   if (res.noneReason) records.push({ verdict: 'none_justified', reason: res.noneReason, ...common })
