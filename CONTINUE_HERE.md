@@ -18,12 +18,7 @@
 · Quiet windows 21:40–00:15Z or 00:25–06:15Z; hold Foam OH out of the rotation with the step-0 sentinel fire row.
 
 ── ▶▶ NEXT STEP, IN ORDER ──
-(1) FOAM OH WIPE — scratch/foamoh-wipe-2026-09-18/WIPE-DRAFT.sql via the direct-DB runner, one partition per
-    transaction, abort on deleted ≠ expected, checkpoints per table, Russ present for the confirm; the snapshot in that
-    folder stands; est. 35–60 min; press within 5 min of the last checkpoint. ⚠ THE WIPE PASTE WRITES, so under the
-    new gate it must cite TWO round ids — and NO pre-law paste can be cited (its log line carries no grade): send two
-    fresh read-only adversary rounds on the wipe first; each prints its `round-id:`; the wipe paste cites those two,
-    carries `vendor=` + five URLs on four domains, and a PRIOR-ART line (or NONE-FOUND with where you looked).
+(1) TRI-COPY FIRST, THROUGH THE ROUTE (2026-09-21, LORAMER_GOOGLE_DELETE_MY_DATA_V1): the "Delete Google data" button on the -next client page (migration 099 applied; before-snapshot at scratch/tricopy-before-2026-09-21/). Russ presses it; the route waits for quiet, deletes the connection first, then every table, and ends only at an all-zero re-count with a confirmation code. Then reconnect Tri-Copy on -next (the connect kick still fires the legacy drain — B4 unbuilt), press Backfill, after-diff with the same snapshot script. ⚠ THE CANARY IS TRI-COPY (retention-wall.ts:41): a disconnect spanning 10:15Z fails that day's canary read; capture unaffected (Q6). Foam OH follows through the same route (two or three presses); the WIPE-DRAFT is superseded.
 (2) PRESS Backfill on Foam OH from the -next profile; six states; ~8 h descent.
 (3) After-snapshot + diff.mjs (same folder, same query text); one month against the Google Ads app.
 (4) Q1 cold proof: Veterinary Mastermind, fresh Gmail as direct user, connect, press.

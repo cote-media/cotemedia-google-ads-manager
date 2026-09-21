@@ -213,6 +213,13 @@ export default function ClientPage({ clientId, clientName, connections, hasGoogl
   const [archiveConfirm, setArchiveConfirm] = useState('')
   const [archiving, setArchiving] = useState(false)
   const [archiveError, setArchiveError] = useState('')
+  // LORAMER_GOOGLE_DELETE_MY_DATA_V1 — delete ALL of this client's Google Ads data (route: /api/clients/google/delete-data,
+  // owner-only, type-to-confirm; the server deletes only through pinned definer functions and answers with a confirmation code).
+  const [gdelOpen, setGdelOpen] = useState(false)
+  const [gdelConfirm, setGdelConfirm] = useState('')
+  const [gdelBusy, setGdelBusy] = useState(false)
+  const [gdelError, setGdelError] = useState('')
+  const [gdelResult, setGdelResult] = useState<{ status: string; confirmation_code?: string; counts?: Record<string, number>; note?: string } | null>(null)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -300,6 +307,19 @@ export default function ClientPage({ clientId, clientName, connections, hasGoogl
       if (!res.ok) { const j = await res.json().catch(() => ({} as any)); setArchiveError(j.error || 'Could not archive this client. Try again.'); setArchiving(false); return }
       router.push('/dashboard-next/clients')
     } catch { setArchiveError('Could not archive this client. Try again.'); setArchiving(false) }
+  }
+
+  async function deleteGoogleData() {
+    setGdelBusy(true); setGdelError('')
+    try {
+      const res = await fetch('/api/clients/google/delete-data?id=' + encodeURIComponent(clientId), {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ confirm: gdelConfirm.trim() }),
+      })
+      const j = await res.json().catch(() => ({} as any))
+      if (!res.ok && res.status !== 202) { setGdelError(j.error || 'Could not delete the Google data. Try again.'); setGdelBusy(false); return }
+      setGdelResult(j); setGdelBusy(false)
+      if (j.status === 'complete') router.refresh()
+    } catch { setGdelError('Could not reach the server. Try again.'); setGdelBusy(false) }
   }
 
   async function loadMemory() {
@@ -846,6 +866,10 @@ export default function ClientPage({ clientId, clientName, connections, hasGoogl
           style={{ fontSize: 13, color: '#b91c1c', background: 'none', border: '1px solid #fecaca', borderRadius: 8, padding: '8px 14px', cursor: 'pointer', minHeight: 40 }}>
           Archive client
         </button>
+        <button type="button" data-testid="delete-google-data" onClick={() => { setGdelConfirm(''); setGdelError(''); setGdelResult(null); setGdelOpen(true) }}
+          style={{ fontSize: 13, color: '#b91c1c', background: 'none', border: '1px solid #fecaca', borderRadius: 8, padding: '8px 14px', cursor: 'pointer', minHeight: 40, marginLeft: 8 }}>
+          Delete Google data
+        </button>
       </section>
 
       {archiveOpen && (
@@ -863,6 +887,35 @@ export default function ClientPage({ clientId, clientName, connections, hasGoogl
                 {archiving ? 'Archiving…' : 'Archive client'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {gdelOpen && (
+        <div onClick={() => { if (!gdelBusy) setGdelOpen(false) }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 50 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', width: '100%', maxWidth: 440, borderRadius: 16, padding: 24, boxShadow: '0 10px 40px rgba(0,0,0,0.2)' }}>
+            <h3 style={{ fontSize: 18, fontWeight: 600, color: '#0f172a', marginBottom: 6 }}>Delete all Google Ads data for {clientName}?</h3>
+            {!gdelResult && (<>
+              <p style={{ fontSize: 13, color: '#64748b', marginBottom: 12 }}>This removes the Google Ads connection and every captured Google row for this client — history, the import ledgers, the daily capture and the cached intelligence. It cannot be undone; a reconnect starts a fresh import from Google. Your Google sign-in is revoked only if this was your last Google client. To confirm, type the client name.</p>
+              {gdelError && <div style={{ fontSize: 13, color: '#b91c1c', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '6px 10px', marginBottom: 10 }} role="alert">{gdelError}</div>}
+              <input type="text" data-testid="delete-google-confirm" value={gdelConfirm} onChange={e => setGdelConfirm(e.target.value)} placeholder={clientName}
+                style={{ width: '100%', fontSize: 14, border: '1px solid #e2e8f0', borderRadius: 10, padding: '10px 12px', marginBottom: 14, boxSizing: 'border-box' }} />
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                <button type="button" disabled={gdelBusy} onClick={() => setGdelOpen(false)} style={{ padding: '9px 14px', borderRadius: 10, border: '1px solid #e2e8f0', background: '#fff', fontSize: 14, cursor: 'pointer' }}>Cancel</button>
+                <button type="button" data-testid="delete-google-run" disabled={gdelBusy || gdelConfirm.trim() !== clientName.trim()} onClick={deleteGoogleData}
+                  style={{ padding: '9px 14px', borderRadius: 10, border: 'none', background: '#b91c1c', color: '#fff', fontSize: 14, fontWeight: 600, cursor: (gdelBusy || gdelConfirm.trim() !== clientName.trim()) ? 'not-allowed' : 'pointer', opacity: (gdelBusy || gdelConfirm.trim() !== clientName.trim()) ? 0.6 : 1 }}>
+                  {gdelBusy ? 'Deleting…' : 'Delete Google data'}
+                </button>
+              </div>
+            </>)}
+            {gdelResult && (<div data-testid="delete-google-result">
+              <p style={{ fontSize: 13, color: '#0f172a', marginBottom: 8 }}>{gdelResult.status === 'complete' ? 'Google data deleted.' : 'Deletion paused — press again to continue.'} Confirmation code <code>{gdelResult.confirmation_code}</code>.</p>
+              {gdelResult.note && <p style={{ fontSize: 12, color: '#64748b', marginBottom: 8 }}>{gdelResult.note}</p>}
+              <ul style={{ fontSize: 12, color: '#475569', margin: '0 0 12px 16px', padding: 0 }}>{Object.entries(gdelResult.counts || {}).map(([t, n]) => <li key={t}>{t}: {n}</li>)}</ul>
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                {gdelResult.status !== 'complete' && <button type="button" data-testid="delete-google-again" onClick={deleteGoogleData} style={{ padding: '9px 14px', borderRadius: 10, border: 'none', background: '#b91c1c', color: '#fff', fontSize: 14 }}>Press again</button>}
+                <button type="button" onClick={() => setGdelOpen(false)} style={{ padding: '9px 14px', borderRadius: 10, border: '1px solid #e2e8f0', background: '#fff', fontSize: 14 }}>Close</button>
+              </div>
+            </div>)}
           </div>
         </div>
       )}

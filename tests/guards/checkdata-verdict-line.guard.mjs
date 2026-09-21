@@ -89,6 +89,7 @@ const EXPECTED_ROSTER = [
   'scripts/breakdown-reachability-check.mjs --gate',
   'scripts/check-completion-claims.mjs --guard',
   'scripts/check-doc-ownership-data.mjs',
+  'scripts/check-google-delete-tables.mjs --guard', // LORAMER_GOOGLE_DELETE_MY_DATA_V1 (2026-09-21)
   'scripts/check-drain-throttle.mjs --guard',
   'scripts/check-parent-analyze.mjs --gate',
   'scripts/check-rotation-buffers.mjs --gate', // LORAMER_ROTATION_SKIP_SCAN_V1 — pin moved in the same commit as the addition
