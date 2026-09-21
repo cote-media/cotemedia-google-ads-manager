@@ -1,6 +1,6 @@
 // LORAMER_GOOGLE_FWD_QUOTA_RESERVE_V1 — reserve the daily FORWARD google quota slice ahead of the deep-history drain.
 //
-// PROBLEM (banked; ★GOOGLE-QUOTA-PRIORITY-INVERSION): the Google Ads dev-token quota (Basic = 15k ops/day,
+// PROBLEM (banked; ★GOOGLE-QUOTA-PRIORITY-INVERSION): the Google Ads dev-token quota (Basic = 15k ops/day, — history; Standard since 2026-09-15, LORAMER_GOOGLE_ACCESS_STANDARD_V1
 // developer-scoped = GLOBAL across every google client) resets ~08:03:57 UTC. The deep-geo drain fires every 5 min
 // (vercel.json google drain "*/5") so it hits the fresh quota at 08:05 — BEFORE the daily forward pass (first fire
 // 08:08). Nothing sequences them (forward claims "__fwd_google", the drain claims "__drain_google" — different keys),

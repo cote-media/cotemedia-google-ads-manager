@@ -110,7 +110,7 @@ one model without weakening the provability that is LoraMer's moat.
   covers the captured baseline, (3) THEN retire the 15-min snapshot. NEVER retire first.
 
 ## 9. STANDARD ACCESS — PROMOTED LAUNCH-CRITICAL
-- Google Ads Basic Access = 15,000 ops/day. Captured-by-default + gated/scoped live pulls stay within Basic. A
+- Google Ads Basic Access = 15,000 ops/day. Captured-by-default + gated/scoped live pulls stay within Basic. A ⟨history — Standard Access GRANTED 2026-09-15; LORAMER_GOOGLE_ACCESS_STANDARD_V1 owns the status⟩
   PERSISTENT live environment (continuous polling) does NOT — it needs Standard Access OR a hard per-client
   polling cap.
 - DECISION: Standard Access is promoted to LAUNCH-CRITICAL for the Live workstream (was "scale-time"). Blocked on
@@ -163,7 +163,7 @@ one model without weakening the provability that is LoraMer's moat.
   last-30-min, separate realtime quota; zero realtime code today.
 - Reconcile: 6 copy-paste blocks, 3 postures (BLOCK/FLAG/HALT). Fetch: fetchXIntelligence canonical (reused by
   cron+intelligence+shopify-backfill); google/meta backfills reimplement fetch.
-- Google Ads Basic Access = 15k ops/day; full intel pull ~20+ ops, scoped live pull ~1–3 ops.
+- Google Ads Basic Access = 15k ops/day; full intel pull ~20+ ops, scoped live pull ~1–3 ops. ⟨history — Standard Access GRANTED 2026-09-15; LORAMER_GOOGLE_ACCESS_STANDARD_V1 owns the status⟩
 
 ## Session-log pointer
 Design locked 2026-06-26 after two read-only ground-truth investigations (data-model + live/breadth) this session,

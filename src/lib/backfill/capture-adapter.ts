@@ -96,7 +96,7 @@ export interface RetentionFloor {
 /**
  * ⛔ THE GOVERNOR'S INTERFACE IS SHARED; EVERY CONSTANT AND THE METER ITSELF IS ADAPTER DATA. These are not
  * the same number in different clothes:
- *   · **Google Ads** — 15,000 operations/day; a query is ONE operation regardless of span, and paginated
+ *   · **Google Ads** — no daily operations cap since Standard Access (2026-09-15, DECISIONS LORAMER_GOOGLE_ACCESS_STANDARD_V1; under Basic it was 15,000/day); a query is ONE operation regardless of span, and paginated
  *     requests carrying a valid next_page_token are not counted at all.
  *   · **GA4** — 200,000 core tokens per property per DAY, 40,000 per HOUR, 14,000 per project per property
  *     per hour, 10 concurrent. Cost is VARIABLE per call and rises with date-range length and row count.

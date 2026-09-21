@@ -284,7 +284,7 @@ C. SEGMENTS: ad_network_type (Search/Display/YouTube/Partners) [VERIFIED]; produ
 D. REPORT VIEWS: assets/asset_group/asset_group_top_combination_view = PMax asset-combination attribution, LAW-CORE [DERIVED-strong, we have queried this view before]; Google Display/YouTube placements group_placement_view/detail_placement_view [DERIVED]; audiences ad_group_audience_view/campaign_audience_view [VERIFIED reportable]; landing_page_view/expanded_landing_page_view [DERIVED]; distance_view/store-visits [DERIVED, niche].
 E. GRAIN TOO SHALLOW: conversion_action campaign-only → offered at ad_group+keyword; impression_share campaign-only → offered at ad_group.
 EXCLUDED (Russ, deferred not dropped): click_view / GCLID / click-level identifiers — PII line, revisit later.
-COST: each fill = more rows + more Google Ads API ops/client/day against the Basic 15k/day cap (already starved the cron once). Filling raises ops → Standard Access application is now a real dependency, start regardless of build order.
+COST: each fill = more rows + more Google Ads API ops/client/day against the Basic 15k/day cap (already starved the cron once). Filling raises ops → Standard Access application is now a real dependency, start regardless of build order. ⟨history — Standard Access GRANTED 2026-09-15; LORAMER_GOOGLE_ACCESS_STANDARD_V1 owns the status⟩
 
 RANKED FILL QUEUE (G-FILL#1..#10 + ON-DEMAND + DEFERRED) lives in LORAMER_QUEUE_OF_RECORD.md under ★ PLATFORM-SURFACE-AUDIT — that queue owns the build ORDER; this section owns the offered-vs-captured DELTA. DEPTH status (owned by LORAMER_DECISIONS / the QUEUE, pointer only): campaign backfill WIRED+SCALED cohort-wide; ad_group/ad + keyword/search_term ~90d unchanged.
 

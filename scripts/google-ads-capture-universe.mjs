@@ -18,7 +18,7 @@
 // USAGE
 //   node scripts/google-ads-capture-universe.mjs --catalog-only     # refresh selectable set from the vendor (no probes)
 //   node scripts/google-ads-capture-universe.mjs --probe <clientId>  # ⛔ SPENDS GOOGLE QUOTA. Adds/refreshes delivery.
-// ⛔ --probe IS NOT WIRED INTO ANY GATE. It costs hundreds of requests against a 15,000/day cap and must stay a
+// ⛔ --probe IS NOT WIRED INTO ANY GATE. It costs hundreds of requests against a 15,000/day cap and must stay a — history; Standard since 2026-09-15, LORAMER_GOOGLE_ACCESS_STANDARD_V1
 // deliberate, human-initiated act — same posture as `check:data` and `npm run evals`.
 //
 // ── THE CATALOG QUERIES, VERBATIM, SO THE REGENERATION IS AUDITABLE ────────────────────────────────────────────

@@ -33,7 +33,7 @@ import { GoogleAdsApi } from 'google-ads-api'
 // guesswork and then inherited by the permanent capture path. A defensive guess, not a cost analysis.
 //
 // ⛔ REMOVING THE LIMIT COSTS ZERO EXTRA API REQUESTS, which is the whole reason this is safe under Basic
-// Access (15k ops/day, shared across all 18 google clients on one dev token). `customer.query()` routes
+// Access (15k ops/day, shared across all 18 google clients on one dev token). `customer.query()` routes — history; Standard since 2026-09-15, LORAMER_GOOGLE_ACCESS_STANDARD_V1
 // through the library's `querier` → **searchStream** (node_modules/google-ads-api/build/src/customer.js:
 // "Google's searchStream method is faster than search, but it does not support all features" / "When
 // possible, use the searchStream method to avoid the overhead of pagination"). searchStream returns the

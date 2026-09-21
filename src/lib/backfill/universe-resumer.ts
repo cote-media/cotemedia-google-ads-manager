@@ -322,7 +322,7 @@ export const LOOKBACK_FLEET_FLOOR_DAYS = 90 // ⇐ DECISIONS LORAMER_SESSION_202
 
 /** Window width per access tier — QUEUE ★LOOKBACK-LANE-OWNS-PROMOTION (4). Basic: one window a week per surface. */
 export const LOOKBACK_WINDOW_DAYS_BASIC = 7
-/** Standard access (pending — DECISIONS/QUEUE own its status): every past-boundary day is its own window. */
+/** Standard access (GRANTED 2026-09-15 — DECISIONS LORAMER_GOOGLE_ACCESS_STANDARD_V1 owns the status; not yet selected, ★LOOKBACK-WIDTH-FOLLOWS-GRANT): every past-boundary day is its own window. */
 export const LOOKBACK_WINDOW_DAYS_STANDARD = 1
 
 /** What the store holds for one account — the maxima across its ENABLED conversion actions. null = no row (UNKNOWN). */

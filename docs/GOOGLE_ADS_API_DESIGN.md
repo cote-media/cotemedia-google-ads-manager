@@ -21,7 +21,7 @@ recommendations. This document describes how LoraMer uses the Google Ads API.
   ZERO mutate / create / update / remove operations anywhere in the codebase.
 - Permissible use requested: REPORTING, with external (client) access.
 - Launch posture: invite-only founding cohort, July 2026. Low daily operation
-  volume, comfortably within Basic Access limits. Standard Access is deferred to
+  volume, comfortably within Basic Access limits. Standard Access is deferred to ⟨history — Standard Access GRANTED 2026-09-15; LORAMER_GOOGLE_ACCESS_STANDARD_V1 owns the status⟩
   scale-time and is not requested now.
 
 
@@ -95,7 +95,7 @@ no user management, no billing operations.
 
 - Reporting refreshes are cached (~15 minutes), so repeated views do not re-query.
 - At the July 2026 invite-only launch the operation volume is well within Basic
-  Access (15,000 operations/day). Standard Access (unlimited) is a scale-time item
+  Access (15,000 operations/day). Standard Access (unlimited) is a scale-time item ⟨history — Standard Access GRANTED 2026-09-15; LORAMER_GOOGLE_ACCESS_STANDARD_V1 owns the status⟩
   and is not requested in this change.
 
 

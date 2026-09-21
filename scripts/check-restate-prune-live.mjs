@@ -25,7 +25,7 @@
 // restore would leave a live client short a day. Writing under a synthetic key exercises the identical
 // natural key, the identical writer and the identical prune, and can lose nothing that anyone captured.
 // The vendor is NOT called: sampling stored rows costs zero quota, and a check that spent Google ops on
-// every check:data run would be a new daily draw on a 15,000/day lane.
+// every check:data run would be a new daily draw on a 15,000/day lane. — history; Standard since 2026-09-15, LORAMER_GOOGLE_ACCESS_STANDARD_V1
 //
 // USAGE: node scripts/check-restate-prune-live.mjs
 import { readFileSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'

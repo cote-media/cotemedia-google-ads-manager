@@ -11,7 +11,7 @@
 // bucket) with campaign.id + ad_group.id exposed. So the two grains Google serves are campaign + ad_group (like
 // hour); ad and keyword are NOT served (criteria live at ad_group). BOTH grains come from ONE view query, so we
 // fetch a dimension's view ONCE per window and build BOTH grains from the same rows (quota-minimal — the Basic
-// 15k/day cap is a live constraint; do not query the same view twice).
+// 15k/day cap is a live constraint; do not query the same view twice). — history; Standard since 2026-09-15, LORAMER_GOOGLE_ACCESS_STANDARD_V1
 //
 // Grain (unique under the 7-col conflict key): entity_level per grain, entity_id per grain, parent per grain,
 //   breakdown_type='age'|'gender', breakdown_value = raw Google enum NAME (verbatim upper — the "raw" encoding

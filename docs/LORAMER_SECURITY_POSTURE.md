@@ -76,10 +76,10 @@ LAUNCH-CRITICAL (pre-7/14) — TALLY 2026-06-29: /api/test DONE (code) · NEXTAU
    deliberate READ-ONLY MCC grant (the 2026-06-10 onboarding workaround) and demo@loramer.com is the PERMANENT test
    fixture for onboarding shape (b) direct-grant single-account business owner (LAUNCH_PARKING / LORAMER_ONBOARDING_
    IDENTITY_MATRIX_V1). HOLD for two reasons: (1) the Google Ads API Tool Change Form (submitted ~2026-06-10) was filed
-   with demo@ connected to a client as the working integration demo and is STILL PENDING a reply — revoking demo@'s MCC
+   with demo@ connected to a client as the working integration demo and was still pending a reply when written (Standard Access GRANTED 2026-09-15 — LORAMER_GOOGLE_ACCESS_STANDARD_V1 owns the status; the hold reason below is history) — revoking demo@'s MCC
    access mid-review could undercut the very submission under review; (2) the MCC-revoke is a LAUNCH-PARKING test-gated
    step — run ONLY when walking matrix test (b) on Russ's schedule, NOT as a security cleanup. Meta App Review is NOT the
-   pending item here — this caution is the GOOGLE Standard Access application only (both platforms' live approval/pending
+   pending item here — this caution was the GOOGLE Standard Access application only, now granted (LORAMER_GOOGLE_ACCESS_STANDARD_V1) (both platforms' live approval/pending
    status is owned by DECISIONS/QUEUE, not restated here). ⇒ THE REAL SECURITY FIX is finding #18: the live-data routes don't
    bind accountId→owned-client, which is what lets ANY MCC identity (not just demo@) read any child account. Binding
    accountId→owned-client (FAST-FOLLOW CODE — item 6 below) closes the hole WITHOUT touching demo@. So: demo@ MCC access

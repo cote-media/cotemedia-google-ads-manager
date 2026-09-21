@@ -217,7 +217,7 @@ export function resolveRangeLapWindowEnd(earliest: string | null, yesterday: str
 
 // ⛔ THE COMPLETION DECISION, AND ITS DELIBERATE LIMIT — READ THIS BEFORE "TIGHTENING" IT.
 // `complete` is STILL position-based, and that is not an oversight. Making the seal REQUIRE rows creates a
-// GUARANTEED INFINITE RE-WALK against the 15k/day GAQL cap, because it conflicts with the restart above:
+// GUARANTEED INFINITE RE-WALK against the 15k/day GAQL cap, because it conflicts with the restart above: — history; Standard since 2026-09-15, LORAMER_GOOGLE_ACCESS_STANDARD_V1
 //   lap 1 walks to the floor, the final window is legitimately empty (written 0), rows-required blocks the seal,
 //   so complete stays false with earliest at the floor -> lap 2 hits the anomalous branch -> RESTART -> lap 1.
 // A family whose floor window is honestly empty would re-walk its whole range every few laps, forever. And empty

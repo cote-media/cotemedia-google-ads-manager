@@ -125,7 +125,7 @@ const META_RESTATE_LOOKBACK_DAYS = 9
 // derived from conversion windows would never re-ask them and would leave their spend wrong.
 // google-forward-must-restate.guard.mjs fails the build if anyone ever gates this on conversion setup.
 // VENDOR COST: zero added requests for the six breadth families — a ranged GAQL costs the same as a single
-// day. The account writer adds ONE ranged query per client per fire (18/day against a 15,000/day lane).
+// day. The account writer adds ONE ranged query per client per fire (18/day against a 15,000/day lane). — history; Standard since 2026-09-15, LORAMER_GOOGLE_ACCESS_STANDARD_V1
 const GOOGLE_RESTATE_LOOKBACK_DAYS = 30
 const addDaysUTC = (iso: string, n: number): string => { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10) }
 

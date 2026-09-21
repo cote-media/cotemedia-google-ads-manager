@@ -61,6 +61,29 @@ const BANS = [
       'banked as FALSIFIED at',
     ],
   },
+  {
+    // LORAMER_GOOGLE_ACCESS_STANDARD_V1 (2026-09-21) — A STALE ACCESS-LEVEL CLAIM IS A FALSIFIED MECHANISM, and this
+    // is the first ban that scans DOCS as well as code. Standard Access was GRANTED 2026-09-15; the daily cap is null.
+    // On 2026-09-21 the repo still said "pending" / "the 15k/day Basic cap binds" in the two governing lines the digest
+    // prints every resume (ESSENCE pre-action gate, DECISIONS operating rules), in HANDOFF, RESUME_INSTRUCTIONS, a
+    // QUEUE line, a runtime log string and a dozen comments. A session read those as current and a fix paste was
+    // written against a cap that did not exist.
+    // ⛔ THE ONE RULE THAT TELLS HISTORY FROM A CLAIM: a matching line must NAME THE OWNER MARKER. The owner line
+    // names it, every pointer names it, and every dated history line is STAMPED with it. A line that mentions the old
+    // status and does not name the owner is a present-tense claim, wherever it sits.
+    id: 'STALE-GOOGLE-ACCESS-CLAIM',
+    what: 'a present-tense claim that Google Ads Standard Access is pending / not granted, that the 15,000 ops/day Basic cap binds, or that legacy is frozen for the Standard Access review',
+    bannedOn: '2026-09-21',
+    bannedBy: 'LORAMER_GOOGLE_ACCESS_STANDARD_V1 — LORAMER_DECISIONS.md (the one owner line; Russ 2026-09-21: every place the repo says Standard is not done gets fixed)',
+    why: 'Standard Access was granted 2026-09-15 and GOOGLE_DAILY_OP_CAP is null; a doc or comment that still says pending or 15k/day reads as current at resume and routes work against a constraint that is gone.',
+    pattern: /standard access[^.\n]{0,40}\b(pending|not granted|not yet granted|not done)\b|\b(pending|until it clears|parked on|while)[^.\n]{0,30}standard access|basic cap binds|15k ?(ops )?\/ ?day|15,000 ?(ops|operations)? ?(\/|per) ?day|15,000 daily cap|15,?000-op|15k-op|basic[- ]access (limits|= ?15|is 15|\(15)|basic (= ?15|is 15)|frozen for (google )?(the )?standard access|standard access (rmf )?review|standard access (application|is) (deferred|not requested)|apply for standard|waiting to hear back/i,
+    recordMarkers: [],
+    detectorFiles: [],
+    // Docs are scanned for THIS ban only (root *.md and docs/**/*.md; never the generated digest — its sources are).
+    scanDocs: true,
+    // The owner marker: a line that carries it is the owner, a pointer, or a stamped history line — never a claim.
+    exemptIfLineIncludes: ['LORAMER_GOOGLE_ACCESS_STANDARD_V1'],
+  },
 ]
 
 // ── THE BASELINE FREEZE — REMOVE-ONLY ─────────────────────────────────────────────────────────────────────
@@ -77,6 +100,24 @@ const EXCEPTIONS = [
   { ban: 'API-CENTER-IS-THE-OP-METER', file: 'src/lib/backfill/universe-vendor-client.ts', line: 10,
     match: 'The only source is the API Center in the Google Ads UI, which is a human', date: '2026-08-09',
     queue: '★API-CENTER-MECHANISM-CAME-BACK-FIFTH-LAW-9-PRECEDENT' },
+  // ⚠ RUNTIME STRINGS AND A HASH-PINNED FILE, found by the STALE-GOOGLE-ACCESS-CLAIM ban's first red run (2026-09-21).
+  // The docs-and-guard flight that added the ban may not touch runtime code, and universe-resume/route.ts is sha-pinned
+  // by walk-quota-scope.guard.mjs. Frozen here, remove-only, under one queue item.
+  { ban: 'STALE-GOOGLE-ACCESS-CLAIM', file: 'src/lib/backfill/forward-driver.ts', line: 176,
+    match: 'EXCLUDED (frozen for the Standard Access review, DECISIONS:2461)', date: '2026-09-21',
+    queue: '★STALE-ACCESS-CLAIMS-IN-RUNTIME-STRINGS' },
+  { ban: 'STALE-GOOGLE-ACCESS-CLAIM', file: 'scripts/rmf-adapter-gate.mjs', line: 115,
+    match: '3 vendor requests (Basic cap 15,000/day)', date: '2026-09-21',
+    queue: '★STALE-ACCESS-CLAIMS-IN-RUNTIME-STRINGS' },
+  { ban: 'STALE-GOOGLE-ACCESS-CLAIM', file: 'scripts/rmf-adapter-gate.mjs', line: 157,
+    match: '~5 vendor requests (Basic cap 15,000/day)', date: '2026-09-21',
+    queue: '★STALE-ACCESS-CLAIMS-IN-RUNTIME-STRINGS' },
+  { ban: 'STALE-GOOGLE-ACCESS-CLAIM', file: 'scripts/rmf-adapter-gate.mjs', line: 226,
+    match: '2 vendor requests will be spent (1 op each, Basic cap 15,000/day)', date: '2026-09-21',
+    queue: '★STALE-ACCESS-CLAIMS-IN-RUNTIME-STRINGS' },
+  { ban: 'STALE-GOOGLE-ACCESS-CLAIM', file: 'src/app/api/cron/universe-resume/route.ts', line: 913,
+    match: '15,000 daily cap MINUS 4,000 forward and 5,000 drain', date: '2026-09-21',
+    queue: '★STALE-ACCESS-CLAIMS-IN-RUNTIME-STRINGS' },
 ]
 
 // ── SCAN ──────────────────────────────────────────────────────────────────────────────────────────────────
@@ -95,13 +136,32 @@ for (const top of ['src', 'scripts', 'tests']) {
   })(top)
 }
 
+// Docs, for the bans that opt in (scanDocs): root-level *.md and docs/**/*.md. The generated digest is not scanned —
+// it is rebuilt from the docs that are, and a hit in it would be a hit in a source with the same fix.
+const docFiles = []
+try { for (const e of readdirSync(ROOT)) if (/\.md$/.test(e) && e !== 'LORAMER_RESUME_DIGEST.md') docFiles.push(e) } catch { /* none */ }
+;(function walkDocs(dir) {
+  let ents
+  try { ents = readdirSync(resolve(ROOT, dir)) } catch { return }
+  for (const e of ents) {
+    const p = join(dir, e)
+    let st
+    try { st = statSync(resolve(ROOT, p)) } catch { continue }
+    if (st.isDirectory()) { walkDocs(p); continue }
+    if (/\.md$/.test(e)) docFiles.push(p)
+  }
+})('docs')
+
 const violations = []
-for (const rel of files) {
-  let lines
-  try { lines = readFileSync(resolve(ROOT, rel), 'utf8').split('\n') } catch { continue }
-  for (const ban of BANS) {
+const cache = new Map()
+const linesOf = (rel) => { if (!cache.has(rel)) { try { cache.set(rel, readFileSync(resolve(ROOT, rel), 'utf8').split('\n')) } catch { cache.set(rel, null) } } return cache.get(rel) }
+for (const ban of BANS) {
+  for (const rel of ban.scanDocs ? [...files, ...docFiles] : files) {
+    const lines = linesOf(rel)
+    if (!lines) continue
     for (let i = 0; i < lines.length; i++) {
       if (!ban.pattern.test(lines[i])) continue
+      if ((ban.exemptIfLineIncludes ?? []).some((m) => lines[i].includes(m))) continue
       // ±3 lines: is this the entry that BANKS the ban rather than a use of it?
       const win = lines.slice(Math.max(0, i - 3), Math.min(lines.length, i + 4)).join('\n')
       if (ban.recordMarkers.some((m) => win.includes(m))) continue
@@ -149,6 +209,7 @@ if (findings.length) {
   process.exit(1)
 }
 console.log(
-  `banned-expressions.guard: PASS — ${BANS.length} ban(s) scanned across ${files.length} code file(s) INCLUDING COMMENTS; ` +
-  `${EXCEPTIONS.length} frozen baseline violation(s), all still matching the tree. LIMIT: code files only, never .md.`
+  `banned-expressions.guard: PASS — ${BANS.length} ban(s) scanned across ${files.length} code file(s) INCLUDING COMMENTS, ` +
+  `${BANS.filter((b) => b.scanDocs).length} of them also across ${docFiles.length} doc file(s); ` +
+  `${EXCEPTIONS.length} frozen baseline violation(s), all still matching the tree. LIMIT: the generated digest is not scanned.`
 )

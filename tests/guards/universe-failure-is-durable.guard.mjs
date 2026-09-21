@@ -57,7 +57,7 @@ if (logSrc) {
 
 // ── (b) AMENDMENT 1 — A LAWFUL EARLY RETURN MUST NOT COUNT AS AN ATTEMPT ────────────────────────────────
 // quota_stop (the governor) and floor_stop (the disk floor) are those systems working. Three quota pauses on
-// one window is routine under the 15,000/day cap and must never abandon a window that never failed.
+// one window is routine under the 15,000/day cap and must never abandon a window that never failed. — history; Standard since 2026-09-15, LORAMER_GOOGLE_ACCESS_STANDARD_V1
 if (migSrc) {
   const hasConditional = /attempts\s*=\s*universe_window_log\.attempts\s*\+\s*case\s+when\s+universe_window_log\.outcome\s*=\s*'running'\s+then\s+1\s+else\s+0\s+end/i.test(migSrc)
   if (!hasConditional) {

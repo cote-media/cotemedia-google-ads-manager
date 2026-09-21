@@ -165,7 +165,7 @@ harvested — the sweep in §UNBANKED reaches only what left a trace in the tree
 
 ## 11. UNBUILT SURFACES & AFFORDANCES — missing, not broken (16)
 
-- [UNBUILT] Homepage unification — loramer.com ↔ app.loramer.com · marketing + app · EXPERIENCE · QUEUE:~938 HOMEPAGE UNIFICATION ⚠ parked on the Google Standard Access review
+- [UNBUILT] Homepage unification — loramer.com ↔ app.loramer.com · marketing + app · EXPERIENCE · QUEUE:~938 HOMEPAGE UNIFICATION (the Standard Access hold ended with the 2026-09-15 grant — LORAMER_GOOGLE_ACCESS_STANDARD_V1; parked now only by the priority law)
 - [UNBUILT] Voice in and out, cross-checked · -next · EXPERIENCE · QUEUE:458 ★LORA-VOICE — 9/30 deadline
 - [UNBUILT] The insight bar is a rebuild, not a model swap — a detect→drill tool loop · /dashboard banner · EXPERIENCE · QUEUE:1000 ★INSIGHT-INVESTIGATOR
 - [UNBUILT] While-You-Were-Sleeping digest window + scheduling model · -next · EXPERIENCE · QUEUE:1001 ★DIGEST-WINDOW-MODEL

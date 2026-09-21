@@ -229,14 +229,14 @@ Multiple TTLs in `client_context.intelligence_cache` keyed by data type, not jus
 
 ### Google Ads
 
-- Currently on **Basic access** (15,000 ops/day cap)
+- Access level: **Standard** since 2026-09-15 — no daily operations cap (LORAMER_GOOGLE_ACCESS_STANDARD_V1 in LORAMER_DECISIONS.md owns the status; this design was written under Basic, 15,000 ops/day, and its cost arithmetic below is history)
 - New data adds ~5-15 extra queries per dashboard refresh:
   - Search term report (1 query, large response)
   - Asset performance (1-3 queries depending on asset count)
   - Audience segments (1 query)
   - Geographic / device (1 query each)
   - Recommendations (1 query)
-- At our current volume (Russ's clients), we're fine. At ~50 clients with daily refreshes, we'd approach the cap and need to apply for Standard access (separately tracked in Project 8).
+- At our current volume (Russ's clients), we're fine. At ~50 clients with daily refreshes, we'd approach the cap and need to apply for Standard access (separately tracked in Project 8). ⟨history — Standard Access GRANTED 2026-09-15; LORAMER_GOOGLE_ACCESS_STANDARD_V1 owns the status⟩
 
 ### Meta Marketing API
 
@@ -369,7 +369,7 @@ At some focus modes (asset attribution) the data IS legitimately big. Even with 
 
 ### Risk 2: Google Ads API quota hit
 Basic access cap. Each new data type is 1+ queries per refresh per client.
-**Mitigation:** harder cache TTLs on expensive data (search terms = 4 hours, not 15 min). Apply for Standard access (Project 8 has this; bump priority).
+**Mitigation:** harder cache TTLs on expensive data (search terms = 4 hours, not 15 min). Apply for Standard access (Project 8 has this; bump priority). ⟨history — Standard Access GRANTED 2026-09-15; LORAMER_GOOGLE_ACCESS_STANDARD_V1 owns the status⟩
 
 ### Risk 3: PMax data is messy
 Some metrics not available at asset level for new asset groups. Performance labels can be UNRATED for weeks. Search themes not exposed at granular level.

@@ -10,7 +10,7 @@
 // ⚠ WHAT THIS DELIBERATELY DOES **NOT** ASSERT, stated so a green run is never over-read: it does not assert that
 // reaching the floor with zero rows BLOCKS completion. It cannot, because that rule infinite-loops against the
 // restart (see decideRangeLapCompletion's header: empty floor window -> no seal -> anomalous cursor -> restart ->
-// repeat, forever, against a 15k/day GAQL cap). What it asserts instead is that the zero-row case is DETECTED and
+// repeat, forever, against a 15k/day GAQL cap). What it asserts instead is that the zero-row case is DETECTED and — history; Standard since 2026-09-15, LORAMER_GOOGLE_ACCESS_STANDARD_V1
 // reported as rowsCovered=false, which is what LORAMER_COMPLETION_CLAIM_GATE_V1 fails on in check:data.
 import { spawnSync } from 'node:child_process'
 import { mkdtempSync, rmSync, writeFileSync, existsSync, readFileSync } from 'node:fs'

@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-// LORAMER_FORWARD_DRIVER_V1 — THE DRIVER NEVER TOUCHES THE LEGACY PATH, WHICH IS FROZEN FOR GOOGLE STANDARD ACCESS.
+// LORAMER_FORWARD_DRIVER_V1 — THE DRIVER NEVER TOUCHES THE LEGACY PATH. (The path was frozen for the Standard Access review until 2026-09-15; the freeze is lifted — DECISIONS LORAMER_GOOGLE_ACCESS_STANDARD_V1 — and this guard now rests on ruling (n): one writer per surface.)
 //
 // DECISIONS:2461 (2026-08-14/15): legacy `/dashboard` and the demo twin 2617b163 are the EXHIBIT in the open Google Ads
-// Standard Access RMF review — "the surface under review must not change while reviewers are looking at it."
+// Standard Access RMF review — "the surface under review must not change while reviewers are looking at it." — history; Standard since 2026-09-15, LORAMER_GOOGLE_ACCESS_STANDARD_V1
 // Russ, 2026-09-10 (round 9): nothing is built, moved, split or re-pointed on the legacy path — /dashboard, the session
 // Google routes, the cron/sync google builders, client 2617b163; useful work is COPIED to new. The forward driver owns
 // the 319 catalogue surfaces only and has its own caller. Precedent for the client: ★TWIN-AD-NAMES-HELD-BY-FREEZE

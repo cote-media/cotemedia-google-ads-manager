@@ -128,7 +128,7 @@ export async function GET(request: Request) {
     }
     // LORAMER_GOOGLE_FWD_QUOTA_RESERVE_V1 — reserve the daily forward slice: within N minutes of the ~08:03:57 UTC
     // quota reset, if today's google FORWARD pass has not finished, hold the deep-history drain OFF google so forward
-    // gets first, uncontested access to the fresh 15k-op quota. Releases the instant forward finishes (forwardPending
+    // gets first, uncontested access to the fresh 15k-op quota. Releases the instant forward finishes (forwardPending — history; Standard since 2026-09-15, LORAMER_GOOGLE_ACCESS_STANDARD_V1
     // flips) and never past the reset+N cap. Scoped to the broad scheduled fire — a targeted single-connection run
     // (onlyClientId: manual recovery / new-client onboarding kickoff) bypasses the polite hold. See ★GOOGLE-QUOTA-
     // PRIORITY-INVERSION; this is the ALLOCATE half the reactive LORAMER_GOOGLE_QUOTA_GUARD_V1 pause never had.

@@ -192,6 +192,11 @@ changed. Days older than the limit are asked; an empty answer there is held and 
 - **Round numbers are minted by the process, never typed.** Every graded instruction gets a number back
   (`round-id: <n>`), printed at the foot of the report; that number is what the next instruction cites.
 
+**2026-09-21**
+
+- **Google Ads API access is Standard, granted 2026-09-15; there is no daily operations cap.** Every place the repo said Standard was not done, or that a 15k/day Basic cap binds, is fixed, and a build check now fails on any such claim that does not point at the one owner line (DECISIONS LORAMER_GOOGLE_ACCESS_STANDARD_V1). Only Google's per-second rate limits remain, metered per customer account and per Cloud project.
+- **The Google legacy freeze is over** (Russ, 2026-09-16, restated 2026-09-21): it protected the exhibit of the Standard Access review, and that review closed with the grant. The other platforms' old capture is untouched; one writer per surface still holds; the demo twin's exclusions are runtime and get their own rounds (LORAMER_GOOGLE_ACCESS_STANDARD_V1).
+
 **Earlier, still standing**
 
 - Capture everything, from everywhere, and keep it forever. A thin slice is unfinished work, never a design.

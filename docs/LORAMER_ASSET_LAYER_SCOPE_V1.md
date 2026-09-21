@@ -55,7 +55,7 @@ HONEST CALL: SCOPE NOW (this doc), BUILD AS THE POST-LAUNCH FLAGSHIP. The pre-7/
 ## 5. GATING + DECISION-FORKS (for Russ to route — the flagship's OPENING decisions)
 ═══════════════════════════════════════════════════════════════════
 - v24-lib (T3a): NOT A DEPENDENCY. Every Google asset query (asset_group, asset_group_asset, asset_group_top_combination_view, ad_group_ad_asset_view) runs TODAY in the pinned v23 (live on the prompt). T3b is INDEPENDENT of the v24 bump (T3a is only for PMax×ad_network_type network breadth).
-- Quota: forward content snapshot + Meta per-asset perf = cheap / Meta has NO quota wall. The Google asset surface is already fetched (no new calls forward); a Google per-asset/group/combo BACKFILL would contend with the shared Basic-Access dev-token (15k/day) — but Google per-asset numeric isn't served, so the Google backfill is light (group metrics + combos). Meta per-asset 37-mo backfill = no quota wall.
+- Quota: forward content snapshot + Meta per-asset perf = cheap / Meta has NO quota wall. The Google asset surface is already fetched (no new calls forward); a Google per-asset/group/combo BACKFILL would contend with the shared Basic-Access dev-token (15k/day) — but Google per-asset numeric isn't served, so the Google backfill is light (group metrics + combos). Meta per-asset 37-mo backfill = no quota wall. ⟨history — Standard Access GRANTED 2026-09-15; LORAMER_GOOGLE_ACCESS_STANDARD_V1 owns the status⟩
 
 DECISION-FORKS:
 1. CORE (Fork 1 = Russ product call): accept a MODELED (estimated, confidence-scored, eval-gated, honestly-labeled "modeled not measured") per-combination conversion attribution — since neither platform serves the joint? This is the central product call and the flagship's first gate.

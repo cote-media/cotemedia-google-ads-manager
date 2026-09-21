@@ -1,8 +1,9 @@
 <!-- QUEUE-EXEMPT: form-answers doc; Standard Access is tracked in QUEUE T3. -->
 # Google Ads API — Tool Change Form answer pack
 
+> ⛔ SUPERSEDED AGAIN 2026-09-15: Standard Access is GRANTED (no daily operations cap). LORAMER_GOOGLE_ACCESS_STANDARD_V1 in LORAMER_DECISIONS.md owns the status; everything below is history.
 > ⚠ STATUS SUPERSEDED 2026-07-24 — read this pack as HISTORY (drafted 2026-06-10), NOT current status. Per Google's
-> own reply email (2026-07-24), a Standard Access APPLICATION is SUBMITTED and PENDING (not granted; Google asked us
+> own reply email (2026-07-24), a Standard Access APPLICATION is SUBMITTED and PENDING (not granted; Google asked us ⟨history — Standard Access GRANTED 2026-09-15; LORAMER_GOOGLE_ACCESS_STANDARD_V1 owns the status⟩
 > to clarify the company website). The "we are NOT applying for Standard Access now — deferred" wording below was the
 > 2026-06-10 plan and no longer holds. The live-status owner is LORAMER_DECISIONS.md (G7 entry); this doc is retained
 > for the answer wording only.
@@ -10,7 +11,7 @@
 Form: https://support.google.com/adspolicy/contact/tool_change
 Purpose: update the developer token's permissible use to REPORTING + external
 (client) access, reflecting LoraMer's evolution from an internal Cote Media tool
-to an external SaaS. Read-only behavior is unchanged. Basic Access (15k ops/day)
+to an external SaaS. Read-only behavior is unchanged. Basic Access (15k ops/day) ⟨history — Standard Access GRANTED 2026-09-15; LORAMER_GOOGLE_ACCESS_STANDARD_V1 owns the status⟩
 covers the July 2026 invite-only cohort, so we are NOT applying for Standard Access
 now — that is deferred to scale-time (the reusable Standard pack is at the bottom).
 
@@ -47,7 +48,7 @@ Q3 — "What changes are you making to your tool?":
   that writes performance summaries and optimization recommendations for the
   customer (advisory only — LoraMer never acts on the account). Accordingly, our
   permissible use should be REPORTING with external/client access. We are launching
-  invite-only in July 2026 at low volume, well within Basic Access limits, so we are
+  invite-only in July 2026 at low volume, well within Basic Access limits, so we are ⟨history — Standard Access GRANTED 2026-09-15; LORAMER_GOOGLE_ACCESS_STANDARD_V1 owns the status⟩
   not requesting Standard Access at this time.
 
 Q4 — Attach design document:
@@ -129,7 +130,7 @@ Required defaults now present, enforced by `tests/guards/rmf-reporting-defaults.
   (external tool requirement); a screencast of the reporting dashboards is commonly
   requested — reuse the OAuth consent-flow footage and extend it to show the
   reporting screens.
-- Volume: Basic = 15k ops/day; Standard = unlimited. Apply for Standard only when
+- Volume: Basic = 15k ops/day; Standard = unlimited. Apply for Standard only when ⟨history — Standard Access GRANTED 2026-09-15; LORAMER_GOOGLE_ACCESS_STANDARD_V1 owns the status⟩
   approaching the Basic ceiling. Expect a review backlog (acknowledged by Google in
   early 2026); never gate a launch on Standard approval.
 - Account-owner-only (Russ): API Center status check (Basic vs Test), set/verify

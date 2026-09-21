@@ -6,7 +6,7 @@
 > **VERIFIED** (with the query/command that produced it, named inline) · **DERIVED** (reasoned from verified
 > facts; which ones is stated) · **ASSUMED** (not checked — never load-bearing).
 >
-> OUT OF SCOPE by instruction: the Google Ads 15,000 ops/day developer wall. Vendor constant, not a defect.
+> OUT OF SCOPE by instruction: the Google Ads 15,000 ops/day developer wall. Vendor constant, not a defect. ⟨history — Standard Access GRANTED 2026-09-15; LORAMER_GOOGLE_ACCESS_STANDARD_V1 owns the status⟩
 
 **THREE-SOURCE — LORAMER_THREE_SOURCE_PRECONDITION_V1**
 
@@ -1578,7 +1578,7 @@ With `onlySegment === null` the segment clause is **skipped**, so "one resource"
 
 ### 11.3 · `MAX_PUBLISH_WITHOUT_FLAG = 4` IS **OURS**, NEVER VENDOR TRUTH
 
-⛔ **Google publishes no per-command limit.** The only vendor ceiling is 15,000 ops/day, which is a DAY budget
+⛔ **Google publishes no per-command limit.** The only vendor ceiling is 15,000 ops/day, which is a DAY budget ⟨history — Standard Access GRANTED 2026-09-15; LORAMER_GOOGLE_ACCESS_STANDARD_V1 owns the status⟩
 and structurally cannot see a single command. **THE ARITHMETIC:** an accidental *unbounded* fire costs
 `messages × ~37 windows to the floor`, so 4 messages ≈ **148 requests ≈ 2.5% of the 6,000/day backfill
 allowance** — absorbed without touching the 9,000 held for forward and drain. It is above 1 so a base entry,

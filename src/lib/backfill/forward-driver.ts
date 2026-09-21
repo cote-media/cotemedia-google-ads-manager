@@ -1,7 +1,7 @@
 // LORAMER_FORWARD_DRIVER_V1 (1/2) — THE FORWARD DRIVER, ISOLATED AND CATALOGUE-ONLY. No caller, no cron, no route edit.
 //
 // DECISIONS LORAMER_SESSION_2026_09_05_RULINGS (A)(f)(m)(n)(p)(q) + QUEUE ★FORWARD-DRIVER-SHAPE, RESCOPED 2026-09-10 (Russ):
-// ⛔ THE LEGACY PATH IS FROZEN FOR THE GOOGLE ADS STANDARD ACCESS RMF REVIEW (DECISIONS:2461, 2026-08-14/15) — cron/sync/
+// ⛔ THE LEGACY PATH IS FROZEN FOR THE GOOGLE ADS STANDARD ACCESS RMF REVIEW (DECISIONS:2461, 2026-08-14/15) — cron/sync/ — history; Standard since 2026-09-15, the freeze is lifted, LORAMER_GOOGLE_ACCESS_STANDARD_V1
 // route.ts's ten google builders, /dashboard, the session Google routes and the demo twin client are never built on,
 // moved, split or re-pointed; useful work is COPIED to new. This driver therefore owns ONLY the 319 catalogue surfaces
 // the legacy family never asks (HEAVY 50 + REST 269, forward-driver-slices.ts), every day, every active google customer
@@ -56,7 +56,7 @@ export const LATENCY_PER_SURFACE_MS = 1000
 /** ⇐ cron/sync/route.ts:129 GOOGLE_RESTATE_LOOKBACK_DAYS — window = [D−30, D] = 31 days, ruling (p.1)'s uniform width. Read, never edited. */
 export const RESTATE_LOOKBACK_DAYS = 30
 /**
- * ⛔ CLIENTS THE DRIVER NEVER TOUCHES. 2617b163 is the demo twin — the exhibit in the open Google Ads Standard Access RMF
+ * ⛔ CLIENTS THE DRIVER NEVER TOUCHES. 2617b163 is the demo twin — the exhibit in the open Google Ads Standard Access RMF — history; Standard since 2026-09-15, the freeze is lifted, LORAMER_GOOGLE_ACCESS_STANDARD_V1
  * review (DECISIONS:2461: "It covers legacy `/dashboard` and the demo twin `2617b163`"); ★TWIN-AD-NAMES-HELD-BY-FREEZE is the
  * precedent that a fleet metrics_daily write stops at this client while the freeze stands. Filtered BEFORE any claim.
  * Identity per the registry, src/lib/clients/canonical.ts. Comes off with the legacy pin, never before.

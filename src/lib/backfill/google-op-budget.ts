@@ -86,7 +86,7 @@ export const WALK_ATTEMPT_LOG_VENDOR = 'google'
 // the console for that project reads "Current access level: Standard — unlimited daily operations". The
 // grant was tied to the FLEET's own credential by three closed links: the approval email names the project,
 // the production OAuth client's numeric prefix IS 928420234811, and the console for that number reads
-// Standard. Basic's 15,000/day (verified 2026-08-09, enforced per developer token) no longer applies.
+// Standard. Basic's 15,000/day (verified 2026-08-09, enforced per developer token) no longer applies. — history; Standard since 2026-09-15, LORAMER_GOOGLE_ACCESS_STANDARD_V1
 //
 // ⛔ WHY `null` AND NOT A LARGE NUMBER. A finite stand-in for "unlimited" is a constant with no derivation —
 // the exact class this file refuses everywhere else — and it silently re-creates holds at a new arbitrary

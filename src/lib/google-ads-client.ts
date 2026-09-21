@@ -3,7 +3,7 @@
 // ⛔ WHY, measured 2026-08-10: six Russ-approved probe operations hit Google and appeared in NO ledger —
 // universe_attempt_log 0, universe_window_log 0, cron_runs 0 (docs/LORAMER_BACKFILL_FACT_REGISTRY.md owns
 // the measurement). Every governor sums OUR OWN ledgers, so spend that bypasses them is quota the governors
-// re-grant to someone else. Google enforces 15,000 ops/day per developer token regardless of our accounting.
+// re-grant to someone else. Under Basic access Google enforced 15,000 ops/day per developer token regardless of our accounting; since 2026-09-15 (Standard, DECISIONS LORAMER_GOOGLE_ACCESS_STANDARD_V1) there is no daily cap and the per-second QPS buckets bind regardless of our accounting.
 //
 // ⛔ THE POSTURE, HONEST ABOUT WHAT THIS FLIGHT DID AND DID NOT CLOSE:
 //   · CONSTRUCTION is choked HERE for new code, and `google-client-choke-point.guard.mjs` freezes the

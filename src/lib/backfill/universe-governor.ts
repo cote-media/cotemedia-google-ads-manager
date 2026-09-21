@@ -1,6 +1,6 @@
 // LORAMER_GOOGLE_ADS_UNIVERSE_RUNNER_V1 — THE RATE GOVERNOR. ALLOCATE BEFORE SPENDING.
 //
-// ⛔ THE BACKFILL MAY NEVER STARVE THE FORWARD SYNC OR THE DRAIN. Google Basic is 15,000 operations/day for
+// ⛔ THE BACKFILL MAY NEVER STARVE THE FORWARD SYNC OR THE DRAIN. When this was written Google Basic was 15,000 operations/day for (history — Standard since 2026-09-15, no daily cap, DECISIONS LORAMER_GOOGLE_ACCESS_STANDARD_V1; the cap here is null)
 // the whole fleet, and this runner is the only lane that can publish work faster than a human can watch it.
 // LORAMER_GOOGLE_OP_BUDGET_V1 already banked the principle — "a lane must know its share BEFORE it spends,
 // not after the cap is gone" — after a reactive `holdGoogleWork` let one lane consume the cap and discover it
