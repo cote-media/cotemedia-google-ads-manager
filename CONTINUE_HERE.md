@@ -17,15 +17,40 @@
 · Timing basis: two rolled-back EXPLAIN ANALYZE deletes, 137–170 k rows/s → 35–60 min, WAL-bound; VACUUM after.
 · Quiet windows 21:40–00:15Z or 00:25–06:15Z; hold Foam OH out of the rotation with the step-0 sentinel fire row.
 
-── ▶▶ NEXT STEP, IN ORDER ──
-(1) TRI-COPY FIRST, THROUGH THE ROUTE (2026-09-21, LORAMER_GOOGLE_DELETE_MY_DATA_V1): the "Delete Google data" button on the -next client page (migration 099 applied; before-snapshot at scratch/tricopy-before-2026-09-21/). Russ presses it; the route waits for quiet, deletes the connection first, then every table, and ends only at an all-zero re-count with a confirmation code. Then reconnect Tri-Copy on -next (the connect kick still fires the legacy drain — B4 unbuilt), press Backfill, after-diff with the same snapshot script. ⚠ THE CANARY IS TRI-COPY (retention-wall.ts:41): a disconnect spanning 10:15Z fails that day's canary read; capture unaffected (Q6). Foam OH follows through the same route (two or three presses); the WIPE-DRAFT is superseded. ⇒ DONE 2026-09-21 23:43Z: Tri-Copy's Google data is deleted (code 5ff2f7d8…, every table re-counted 0, after-diff 143,925 keys missing-after / 0 identical). LORAMER_GOOGLE_DELETE_JOB_V1: the press is now a JOB — returns at once, the pump carries it, the page shows progress; email at completion NOT built (no sender — ★GOOGLE-DELETE-EMAIL-NOTICE); the backup is dispatched by the executor (scripts/dispatch-backup.mjs, run #109 on 2026-09-22 01:1xZ). ROUND 8 (2026-09-22, LORAMER_CONNECTION_ENGINE_MARKER_V1): platform_connections.engine exists — migration 101 APPLIED LIVE 2026-09-22 on Russ's go in the resume session (the round-8 wrap had said so before it was true: no column live, nothing committed — caught by the resume's live read); 52 legacy, 0 walk, nothing reads it, the engine-marker check:data leg keeps it honest. NEXT: B1 take-over (reconnect Tri-Copy on -next, mark its connection walk in the same write that stops the old crons for it, press Backfill), then B4 one engine flips the default; the canary reads Tri-Copy at 10:15Z.
-(2) PRESS Backfill on Foam OH from the -next profile; six states; ~8 h descent.
-(3) After-snapshot + diff.mjs (same folder, same query text); one month against the Google Ads app.
-(4) Q1 cold proof: Veterinary Mastermind, fresh Gmail as direct user, connect, press.
-(5) Fire 300 → 740 + entry cap 60 → ~240 on the measured night.
-(6) R1 live-path classifier, own rounds.
-DEPARTURE FROM RANKING: the ranking head ★BACKFILL-DONE-DONE-ACCOUNT-WIDE is what (1)–(3) prove on Foam OH — the wipe
-and the press ARE the done-done path, taken in the order the rounds converged on. Clocks: 12 days to 9/30.
+── ▶▶ NEXT STEP, IN ORDER — THE AGREED ORDER TO 9/30 (Russ, 2026-09-21; written into the repo 2026-09-22, round 9) ──
+DONE BEFORE THIS ORDER (tense-locked): 2026-09-21 23:43Z Tri-Copy's Google data deleted through the route (code 5ff2f7d8…, every
+table re-counted 0, after-diff 143,925 keys missing-after / 0 identical — LORAMER_GOOGLE_DELETE_MY_DATA_V1; the press then became
+a JOB — LORAMER_GOOGLE_DELETE_JOB_V1; backup dispatched by the executor, run #109). 2026-09-22 platform_connections.engine LIVE
+(migration 101, b8e8608, 52 legacy · 0 walk — LORAMER_CONNECTION_ENGINE_MARKER_V1). Tri-Copy has NO google connection today
+(0 rows, read 2026-09-22). The WIPE-DRAFT stays superseded (round 5 of 2026-09-21).
+(1) B1 TAKE-OVER — must be true: for a walk-marked connection the new engine captures everything only the old one captures
+    today. That is impression share by day, historically and daily, at the legacy key — campaign with 5 metrics, ad_group and
+    keyword_view with 4 each (budget-lost is campaign-only: Google refused it elsewhere, round 3) — plus the conversion-action
+    settings the new engine writes, the 26 driver-skipped surfaces asked daily, and dark-day evidence every proof instrument can
+    read. [figures DERIVED from the round-3 report of 2026-09-21 (gate id 268), not re-measured in the repo.] ⛔ ONE MORE ROUND
+    BEFORE THE BUILD — round 3 changed it. B1 is NOT the reconnect; the reconnect is step (4).
+(2) B4 ONE ENGINE — must be true: nothing writes an old-spelling google row for a walk connection — connect, Backfill, restore,
+    sync, catchup and drain. The default for new connections flips to walk in the same build (DECISIONS
+    LORAMER_CONNECTION_ENGINE_MARKER_V1 owns why not before). Detector: the engine-marker check:data leg.
+(3) B2 SPEED — must be true: descend asks move from 90-day to 365-day windows. The 2026-09-18 condition is met per round 3
+    (90-day p99 35.2 s, n=1,810 — DERIVED from that report). ⚠ The condition itself is written in no repo doc (grepped
+    2026-09-22: no 365-day rule in DECISIONS or MAP), so B2's own round states it before the change. Check the largest accounts
+    against the rule. Before clients run in parallel, one account's throttle must stop pausing the fleet.
+(4) TRI-COPY PROOF — reconnect on -next (marked walk), press Backfill; the descent and the daily capture run on the one engine;
+    zero old-spelling rows written; Russ reconciles it against the Google Ads app. ⚠ retention-wall.ts reads Tri-Copy as the
+    canary at 10:15Z (QUEUE ★RETENTION-CANARY-HARDWIRED-TO-ONE-CLIENT).
+(5) COLD PROOF — Veterinary Mastermind, a fresh Gmail as a direct user, a NEW client record; hold the existing Veterinary
+    Mastermind client's google lane while it runs (DECISIONS LORAMER_COLD_PROOF_RIG_V1 owns the rig).
+(6) FLEET — every other client, one at a time: Delete Google data → reconnect → Backfill → reconcile. Bath Fitter last. The
+    first real run of the delete job route is the first client here (QUEUE ★GOOGLE-DELETE-JOB-FIRST-REAL-RUN). Foam OH takes
+    its turn here; scratch/foamoh-before-2026-09-20/ is its before-snapshot.
+(7) THEN RUSS'S PLAN TO 9/30, as he stated it — DECISIONS LORAMER_SESSION_2026_09_21_RULINGS_V1 (c): prove Google Ads done →
+    wipe and reconnect every existing client's backfill and wire up Lora → apply the backfill engine and its lessons to the
+    other platforms → Lora voice command and the UI fixes → paying customers onboard by 9/30.
+No longer in the head order, still queued where they were decided: fire 300 → 740 + entry cap 60 → ~240 (DECISIONS
+LORAMER_DESCENT_SHAPE_CONVERGED_V1 (f)); the R1 live-path classifier (same entry (f); LORAMER_ONE_CLICK_RUN_V1 (d)).
+DEPARTURE FROM RANKING: the ranking head ★BACKFILL-DONE-DONE-ACCOUNT-WIDE is what (1)–(6) prove — the take-over, the one
+engine, the wipe and the press ARE the done-done path. Clock: 8 days to 9/30 (counted 2026-09-22).
 
 ── STANDING ──
 · ⛔ LEGACY IS FROZEN for the other four platforms; Google's old writers stay until the reader cutover.

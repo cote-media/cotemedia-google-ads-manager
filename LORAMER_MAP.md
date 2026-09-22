@@ -8,7 +8,7 @@
 >
 > ⛔ **EVERY FACTUAL LINE HERE IS VERIFIED AGAINST THE CODE, and is dated.** If a line and the code disagree,
 > THE CODE IS RIGHT and this file is stale — say so and fix it the same day.
-> Last verified against the code: **2026-09-22** (round 8: the connection engine marker)
+> Last verified against the code: **2026-09-22** (round 9: the order to 9/30 and the 2026-09-21 rulings)
 
 ---
 
@@ -198,6 +198,11 @@ changed. Days older than the limit are asked; an empty answer there is held and 
 - **The Google legacy freeze is over** (Russ, 2026-09-16, restated 2026-09-21): it protected the exhibit of the Standard Access review, and that review closed with the grant. The other platforms' old capture is untouched; one writer per surface still holds; the demo twin's exclusions are runtime and get their own rounds (LORAMER_GOOGLE_ACCESS_STANDARD_V1).
 - **A data deletion is a job, never a request** (Russ, 2026-09-21, round 7): pressing Delete records the job and answers at once; the server carries it to the end with the page closed; the log row is the lock (a second press, a re-send or a second tab only shows progress); every count is written by the database in the deleting transaction, never merged in memory; a wrong record is corrected with a stamped correction, never silently; the page shows progress or the result whenever it is opened. Why: round 6 — a phone dropped an 82 s request, re-sent it, two runs overlapped, and the record lost 307,153 rows. Email at completion waits on Russ choosing a sender (DECISIONS LORAMER_GOOGLE_DELETE_JOB_V1; QUEUE ★GOOGLE-DELETE-EMAIL-NOTICE).
 - **The database backup is dispatched by the executor, never by Russ** (Russ, 2026-09-21): scripts/dispatch-backup.mjs uses the credential git pushes with, through the GitHub API; a report never carries "backup line owed by Russ" again.
+- **A backfill never takes days; a few hours is fine** (Russ, 2026-09-21). Ninety minutes was a question, never a target (DECISIONS LORAMER_SESSION_2026_09_21_RULINGS_V1 (a)).
+- **Delete-my-data finishes with the page closed, and the owner gets an email and an in-app notice** (Russ, 2026-09-21). The page-closed half is built; the email waits on a sender Russ has not chosen; the app-wide notice is not built (rulings (b); QUEUE ★GOOGLE-DELETE-EMAIL-NOTICE, ★GOOGLE-DELETE-NOTICE-APP-WIDE).
+- **The plan to 9/30** (Russ, 2026-09-21): prove Google Ads done, then wipe and reconnect every existing client and wire up Lora, then bring the engine and its lessons to the other platforms, then Lora voice and the UI fixes — so paying customers onboard by 9/30 (rulings (c); the step order is CONTINUE_HERE's head).
+- **Never send Russ to GitHub** (Russ, 2026-09-21): Code already has everything it needs there (rulings (d)).
+- **Once the new ways are proven, delete every remnant of the old ways** (Russ, 2026-09-21) (rulings (e); the gates are QUEUE ★LEGACY-RETIREMENT).
 
 **2026-09-22**
 
