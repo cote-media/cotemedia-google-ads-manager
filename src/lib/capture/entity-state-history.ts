@@ -226,6 +226,14 @@ async function recordPass(args: {
   }
 }
 
+/** LORAMER_DRIVER_SETTINGS_WRITER_V1 — a pass that could not OBSERVE (a vendor query failed) still records itself, as
+ *  'error' with the vendor's message: "we could not look" is a fact the denominator must carry, never silence. */
+export async function recordEntityStatePassError(args: {
+  clientId: string; platform: string; accountId: string; observationDate: string; mode: string; detail: string
+}): Promise<void> {
+  await recordPass({ ...args, entitiesExamined: 0, factsExamined: 0, opened: 0, closed: 0, touched: 0, outcome: 'error', detail: args.detail })
+}
+
 export async function persistEntityState(args: {
   clientId: string; platform: string; accountId: string; observed: ObservedFact[]; observationDate: string
   mode?: string

@@ -33,6 +33,8 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { loadUniverse, selectableEntries, readWalkStopAccountFacts, type UniverseEntry } from '@/lib/backfill/google-ads-universe-writer'
 import { googleAdsCaptureAdapter, surfaceOfEntry } from '@/lib/backfill/capture-adapters/google-ads.adapter'
 import { captureEntityDimension, type DimensionCaptureReport } from '@/lib/backfill/entity-dimension-capture' // LORAMER_ENTITY_DIMENSION_V1
+import { driverSettingsFacts } from '@/lib/backfill/driver-settings' // LORAMER_DRIVER_SETTINGS_WRITER_V1 — walk connections' entity-state slice
+import { persistEntityState, recordEntityStatePassError } from '@/lib/capture/entity-state-history' // LORAMER_DRIVER_SETTINGS_WRITER_V1
 import { drainAliasFor, DEALIASED_BASE_SURFACES } from '@/lib/backfill/universe-surfaces' // LORAMER_WALK_BASE_DEALIAS_V1 — the four bases are two-writer-two-key
 import { captureSurfaceStreaming } from '@/lib/backfill/universe-stream-capture'
 import { googleAdsStreamFor } from '@/lib/backfill/universe-vendor-stream'
@@ -111,6 +113,22 @@ export interface DriverRunReport {
   units: DriverUnitReport[]
   /** LORAMER_ENTITY_DIMENSION_V1 — one entry per client whose dimension was refreshed this run. */
   entityDimension: DimensionCaptureReport[]
+  /** LORAMER_DRIVER_SETTINGS_WRITER_V1 — one entry per WALK connection: its entity-state slice pass (mode 'driver'). */
+  settings: DriverSettingsReport[]
+}
+
+export interface DriverSettingsReport {
+  clientId: string
+  customerId: string
+  facts: number
+  campaigns: number
+  conversionActions: number
+  requests: number
+  opened: number
+  closed: number
+  touched: number
+  outcome: 'ok' | 'error' | 'dry-run'
+  error?: string
 }
 
 export interface RunForwardDriverOpts {
@@ -193,7 +211,7 @@ export async function runForwardDriver(opts: RunForwardDriverOpts): Promise<Driv
       walk: { heavy: catalogues.walk.heavy.length, rest: catalogues.walk.rest.length },
     },
     refusedConnections: [],
-    excludedClients: [...DRIVER_EXCLUDED_CLIENTS], units: [], entityDimension: [],
+    excludedClients: [...DRIVER_EXCLUDED_CLIENTS], units: [], entityDimension: [], settings: [],
   }
 
   let q = supabaseAdmin.from('clients').select('id, user_email, platform_connections(*)').is('deleted_at', null)
@@ -225,6 +243,39 @@ export async function runForwardDriver(opts: RunForwardDriverOpts): Promise<Driv
       const engine = engineRaw as DriverEngine
       const connCatalogue = catalogues[engine]
       const state = await readSliceObservationState({ clientId: client.id, vendor: 'google', windowEnd: D })
+
+      // ⛔ LORAMER_DRIVER_SETTINGS_WRITER_V1 — THE ENTITY-STATE SLICE, FOR WALK CONNECTIONS ONLY, ONCE PER RUN.
+      // A legacy connection's slice is the sync's (cron/sync/route.ts persistEntityState mode 'forward') — ONE writer per
+      // surface (ruling (n)); the driver never touches it. A walk connection has no sync, so the driver observes the same
+      // five keys from its own two queries (driver-settings.ts), through the intel's exported normalisers and the ONE
+      // extractor, and persists with mode 'driver'. Unchanged facts are TOUCHES (entity-state-history.ts:80), so a day
+      // both engines observed can only agree. A failed query REFUSES the pass and records it as 'error' — never a
+      // degraded toggle-only status. Not gated by planOnly: it is a read of state, the same class as the dimension step.
+      if (engine === 'walk') {
+        const settings: DriverSettingsReport = { clientId: client.id, customerId, facts: 0, campaigns: 0, conversionActions: 0, requests: 0, opened: 0, closed: 0, touched: 0, outcome: dry ? 'dry-run' : 'ok' }
+        report.settings.push(settings)
+        if (!planOnly) {
+          try {
+            const streamFor = await googleAdsStreamFor(userEmail, customerId)
+            const r = await driverSettingsFacts(streamFor)
+            settings.facts = r.facts.length; settings.campaigns = r.campaigns; settings.conversionActions = r.conversionActions; settings.requests = r.requests
+            if (!dry) {
+              const p = await persistEntityState({ clientId: client.id, platform: 'google', accountId: customerId, observed: r.facts, observationDate: D, mode: 'driver' })
+              settings.opened = p.opened; settings.closed = p.closed; settings.touched = p.unchanged
+              settings.outcome = p.outcome === 'ok' ? 'ok' : 'error'
+              if (p.outcome !== 'ok') settings.error = p.skipped ?? p.outcome
+            }
+            log(`[forward-driver] ${client.id} ${customerId} settings (${engine}): ${settings.facts} facts from ${settings.campaigns} campaigns + ${settings.conversionActions} conversion actions · opened ${settings.opened} · closed ${settings.closed} · touched ${settings.touched} · ${settings.outcome}`)
+          } catch (e: any) {
+            const message = String(e?.message ?? e)
+            settings.outcome = 'error'; settings.error = message
+            log(`[forward-driver] ${client.id} ${customerId} settings (${engine}): REFUSED — ${message}`)
+            if (!dry) await recordEntityStatePassError({ clientId: client.id, platform: 'google', accountId: customerId, observationDate: D, mode: 'driver', detail: message })
+          }
+        } else {
+          settings.outcome = 'dry-run'
+        }
+      }
 
       // ⛔ LORAMER_ENTITY_DIMENSION_V1 — ONCE PER CLIENT PER DRIVER RUN, BESIDE THE CAPTURE LOOP.
       // Three UN-SEGMENTED queries refresh this account's current names and its real parent chain. It runs

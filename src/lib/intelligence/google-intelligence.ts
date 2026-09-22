@@ -153,6 +153,24 @@ function computeCampaignStatus(rawStatus: string, primaryStatus: string): string
   if (toggle === 'paused' || ps === 'PAUSED') return 'paused'
   return 'active'
 }
+// LORAMER_DRIVER_SETTINGS_WRITER_V1 (2026-09-22) — the ONE spelling of a campaign's status and channel type, exported so
+// the forward driver's settings pass maps its rows through the same functions this fetch does. A second copy would
+// be a second spelling of one fact (round 11 measured the raw ordinals — '3' beside 'paused' — as exactly that).
+export { normalizeStatus, normalizePrimaryStatus, computeCampaignStatus }
+
+// LORAMER_DRIVER_SETTINGS_WRITER_V1 — THE ONE FROM conversion_action TEMPLATE IN THE REPO (conversion-action-attribute-only
+// guard: exactly one, in this file, attribute-only). Hoisted from the fetch below so the forward driver's settings pass
+// (driver-settings.ts) asks the identical question by IMPORT, never by a copy. The text is unchanged.
+export const CONVERSION_ACTION_ATTRIBUTE_GAQL = `
+    SELECT conversion_action.id, conversion_action.name, conversion_action.category,
+    conversion_action.status, conversion_action.type,
+    conversion_action.include_in_conversions_metric,
+    conversion_action.click_through_lookback_window_days,
+    conversion_action.view_through_lookback_window_days,
+    conversion_action.primary_for_goal, conversion_action.counting_type
+    FROM conversion_action
+    WHERE conversion_action.status = 'ENABLED'
+  `
 
 // LORAMER_WS1C_WIDE_SWALLOW_HARDEN_V1 — replaces the bare `.catch(() => [])` swallows. A GAQL call that RESOLVES
 // (even to []) is a TRUE ZERO (the API affirmatively reported no rows); a call that REJECTS is a real FETCH FAILURE
@@ -473,16 +491,7 @@ export async function fetchGoogleIntelligence(
   // only ENABLED actions can restate a past day; a REMOVED/HIDDEN action's window governs nothing that can still
   // arrive. Guard: tests/guards/conversion-action-attribute-only.guard.mjs. Gate-A 2026-09-09: 2 requests
   // (Foam OH 957d484e, Escential c39ee088 — client ids per src/lib/clients/canonical.ts) accepted.
-  const convRows = await safeQuery('conversion_action', () => customer.query(`
-    SELECT conversion_action.id, conversion_action.name, conversion_action.category,
-    conversion_action.status, conversion_action.type,
-    conversion_action.include_in_conversions_metric,
-    conversion_action.click_through_lookback_window_days,
-    conversion_action.view_through_lookback_window_days,
-    conversion_action.primary_for_goal, conversion_action.counting_type
-    FROM conversion_action
-    WHERE conversion_action.status = 'ENABLED'
-  `), fetchErrors)
+  const convRows = await safeQuery('conversion_action', () => customer.query(CONVERSION_ACTION_ATTRIBUTE_GAQL), fetchErrors)
 
   // ── Conversions × Campaign (LORAMER_PROJECT_3_STEP_2B_V1) ──────────────────
   // Per-campaign breakdown of which conversion actions fired where.
