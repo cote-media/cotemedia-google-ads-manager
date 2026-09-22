@@ -219,7 +219,10 @@ export default function ClientPage({ clientId, clientName, connections, hasGoogl
   const [gdelConfirm, setGdelConfirm] = useState('')
   const [gdelBusy, setGdelBusy] = useState(false)
   const [gdelError, setGdelError] = useState('')
-  const [gdelResult, setGdelResult] = useState<{ status: string; confirmation_code?: string; counts?: Record<string, number>; note?: string } | null>(null)
+  // The job row is the only truth: read on mount, polled while live, shown whenever the page is opened.
+  type GdelJob = { status: string; live: boolean; confirmation_code: string; steps: string[]; counts: Record<string, number>; counts_after: Record<string, number> | null; months_done: number; errors: string[]; completed_at: string | null; received_at: string }
+  const [gdelJob, setGdelJob] = useState<GdelJob | null>(null)
+  const [gdelNote, setGdelNote] = useState('')
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -309,6 +312,20 @@ export default function ClientPage({ clientId, clientName, connections, hasGoogl
     } catch { setArchiveError('Could not archive this client. Try again.'); setArchiving(false) }
   }
 
+  async function loadGoogleDeleteJob() {
+    try {
+      const r = await fetch('/api/clients/google/delete-data?id=' + encodeURIComponent(clientId))
+      const j = await r.json().catch(() => ({} as any))
+      if (r.ok) setGdelJob(j.job ?? null)
+    } catch { /* the next poll retries */ }
+  }
+  useEffect(() => { loadGoogleDeleteJob() }, [clientId]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!gdelJob || !(gdelJob.status === 'processing' || gdelJob.status === 'partial')) return
+    const iv = setInterval(() => { loadGoogleDeleteJob() }, 3000)
+    return () => clearInterval(iv)
+  }, [gdelJob?.status]) // eslint-disable-line react-hooks/exhaustive-deps
+
   async function deleteGoogleData() {
     setGdelBusy(true); setGdelError('')
     try {
@@ -316,10 +333,9 @@ export default function ClientPage({ clientId, clientName, connections, hasGoogl
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ confirm: gdelConfirm.trim() }),
       })
       const j = await res.json().catch(() => ({} as any))
-      if (!res.ok && res.status !== 202) { setGdelError(j.error || 'Could not delete the Google data. Try again.'); setGdelBusy(false); return }
-      setGdelResult(j); setGdelBusy(false)
-      if (j.status === 'complete') router.refresh()
-    } catch { setGdelError('Could not reach the server. Try again.'); setGdelBusy(false) }
+      if (!res.ok && res.status !== 202) { setGdelError(j.error || 'Could not start the deletion. Try again.'); setGdelBusy(false); return }
+      setGdelJob(j.job ?? null); setGdelNote(j.note || ''); setGdelBusy(false)
+    } catch { setGdelError('Could not reach the server. Nothing was started — try again.'); setGdelBusy(false) }
   }
 
   async function loadMemory() {
@@ -866,10 +882,17 @@ export default function ClientPage({ clientId, clientName, connections, hasGoogl
           style={{ fontSize: 13, color: '#b91c1c', background: 'none', border: '1px solid #fecaca', borderRadius: 8, padding: '8px 14px', cursor: 'pointer', minHeight: 40 }}>
           Archive client
         </button>
-        <button type="button" data-testid="delete-google-data" onClick={() => { setGdelConfirm(''); setGdelError(''); setGdelResult(null); setGdelOpen(true) }}
+        <button type="button" data-testid="delete-google-data" onClick={() => { setGdelConfirm(''); setGdelError(''); setGdelOpen(true) }}
           style={{ fontSize: 13, color: '#b91c1c', background: 'none', border: '1px solid #fecaca', borderRadius: 8, padding: '8px 14px', cursor: 'pointer', minHeight: 40, marginLeft: 8 }}>
           Delete Google data
         </button>
+        {gdelJob && (
+          <div data-testid="delete-google-status" style={{ marginTop: 10, fontSize: 13, color: '#0f172a', background: gdelJob.status === 'complete' ? '#f0fdf4' : '#fffbeb', border: '1px solid ' + (gdelJob.status === 'complete' ? '#bbf7d0' : '#fde68a'), borderRadius: 8, padding: '8px 10px' }}>
+            {gdelJob.status === 'complete'
+              ? <>Google data deleted{gdelJob.completed_at ? ' ' + new Date(gdelJob.completed_at).toLocaleString() : ''} — confirmation code <code>{gdelJob.confirmation_code}</code>.</>
+              : <>Google data deletion {gdelJob.live ? 'running on the server' : 'waiting for the server'} — {gdelJob.steps.length} of 10 steps, {gdelJob.months_done} months cleared, {Object.values(gdelJob.counts || {}).reduce((a, n) => a + Number(n || 0), 0).toLocaleString()} rows so far. You can close this page; it finishes on its own and the code appears here.</>}
+          </div>
+        )}
       </section>
 
       {archiveOpen && (
@@ -894,7 +917,7 @@ export default function ClientPage({ clientId, clientName, connections, hasGoogl
         <div onClick={() => { if (!gdelBusy) setGdelOpen(false) }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 50 }}>
           <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', width: '100%', maxWidth: 440, borderRadius: 16, padding: 24, boxShadow: '0 10px 40px rgba(0,0,0,0.2)' }}>
             <h3 style={{ fontSize: 18, fontWeight: 600, color: '#0f172a', marginBottom: 6 }}>Delete all Google Ads data for {clientName}?</h3>
-            {!gdelResult && (<>
+            {!(gdelJob && (gdelJob.status === 'processing' || gdelJob.status === 'partial' || gdelJob.status === 'complete')) && (<>
               <p style={{ fontSize: 13, color: '#64748b', marginBottom: 12 }}>This removes the Google Ads connection and every captured Google row for this client — history, the import ledgers, the daily capture and the cached intelligence. It cannot be undone; a reconnect starts a fresh import from Google. Your Google sign-in is revoked only if this was your last Google client. To confirm, type the client name.</p>
               {gdelError && <div style={{ fontSize: 13, color: '#b91c1c', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '6px 10px', marginBottom: 10 }} role="alert">{gdelError}</div>}
               <input type="text" data-testid="delete-google-confirm" value={gdelConfirm} onChange={e => setGdelConfirm(e.target.value)} placeholder={clientName}
@@ -907,12 +930,12 @@ export default function ClientPage({ clientId, clientName, connections, hasGoogl
                 </button>
               </div>
             </>)}
-            {gdelResult && (<div data-testid="delete-google-result">
-              <p style={{ fontSize: 13, color: '#0f172a', marginBottom: 8 }}>{gdelResult.status === 'complete' ? 'Google data deleted.' : 'Deletion paused — press again to continue.'} Confirmation code <code>{gdelResult.confirmation_code}</code>.</p>
-              {gdelResult.note && <p style={{ fontSize: 12, color: '#64748b', marginBottom: 8 }}>{gdelResult.note}</p>}
-              <ul style={{ fontSize: 12, color: '#475569', margin: '0 0 12px 16px', padding: 0 }}>{Object.entries(gdelResult.counts || {}).map(([t, n]) => <li key={t}>{t}: {n}</li>)}</ul>
+            {gdelJob && (gdelJob.status === 'processing' || gdelJob.status === 'partial' || gdelJob.status === 'complete') && (<div data-testid="delete-google-result">
+              <p style={{ fontSize: 13, color: '#0f172a', marginBottom: 8 }}>{gdelJob.status === 'complete' ? 'Google data deleted.' : (gdelJob.live ? 'Deletion running on the server — you can close this page.' : 'Deletion recorded — the server continues within a minute.')} Confirmation code <code>{gdelJob.confirmation_code}</code>.</p>
+              {gdelNote && <p style={{ fontSize: 12, color: '#64748b', marginBottom: 8 }}>{gdelNote}</p>}
+              <p style={{ fontSize: 12, color: '#475569', marginBottom: 6 }}>{gdelJob.steps.length} of 10 steps · {gdelJob.months_done} months cleared</p>
+              <ul style={{ fontSize: 12, color: '#475569', margin: '0 0 12px 16px', padding: 0 }}>{Object.entries(gdelJob.counts || {}).filter(([t]) => !t.includes('.')).map(([t, n]) => <li key={t}>{t}: {Number(n).toLocaleString()}</li>)}</ul>
               <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                {gdelResult.status !== 'complete' && <button type="button" data-testid="delete-google-again" onClick={deleteGoogleData} style={{ padding: '9px 14px', borderRadius: 10, border: 'none', background: '#b91c1c', color: '#fff', fontSize: 14 }}>Press again</button>}
                 <button type="button" onClick={() => setGdelOpen(false)} style={{ padding: '9px 14px', borderRadius: 10, border: '1px solid #e2e8f0', background: '#fff', fontSize: 14 }}>Close</button>
               </div>
             </div>)}

@@ -8,7 +8,7 @@
 >
 > ⛔ **EVERY FACTUAL LINE HERE IS VERIFIED AGAINST THE CODE, and is dated.** If a line and the code disagree,
 > THE CODE IS RIGHT and this file is stale — say so and fix it the same day.
-> Last verified against the code: **2026-09-18** (flight 3: the unskippable law — the gate mints round ids)
+> Last verified against the code: **2026-09-21** (round 7: the Google deletion is a job on its log row)
 
 ---
 
@@ -196,6 +196,8 @@ changed. Days older than the limit are asked; an empty answer there is held and 
 
 - **Google Ads API access is Standard, granted 2026-09-15; there is no daily operations cap.** Every place the repo said Standard was not done, or that a 15k/day Basic cap binds, is fixed, and a build check now fails on any such claim that does not point at the one owner line (DECISIONS LORAMER_GOOGLE_ACCESS_STANDARD_V1). Only Google's per-second rate limits remain, metered per customer account and per Cloud project.
 - **The Google legacy freeze is over** (Russ, 2026-09-16, restated 2026-09-21): it protected the exhibit of the Standard Access review, and that review closed with the grant. The other platforms' old capture is untouched; one writer per surface still holds; the demo twin's exclusions are runtime and get their own rounds (LORAMER_GOOGLE_ACCESS_STANDARD_V1).
+- **A data deletion is a job, never a request** (Russ, 2026-09-21, round 7): pressing Delete records the job and answers at once; the server carries it to the end with the page closed; the log row is the lock (a second press, a re-send or a second tab only shows progress); every count is written by the database in the deleting transaction, never merged in memory; a wrong record is corrected with a stamped correction, never silently; the page shows progress or the result whenever it is opened. Why: round 6 — a phone dropped an 82 s request, re-sent it, two runs overlapped, and the record lost 307,153 rows. Email at completion waits on Russ choosing a sender (DECISIONS LORAMER_GOOGLE_DELETE_JOB_V1; QUEUE ★GOOGLE-DELETE-EMAIL-NOTICE).
+- **The database backup is dispatched by the executor, never by Russ** (Russ, 2026-09-21): scripts/dispatch-backup.mjs uses the credential git pushes with, through the GitHub API; a report never carries "backup line owed by Russ" again.
 
 **Earlier, still standing**
 

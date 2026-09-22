@@ -474,6 +474,7 @@ const GUARDS = [
   'tests/guards/driver-skips-alias-covered.guard.mjs', // LORAMER_FORWARD_DRIVER_V1 — 16 alias-covered + 14 legacy-asked surfaces excluded; HEAVY 41
   'tests/guards/google-delete-scope.guard.mjs', // LORAMER_GOOGLE_DELETE_MY_DATA_V1 — every definer DELETE pins client + platform literal; SQL set == tables.ts; route deletes only through the functions
   'tests/guards/google-delete-revoke.guard.mjs', // LORAMER_GOOGLE_DELETE_MY_DATA_V1 — the revoke branch driven with a stub fetch: last-client-only, form-encoded POST to oauth2.googleapis.com/revoke
+  'tests/guards/google-delete-job.guard.mjs', // LORAMER_GOOGLE_DELETE_JOB_V1 — the row is the lock; counts only from the database; the pump exists and the claim reserve derives from it
   'tests/guards/missed-fire-durability.guard.mjs', // LORAMER_MISSED_FIRE_DURABILITY_V1 — the missed lane's per-fire cursor facts ride universe_fire_log (092: three nullable columns; NULL = lane did not run)
   'tests/guards/missed-lane-shape.guard.mjs', // LORAMER_MISSED_DAY_WALK_V1 — the fourth lane: hole-map candidates, T−B end, lane 'missed', no self-chain, attests, own bound + shared meter
   'tests/guards/every-unit-observed.guard.mjs', // LORAMER_FORWARD_DRIVER_V1 — one observation per asked surface, ok|zero|nongrain|error

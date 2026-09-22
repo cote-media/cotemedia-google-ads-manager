@@ -66,7 +66,14 @@ function mapIsCurrentOrRefuse() {
   // Did a RULING change today without the map changing today?
   let rulingTouched = false
   try {
-    const changed = execSync('git diff --name-only HEAD~1 HEAD', { cwd: ROOT, encoding: 'utf8' }).split('\n')
+    // LORAMER_GOOGLE_DELETE_JOB_V1 (2026-09-21): the range is the last commit PLUS the working tree. Measured: dc358a1
+    // banked a DECISIONS entry with no map change and this check let it through (it looked one commit back, where the
+    // map HAD moved), then refused the NEXT wrap, whose working tree already carried the map fix it asked for. A wrap
+    // runs before its commit, so the working tree is where "this commit's" ruling and map changes actually are.
+    const changed = [
+      ...execSync('git diff --name-only HEAD~1 HEAD', { cwd: ROOT, encoding: 'utf8' }).split('\n'),
+      ...execSync('git diff --name-only HEAD', { cwd: ROOT, encoding: 'utf8' }).split('\n'),
+    ]
     const rulingDocs = ['LORAMER_ESSENCE.md', 'LORAMER_DECISIONS.md']
     rulingTouched = changed.some((f) => rulingDocs.includes(f.trim()))
     if (rulingTouched && !changed.some((f) => f.trim() === MAP)) {

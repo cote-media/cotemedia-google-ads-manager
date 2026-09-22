@@ -80,6 +80,10 @@
       "path": "/api/cron/universe-run-pump",
       "schedule": "* * * * *"
     },
+    {
+      "path": "/api/cron/google-delete-pump",
+      "schedule": "* * * * *"
+    },
     { "path": "/api/cron/retention-canary", "schedule": "15 10 * * *" },
     {
       "path": "/api/cron/universe-resume?dryRun=0",

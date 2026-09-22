@@ -21,12 +21,14 @@ import { resolve } from 'node:path'
 
 const ROOT = process.env.LORAMER_GUARD_ROOT || process.cwd()
 const SQL = 'migrations/099_google_delete_client_data.sql'
+const SQL2 = 'migrations/100_google_delete_job.sql' // the later definitions win: LORAMER_GOOGLE_DELETE_JOB_V1 re-creates the delete functions with p_code
 const TABLES = 'src/lib/google-delete/tables.ts'
 const ROUTE = 'src/app/api/clients/google/delete-data/route.ts'
 const findings = []
 const read = (rel) => { try { return readFileSync(resolve(ROOT, rel), 'utf8') } catch { findings.push(`UNREADABLE ${rel} — a guard that cannot read its evidence FAILS`); return '' } }
 
-const sql = read(SQL), tablesTs = read(TABLES), route = read(ROUTE)
+const sql = read(SQL) + '\n' + read(SQL2), tablesTs = read(TABLES), route = read(ROUTE)
+const job = read('src/lib/google-delete/job.ts')
 if (sql && tablesTs && route) {
   // the declared list
   const declared = [...tablesTs.matchAll(/\{\s*table:\s*'([a-z0-9_]+)',\s*scope:\s*'([a-z_-]+)',\s*fn:\s*'([a-z_]+)'\s*\}/g)].map((m) => ({ table: m[1], scope: m[2], fn: m[3] }))
@@ -39,8 +41,10 @@ if (sql && tablesTs && route) {
   if (/\bformat\s*\(/i.test(sql)) findings.push('(c) the migration contains format( — dynamic SQL is not allowed in a definer delete')
 
   // functions
-  const fns = [...sql.matchAll(/create or replace function public\.([a-z_]+)\(([^)]*)\)[\s\S]*?\$\$([\s\S]*?)\$\$;/g)].map((m) => ({ name: m[1], sig: m[2], body: m[3], head: sql.slice(m.index, m.index + 400) }))
-  if (fns.length < 8) findings.push(`found only ${fns.length} function(s) in ${SQL}; expected the eight`)
+  const all = [...sql.matchAll(/create or replace function public\.([a-z_]+)\(([^)]*)\)[\s\S]*?\$\$([\s\S]*?)\$\$;/g)].map((m) => ({ name: m[1], sig: m[2], body: m[3], head: sql.slice(m.index, m.index + 400) }))
+  const byName = new Map(); for (const f of all) byName.set(f.name, f) // later definition wins
+  const fns = [...byName.values()].filter((f) => /^google_(delete_client_|count_client_|client_metrics_bounds)/.test(f.name))
+  if (fns.length < 8) findings.push(`found only ${fns.length} delete/count function(s) across ${SQL} + ${SQL2}; expected the eight`)
   const deletedBy = new Map()
   for (const f of fns) {
     if (!/security definer/i.test(f.head)) findings.push(`(d) ${f.name} is not SECURITY DEFINER`)
@@ -91,8 +95,9 @@ if (sql && tablesTs && route) {
   }
   // (f) the route
   if (!/from '@\/lib\/google-delete\/tables'/.test(route)) findings.push(`(f) ${ROUTE} does not import the table list`)
-  for (const fn of new Set(declared.map((t) => t.fn))) if (!new RegExp(`rpc[<(][^)]*'${fn}'`).test(route) && !route.includes(`'${fn}'`)) findings.push(`(f) ${ROUTE} never calls ${fn}`)
-  for (const d of route.matchAll(/\.from\('([a-z0-9_]+)'\)[\s\S]{0,120}?\.delete\(/g)) if (declaredSet.has(d[1])) findings.push(`(f) ${ROUTE} deletes from ${d[1]} directly — every listed table is deleted only through its definer function`)
+  const callers = route + '\n' + (job ?? '')
+  for (const fn of new Set(declared.map((t) => t.fn))) if (!callers.includes(`'${fn}'`)) findings.push(`(f) neither ${ROUTE} nor src/lib/google-delete/job.ts calls ${fn}`)
+  for (const d of callers.matchAll(/\.from\('([a-z0-9_]+)'\)[\s\S]{0,120}?\.delete\(/g)) if (declaredSet.has(d[1])) findings.push(`(f) a caller deletes from ${d[1]} directly — every listed table is deleted only through its definer function`)
   if (!/maxDuration = 800/.test(route)) findings.push(`(f) ${ROUTE} must declare maxDuration = 800 (the month loop and the quiet wait need it)`)
 }
 
