@@ -49,7 +49,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 // ⛔ LORAMER_WALK_STOP_ONE_RESOLVER_V1 — the resumer composes the SAME stop the consumer does, through the one
 // resolver, and no longer clamps to VENDOR_FLOOR_DATE (which is deliberately NOT imported here any more).
-import { loadUniverse, selectableEntries, readWalkStopAccountFacts, resolveWalkStop, type UniverseEntry } from '@/lib/backfill/google-ads-universe-writer'
+import { loadUniverse, selectableEntriesFor, engineOfConnection, readWalkStopAccountFacts, resolveWalkStop, type UniverseEntry } from '@/lib/backfill/google-ads-universe-writer' // LORAMER_IMPRESSION_SHARE_FAMILY_V1 — selection by the connection's engine
 import { googleAdsCaptureAdapter, surfaceOfEntry } from '@/lib/backfill/capture-adapters/google-ads.adapter'
 import { mayFetchProgram } from '@/lib/backfill/capture-adapter'
 import { rangesStillOwed } from '@/lib/backfill/universe-coverage'
@@ -354,7 +354,8 @@ export async function GET(request: Request) {
   // choice: a list is a claim that goes stale, and on 2026-08-08 the walk's own owed list was measured
   // WRONG IN BOTH DIRECTIONS on the very range it was consulted about.
   const doc = loadUniverse()
-  const entries = selectableEntries(doc)
+  // LORAMER_IMPRESSION_SHARE_FAMILY_V1 — the request set is the CONNECTION's: legacy = today's set; walk = + metric families.
+  const entries = selectableEntriesFor(doc, engineOfConnection(conn))
   const byKey = new Map<string, UniverseEntry>(entries.map((e) => [`${e.resource}|${e.segment ?? ''}`, e]))
 
   const yesterday = addDays(new Date().toISOString().slice(0, 10), -1)

@@ -12,7 +12,7 @@
 // The worker's first-touch discovery (universe-v2-worker.ts:234 discoverAccountInception) remains the ONLY writer of
 // universe_account_inception — this module reads it and never writes it.
 import { send } from '@vercel/queue'
-import { loadUniverse, selectableEntries, deferredEntries, entityLevelFor, readAccountInception } from '@/lib/backfill/google-ads-universe-writer'
+import { loadUniverse, selectableEntries, selectableEntriesFor, engineOfConnection, deferredEntries, entityLevelFor, readAccountInception } from '@/lib/backfill/google-ads-universe-writer' // LORAMER_IMPRESSION_SHARE_FAMILY_V1
 import { decidePublishFleetAware } from '@/lib/backfill/universe-governor'
 import { checkDiskFloor, readLaneSpendToday, gb, FLOOR_BYTES, PROVISIONED_BYTES } from '@/lib/backfill/universe-window-log'
 import { TOPIC, WINDOW_DAYS, type UniverseMessage } from '@/app/api/queues/google-ads-universe/route'
@@ -52,7 +52,7 @@ export async function publishWalkStart(o: PublishWalkStartOpts): Promise<Publish
   const { clientId, endDate, dryRun, onlyResource, onlySegment, windowDays, windowsRemaining, rewalkParam, allEntries } = o
 
   const { data: conn, error } = await supabaseAdmin.from('platform_connections')
-    .select('account_id, user_email').eq('client_id', clientId).eq('platform', 'google').maybeSingle()
+    .select('account_id, user_email, engine').eq('client_id', clientId).eq('platform', 'google').maybeSingle() // LORAMER_IMPRESSION_SHARE_FAMILY_V1 — engine selects the request set
   if (error || !conn?.account_id || !conn?.user_email) {
     return { status: 404, body: { error: `no google connection for ${clientId}: ${error?.message ?? 'not found'}` } }
   }
@@ -87,7 +87,7 @@ export async function publishWalkStart(o: PublishWalkStartOpts): Promise<Publish
   }
 
   const doc = loadUniverse()
-  const allSelectable = selectableEntries(doc)
+  const allSelectable = selectableEntriesFor(doc, engineOfConnection(conn)) // LORAMER_IMPRESSION_SHARE_FAMILY_V1
   const entries = onlyResource
     ? allSelectable.filter((e) => e.resource === onlyResource && (onlySegment === null || (e.segment ?? '') === onlySegment))
     : allSelectable

@@ -473,6 +473,7 @@ const GUARDS = [
   'tests/guards/driver-partial-unit.guard.mjs', // LORAMER_DRIVER_PARTIAL_UNIT_V1 — an over-budget unit is admitted at ≥ MIN_PARTIAL_MS, cut at the deadline, resumed from pendingOnly; no phantom coverage
   'tests/guards/driver-skips-alias-covered.guard.mjs', // LORAMER_FORWARD_DRIVER_V1 — 16 alias-covered + 14 legacy-asked surfaces excluded; HEAVY 41
   'tests/guards/driver-settings-writer.guard.mjs', // LORAMER_DRIVER_SETTINGS_WRITER_V1 — walk connections' entity-state slice from the driver's own two queries, through the intel's exported normalisers
+  'tests/guards/family-selects-by-engine.guard.mjs', // LORAMER_IMPRESSION_SHARE_FAMILY_V1 — one family gate, five callers, measured counts
   'tests/guards/google-delete-scope.guard.mjs', // LORAMER_GOOGLE_DELETE_MY_DATA_V1 — every definer DELETE pins client + platform literal; SQL set == tables.ts; route deletes only through the functions
   'tests/guards/google-delete-revoke.guard.mjs', // LORAMER_GOOGLE_DELETE_MY_DATA_V1 — the revoke branch driven with a stub fetch: last-client-only, form-encoded POST to oauth2.googleapis.com/revoke
   'tests/guards/google-delete-job.guard.mjs', // LORAMER_GOOGLE_DELETE_JOB_V1 — the row is the lock; counts only from the database; the pump exists and the claim reserve derives from it

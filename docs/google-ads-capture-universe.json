@@ -17,11 +17,11 @@
     "note": "delivers/monthlyImpressions/vendorFloorObserved are LIVE-PROBE observations on ONE ACCOUNT. Selectability is universal; delivery is per-account.",
     "account": "Foam OH 957d484e / customer 7688521852",
     "probeWindow": "2026-03-01..2026-03-31",
-    "measuredUtc": "2026-08-03",
+    "measuredUtc": "2026-09-22",
     "googleRequests": 594,
     "accountFloor": "2022-03-05",
     "accountDarkAfter": "2026-04-05",
-    "googleRequestsThisPass": 463
+    "googleRequestsThisPass": 8
   },
   "provenUnreachable": [
     {
@@ -648,6 +648,66 @@
       "delivers": true,
       "distinctValues": 1,
       "metricShape": null
+    },
+    {
+      "resource": "ad_group",
+      "segment": "family.impression_share.search",
+      "family": {
+        "breakdownType": "impression_share",
+        "value": "search",
+        "metrics": [
+          "metrics.search_absolute_top_impression_share",
+          "metrics.search_budget_lost_absolute_top_impression_share",
+          "metrics.search_budget_lost_top_impression_share",
+          "metrics.search_exact_match_impression_share",
+          "metrics.search_impression_share",
+          "metrics.search_rank_lost_absolute_top_impression_share",
+          "metrics.search_rank_lost_impression_share",
+          "metrics.search_rank_lost_top_impression_share",
+          "metrics.search_top_impression_share"
+        ]
+      },
+      "capturedToday": false,
+      "dateCombinable": true,
+      "probed": true,
+      "delivers": true,
+      "distinctValues": 8,
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.search_absolute_top_impression_share",
+        "metrics.search_budget_lost_absolute_top_impression_share",
+        "metrics.search_budget_lost_top_impression_share",
+        "metrics.search_exact_match_impression_share",
+        "metrics.search_impression_share",
+        "metrics.search_rank_lost_absolute_top_impression_share",
+        "metrics.search_rank_lost_impression_share",
+        "metrics.search_rank_lost_top_impression_share",
+        "metrics.search_top_impression_share"
+      ],
+      "refusesMetrics": []
+    },
+    {
+      "resource": "ad_group",
+      "segment": "family.impression_share.content",
+      "family": {
+        "breakdownType": "impression_share",
+        "value": "content",
+        "metrics": [
+          "metrics.content_impression_share",
+          "metrics.content_rank_lost_impression_share"
+        ]
+      },
+      "capturedToday": false,
+      "dateCombinable": true,
+      "probed": true,
+      "delivers": true,
+      "distinctValues": 3,
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.content_impression_share",
+        "metrics.content_rank_lost_impression_share"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "ad_group_ad",
@@ -5110,6 +5170,70 @@
       "metricShape": null
     },
     {
+      "resource": "campaign",
+      "segment": "family.impression_share.search",
+      "family": {
+        "breakdownType": "impression_share",
+        "value": "search",
+        "metrics": [
+          "metrics.search_absolute_top_impression_share",
+          "metrics.search_budget_lost_absolute_top_impression_share",
+          "metrics.search_budget_lost_impression_share",
+          "metrics.search_budget_lost_top_impression_share",
+          "metrics.search_exact_match_impression_share",
+          "metrics.search_impression_share",
+          "metrics.search_rank_lost_absolute_top_impression_share",
+          "metrics.search_rank_lost_impression_share",
+          "metrics.search_rank_lost_top_impression_share",
+          "metrics.search_top_impression_share"
+        ]
+      },
+      "capturedToday": false,
+      "dateCombinable": true,
+      "probed": true,
+      "delivers": true,
+      "distinctValues": 4,
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.search_absolute_top_impression_share",
+        "metrics.search_budget_lost_absolute_top_impression_share",
+        "metrics.search_budget_lost_impression_share",
+        "metrics.search_budget_lost_top_impression_share",
+        "metrics.search_exact_match_impression_share",
+        "metrics.search_impression_share",
+        "metrics.search_rank_lost_absolute_top_impression_share",
+        "metrics.search_rank_lost_impression_share",
+        "metrics.search_rank_lost_top_impression_share",
+        "metrics.search_top_impression_share"
+      ],
+      "refusesMetrics": []
+    },
+    {
+      "resource": "campaign",
+      "segment": "family.impression_share.content",
+      "family": {
+        "breakdownType": "impression_share",
+        "value": "content",
+        "metrics": [
+          "metrics.content_budget_lost_impression_share",
+          "metrics.content_impression_share",
+          "metrics.content_rank_lost_impression_share"
+        ]
+      },
+      "capturedToday": false,
+      "dateCombinable": true,
+      "probed": true,
+      "delivers": true,
+      "distinctValues": 2,
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.content_budget_lost_impression_share",
+        "metrics.content_impression_share",
+        "metrics.content_rank_lost_impression_share"
+      ],
+      "refusesMetrics": []
+    },
+    {
       "resource": "campaign_aggregate_asset_view",
       "segment": null,
       "metricCount": 35,
@@ -7099,7 +7223,7 @@
       "segment": null,
       "metricCount": 134,
       "selectableSegments": 47,
-      "capturedToday": false,
+      "capturedToday": true,
       "probed": true,
       "dateCombinable": true,
       "delivers": true,
@@ -7235,7 +7359,7 @@
     {
       "resource": "customer",
       "segment": "segments.conversion_action",
-      "capturedToday": false,
+      "capturedToday": true,
       "probed": true,
       "dateCombinable": true,
       "delivers": false,
@@ -7245,7 +7369,7 @@
     {
       "resource": "customer",
       "segment": "segments.conversion_action_category",
-      "capturedToday": false,
+      "capturedToday": true,
       "probed": true,
       "dateCombinable": true,
       "delivers": false,
@@ -7255,7 +7379,7 @@
     {
       "resource": "customer",
       "segment": "segments.conversion_action_name",
-      "capturedToday": false,
+      "capturedToday": true,
       "probed": true,
       "dateCombinable": true,
       "delivers": false,
@@ -7305,7 +7429,7 @@
     {
       "resource": "customer",
       "segment": "segments.date",
-      "capturedToday": false,
+      "capturedToday": true,
       "probed": true,
       "dateCombinable": true,
       "delivers": true,
@@ -7315,7 +7439,7 @@
     {
       "resource": "customer",
       "segment": "segments.day_of_week",
-      "capturedToday": false,
+      "capturedToday": true,
       "probed": true,
       "dateCombinable": true,
       "delivers": true,
@@ -7325,7 +7449,7 @@
     {
       "resource": "customer",
       "segment": "segments.device",
-      "capturedToday": false,
+      "capturedToday": true,
       "probed": true,
       "dateCombinable": true,
       "delivers": true,
@@ -7353,7 +7477,7 @@
     {
       "resource": "customer",
       "segment": "segments.hour",
-      "capturedToday": false,
+      "capturedToday": true,
       "probed": true,
       "dateCombinable": true,
       "delivers": true,
@@ -7371,7 +7495,7 @@
     {
       "resource": "customer",
       "segment": "segments.month",
-      "capturedToday": false,
+      "capturedToday": true,
       "probed": true,
       "dateCombinable": true,
       "delivers": true,
@@ -7667,7 +7791,7 @@
     {
       "resource": "customer",
       "segment": "segments.week",
-      "capturedToday": false,
+      "capturedToday": true,
       "probed": true,
       "dateCombinable": true,
       "delivers": true,
@@ -7683,6 +7807,58 @@
       "delivers": true,
       "distinctValues": 1,
       "metricShape": null
+    },
+    {
+      "resource": "customer",
+      "segment": "family.impression_share.search",
+      "family": {
+        "breakdownType": "impression_share",
+        "value": "search",
+        "metrics": [
+          "metrics.search_budget_lost_impression_share",
+          "metrics.search_exact_match_impression_share",
+          "metrics.search_impression_share",
+          "metrics.search_rank_lost_impression_share"
+        ]
+      },
+      "capturedToday": false,
+      "dateCombinable": true,
+      "probed": true,
+      "delivers": true,
+      "distinctValues": 1,
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.search_budget_lost_impression_share",
+        "metrics.search_exact_match_impression_share",
+        "metrics.search_impression_share",
+        "metrics.search_rank_lost_impression_share"
+      ],
+      "refusesMetrics": []
+    },
+    {
+      "resource": "customer",
+      "segment": "family.impression_share.content",
+      "family": {
+        "breakdownType": "impression_share",
+        "value": "content",
+        "metrics": [
+          "metrics.content_budget_lost_impression_share",
+          "metrics.content_impression_share",
+          "metrics.content_rank_lost_impression_share"
+        ]
+      },
+      "capturedToday": false,
+      "dateCombinable": true,
+      "probed": true,
+      "delivers": true,
+      "distinctValues": 1,
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.content_budget_lost_impression_share",
+        "metrics.content_impression_share",
+        "metrics.content_rank_lost_impression_share"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "customer_asset",
@@ -9610,6 +9786,27 @@
       "metricShape": null
     },
     {
+      "resource": "gender_view",
+      "segment": "family.impression_share.search",
+      "family": {
+        "breakdownType": "impression_share",
+        "value": "search",
+        "metrics": [
+          "metrics.search_impression_share"
+        ]
+      },
+      "capturedToday": false,
+      "dateCombinable": true,
+      "probed": true,
+      "delivers": true,
+      "distinctValues": 24,
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.search_impression_share"
+      ],
+      "refusesMetrics": []
+    },
+    {
       "resource": "geo_target_constant",
       "segment": null,
       "metricCount": 0,
@@ -10398,6 +10595,35 @@
       "observedZeroForAccount": true
     },
     {
+      "resource": "hotel_group_view",
+      "segment": "family.impression_share.search",
+      "family": {
+        "breakdownType": "impression_share",
+        "value": "search",
+        "metrics": [
+          "metrics.search_absolute_top_impression_share",
+          "metrics.search_budget_lost_absolute_top_impression_share",
+          "metrics.search_budget_lost_impression_share",
+          "metrics.search_budget_lost_top_impression_share",
+          "metrics.search_impression_share",
+          "metrics.search_rank_lost_absolute_top_impression_share",
+          "metrics.search_rank_lost_impression_share",
+          "metrics.search_rank_lost_top_impression_share",
+          "metrics.search_top_impression_share"
+        ]
+      },
+      "capturedToday": false,
+      "dateCombinable": true,
+      "probed": true,
+      "delivers": false,
+      "distinctValues": 0,
+      "metricShape": null,
+      "servesMetrics": [],
+      "refusesMetrics": [],
+      "vendorReason": "query succeeded and returned 0 rows — an OBSERVED ZERO for THIS account in THIS window, not a vendor refusal and not a capability limit. Another account may deliver.",
+      "observedZeroForAccount": true
+    },
+    {
       "resource": "hotel_performance_view",
       "segment": null,
       "metricCount": 34,
@@ -10741,6 +10967,35 @@
       "distinctValues": 0,
       "metricShape": null,
       "vendorReason": "query succeeded and returned 0 rows — an OBSERVED ZERO for THIS account in THIS window, not a vendor refusal and not a capability limit. Another account may deliver it.",
+      "observedZeroForAccount": true
+    },
+    {
+      "resource": "hotel_performance_view",
+      "segment": "family.impression_share.search",
+      "family": {
+        "breakdownType": "impression_share",
+        "value": "search",
+        "metrics": [
+          "metrics.search_absolute_top_impression_share",
+          "metrics.search_budget_lost_absolute_top_impression_share",
+          "metrics.search_budget_lost_impression_share",
+          "metrics.search_budget_lost_top_impression_share",
+          "metrics.search_impression_share",
+          "metrics.search_rank_lost_absolute_top_impression_share",
+          "metrics.search_rank_lost_impression_share",
+          "metrics.search_rank_lost_top_impression_share",
+          "metrics.search_top_impression_share"
+        ]
+      },
+      "capturedToday": false,
+      "dateCombinable": true,
+      "probed": true,
+      "delivers": false,
+      "distinctValues": 0,
+      "metricShape": null,
+      "servesMetrics": [],
+      "refusesMetrics": [],
+      "vendorReason": "query succeeded and returned 0 rows — an OBSERVED ZERO for THIS account in THIS window, not a vendor refusal and not a capability limit. Another account may deliver.",
       "observedZeroForAccount": true
     },
     {
@@ -11367,6 +11622,43 @@
       "delivers": true,
       "distinctValues": 1,
       "metricShape": null
+    },
+    {
+      "resource": "keyword_view",
+      "segment": "family.impression_share.search",
+      "family": {
+        "breakdownType": "impression_share",
+        "value": "search",
+        "metrics": [
+          "metrics.search_absolute_top_impression_share",
+          "metrics.search_budget_lost_absolute_top_impression_share",
+          "metrics.search_budget_lost_top_impression_share",
+          "metrics.search_exact_match_impression_share",
+          "metrics.search_impression_share",
+          "metrics.search_rank_lost_absolute_top_impression_share",
+          "metrics.search_rank_lost_impression_share",
+          "metrics.search_rank_lost_top_impression_share",
+          "metrics.search_top_impression_share"
+        ]
+      },
+      "capturedToday": false,
+      "dateCombinable": true,
+      "probed": true,
+      "delivers": true,
+      "distinctValues": 86,
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.search_absolute_top_impression_share",
+        "metrics.search_budget_lost_absolute_top_impression_share",
+        "metrics.search_budget_lost_top_impression_share",
+        "metrics.search_exact_match_impression_share",
+        "metrics.search_impression_share",
+        "metrics.search_rank_lost_absolute_top_impression_share",
+        "metrics.search_rank_lost_impression_share",
+        "metrics.search_rank_lost_top_impression_share",
+        "metrics.search_top_impression_share"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "label",
@@ -13544,6 +13836,28 @@
       "metricShape": null
     },
     {
+      "resource": "product_group_view",
+      "segment": "family.impression_share.search",
+      "family": {
+        "breakdownType": "impression_share",
+        "value": "search",
+        "metrics": [
+          "metrics.search_absolute_top_impression_share",
+          "metrics.search_impression_share"
+        ]
+      },
+      "capturedToday": false,
+      "dateCombinable": true,
+      "probed": true,
+      "delivers": false,
+      "distinctValues": 0,
+      "metricShape": null,
+      "servesMetrics": [],
+      "refusesMetrics": [],
+      "vendorReason": "query succeeded and returned 0 rows — an OBSERVED ZERO for THIS account in THIS window, not a vendor refusal and not a capability limit. Another account may deliver.",
+      "observedZeroForAccount": true
+    },
+    {
       "resource": "product_link",
       "segment": null,
       "metricCount": 0,
@@ -14661,6 +14975,37 @@
       "metricShape": null
     },
     {
+      "resource": "shopping_performance_view",
+      "segment": "family.impression_share.search",
+      "family": {
+        "breakdownType": "impression_share",
+        "value": "search",
+        "metrics": [
+          "metrics.search_absolute_top_impression_share",
+          "metrics.search_budget_lost_absolute_top_impression_share",
+          "metrics.search_budget_lost_impression_share",
+          "metrics.search_impression_share",
+          "metrics.search_rank_lost_absolute_top_impression_share",
+          "metrics.search_rank_lost_impression_share"
+        ]
+      },
+      "capturedToday": false,
+      "dateCombinable": true,
+      "probed": true,
+      "delivers": true,
+      "distinctValues": 1,
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.search_absolute_top_impression_share",
+        "metrics.search_budget_lost_absolute_top_impression_share",
+        "metrics.search_budget_lost_impression_share",
+        "metrics.search_impression_share",
+        "metrics.search_rank_lost_absolute_top_impression_share",
+        "metrics.search_rank_lost_impression_share"
+      ],
+      "refusesMetrics": []
+    },
+    {
       "resource": "shopping_product",
       "segment": null,
       "metricCount": 37,
@@ -14718,6 +15063,23 @@
       "capturedToday": false,
       "probed": true,
       "dateCombinable": false,
+      "delivers": false,
+      "distinctValues": 0,
+      "vendorReason": "{\"error_code\":{\"shopping_product_error\":4},\"message\":\"Date segmentation is not supported for shopping_product. Date segments can be used only for filtering.\"}"
+    },
+    {
+      "resource": "shopping_product",
+      "segment": "family.impression_share.search",
+      "family": {
+        "breakdownType": "impression_share",
+        "value": "search",
+        "metrics": [
+          "metrics.search_absolute_top_impression_share"
+        ]
+      },
+      "capturedToday": false,
+      "dateCombinable": true,
+      "probed": true,
       "delivers": false,
       "distinctValues": 0,
       "vendorReason": "{\"error_code\":{\"shopping_product_error\":4},\"message\":\"Date segmentation is not supported for shopping_product. Date segments can be used only for filtering.\"}"
@@ -15042,6 +15404,35 @@
       "observedZeroForAccount": true
     },
     {
+      "resource": "targeting_expansion_view",
+      "segment": "family.impression_share.search",
+      "family": {
+        "breakdownType": "impression_share",
+        "value": "search",
+        "metrics": [
+          "metrics.search_absolute_top_impression_share",
+          "metrics.search_budget_lost_absolute_top_impression_share",
+          "metrics.search_budget_lost_top_impression_share",
+          "metrics.search_exact_match_impression_share",
+          "metrics.search_impression_share",
+          "metrics.search_rank_lost_absolute_top_impression_share",
+          "metrics.search_rank_lost_impression_share",
+          "metrics.search_rank_lost_top_impression_share",
+          "metrics.search_top_impression_share"
+        ]
+      },
+      "capturedToday": false,
+      "dateCombinable": true,
+      "probed": true,
+      "delivers": false,
+      "distinctValues": 0,
+      "metricShape": null,
+      "servesMetrics": [],
+      "refusesMetrics": [],
+      "vendorReason": "query succeeded and returned 0 rows — an OBSERVED ZERO for THIS account in THIS window, not a vendor refusal and not a capability limit. Another account may deliver.",
+      "observedZeroForAccount": true
+    },
+    {
       "resource": "third_party_app_analytics_link",
       "segment": null,
       "metricCount": 0,
@@ -15354,6 +15745,35 @@
       "observedZeroForAccount": true
     },
     {
+      "resource": "travel_activity_group_view",
+      "segment": "family.impression_share.search",
+      "family": {
+        "breakdownType": "impression_share",
+        "value": "search",
+        "metrics": [
+          "metrics.search_absolute_top_impression_share",
+          "metrics.search_budget_lost_absolute_top_impression_share",
+          "metrics.search_budget_lost_impression_share",
+          "metrics.search_budget_lost_top_impression_share",
+          "metrics.search_impression_share",
+          "metrics.search_rank_lost_absolute_top_impression_share",
+          "metrics.search_rank_lost_impression_share",
+          "metrics.search_rank_lost_top_impression_share",
+          "metrics.search_top_impression_share"
+        ]
+      },
+      "capturedToday": false,
+      "dateCombinable": true,
+      "probed": true,
+      "delivers": false,
+      "distinctValues": 0,
+      "metricShape": null,
+      "servesMetrics": [],
+      "refusesMetrics": [],
+      "vendorReason": "query succeeded and returned 0 rows — an OBSERVED ZERO for THIS account in THIS window, not a vendor refusal and not a capability limit. Another account may deliver.",
+      "observedZeroForAccount": true
+    },
+    {
       "resource": "travel_activity_performance_view",
       "segment": null,
       "metricCount": 30,
@@ -15577,6 +15997,35 @@
       "distinctValues": 0,
       "metricShape": null,
       "vendorReason": "query succeeded and returned 0 rows — an OBSERVED ZERO for THIS account in THIS window, not a vendor refusal and not a capability limit. Another account may deliver it.",
+      "observedZeroForAccount": true
+    },
+    {
+      "resource": "travel_activity_performance_view",
+      "segment": "family.impression_share.search",
+      "family": {
+        "breakdownType": "impression_share",
+        "value": "search",
+        "metrics": [
+          "metrics.search_absolute_top_impression_share",
+          "metrics.search_budget_lost_absolute_top_impression_share",
+          "metrics.search_budget_lost_impression_share",
+          "metrics.search_budget_lost_top_impression_share",
+          "metrics.search_impression_share",
+          "metrics.search_rank_lost_absolute_top_impression_share",
+          "metrics.search_rank_lost_impression_share",
+          "metrics.search_rank_lost_top_impression_share",
+          "metrics.search_top_impression_share"
+        ]
+      },
+      "capturedToday": false,
+      "dateCombinable": true,
+      "probed": true,
+      "delivers": false,
+      "distinctValues": 0,
+      "metricShape": null,
+      "servesMetrics": [],
+      "refusesMetrics": [],
+      "vendorReason": "query succeeded and returned 0 rows — an OBSERVED ZERO for THIS account in THIS window, not a vendor refusal and not a capability limit. Another account may deliver.",
       "observedZeroForAccount": true
     },
     {
@@ -16725,11 +17174,12 @@
   "slotAccounting": {
     "marker": "LORAMER_UNIVERSE_ARTIFACT_EMITS_EVERY_SLOT_V1",
     "declaredSlots": 1300,
-    "emittedRows": 1300,
-    "probedTrue": 1164,
+    "emittedRows": 1316,
+    "familyRows": 16,
+    "probedTrue": 1180,
     "probedFalse": 136,
-    "delivering": 559,
-    "declined": 590,
+    "delivering": 568,
+    "declined": 597,
     "budgetExhausted": 0,
     "note": "Every declared catalog slot emits exactly one row. probed:false is NEVER evidence of non-delivery — it means nobody asked, and the row says why."
   }

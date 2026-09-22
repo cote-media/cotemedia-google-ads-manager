@@ -42,6 +42,18 @@ export interface UniverseEntry {
   metricSetReason?: string
   /** Present when the vendor refuses the query without an extra predicate we may not be able to supply. */
   structuralRequirement?: string | null
+  /**
+   * LORAMER_IMPRESSION_SHARE_FAMILY_V1 (2026-09-22) — A METRIC FAMILY ENTRY. The vendor serves impression share as
+   * RATIO METRICS on a resource (campaign, ad_group, keyword_view, customer), not as a segment: one row per entity per
+   * day, ratios named search_* / content_*. Such an entry carries `segment: 'family.<breakdownType>.<value>'` so every
+   * KEYED structure (attempt log, run state, rotation, coverage scope, hole map, drive) treats it as one more surface,
+   * and this field so the FOUR semantic sites (buildGaql, the row builder, breakdownTypeForSurface, the registry's
+   * btFor) branch on DATA — never on a resource name. The row lands at <resource> / <breakdownType> / <value> with the
+   * ratios in `extra` under the vendor's short names — the legacy writer's key and keys (google-impression-share.ts).
+   * Emitted by the regenerator from GoogleAdsFieldService's metric list; selected ONLY for walk connections
+   * (selectableEntriesFor) — a legacy connection's family is the sync's, one writer per surface (ruling n).
+   */
+  family?: { breakdownType: string; value: string; metrics: string[] }
   delivers?: boolean | null
   capturedToday?: boolean
   dateCombinable?: boolean
@@ -584,7 +596,12 @@ export function deferralFor(e: UniverseEntry): DeferralNote | null {
  * for"; it is deliberately not the same question as "what do we store", and now also not the same question as
  * "what exists". Use `deferredEntries()` to report the difference; never let it read as an absence.
  */
-export function selectableEntries(doc: UniverseDoc): UniverseEntry[] {
+/** LORAMER_IMPRESSION_SHARE_FAMILY_V1 — the segment-key prefix a metric-family entry carries. Data, read by the surface owner too. */
+export const FAMILY_SEGMENT_PREFIX = 'family.'
+export const isFamilyEntry = (e: UniverseEntry): boolean => !!e.family
+
+/** The walk's request set INCLUDING metric-family entries — internal; callers choose by engine below. */
+function selectableWithFamilies(doc: UniverseDoc): UniverseEntry[] {
   return doc.entries.filter((e) => e.delivers === true && (e.segment === null || e.dateCombinable === true)
     && !(e.segment !== null && e.segment !== undefined && DERIVED_TIME_SEGMENTS.has(e.segment))
     && !deferralFor(e)
@@ -592,6 +609,39 @@ export function selectableEntries(doc: UniverseDoc): UniverseEntry[] {
     // UniverseEntry contract says. Asking a surface for metrics it is measured not to serve spends a
     // request to be refused, and a refusal is what composeWalkStop turns into a floor.
     && !servesNoMetrics(e))
+}
+
+/**
+ * THE LEGACY SET — what every caller that does not name an engine gets, unchanged by the family flight: metric-family
+ * entries are EXCLUDED here. LORAMER_IMPRESSION_SHARE_FAMILY_V1: a legacy connection's impression share is written by
+ * the sync (google-impression-share.ts) — one writer per surface — so the walk must not ask it for those connections.
+ */
+export function selectableEntries(doc: UniverseDoc): UniverseEntry[] {
+  return selectableWithFamilies(doc).filter((e) => !isFamilyEntry(e))
+}
+
+/**
+ * ⛔ THE ONE HOME OF THE FAMILY GATE — LORAMER_IMPRESSION_SHARE_FAMILY_V1. Every walk site that knows its
+ * connection (resumer, start-publish, drive, queues denominator, the driver) selects through here with the
+ * connection's engine (platform_connections.engine, LORAMER_CONNECTION_ENGINE_MARKER_V1):
+ *   legacy → selectableEntries(doc) — today's set, family excluded
+ *   walk   → the same set PLUS every metric-family entry: a walk connection has no sync, so the walk is its only writer.
+ * A rule that lived at five call sites would be five copies; tests/guards/family-selects-by-engine.guard.mjs pins the
+ * callers to this function.
+ */
+export function selectableEntriesFor(doc: UniverseDoc, engine: 'legacy' | 'walk'): UniverseEntry[] {
+  return engine === 'walk' ? selectableWithFamilies(doc) : selectableEntries(doc)
+}
+
+/**
+ * LORAMER_IMPRESSION_SHARE_FAMILY_V1 — the connection's engine, read from its row (platform_connections.engine,
+ * migration 101: NOT NULL, CHECK legacy|walk). A value outside the CHECK is schema drift and is REFUSED with a thrown
+ * error, never defaulted — the same posture as the driver (LORAMER_DRIVER_CATALOGUE_PER_ENGINE_V1).
+ */
+export function engineOfConnection(conn: { engine?: string | null } | null | undefined): 'legacy' | 'walk' {
+  const e = conn?.engine ?? null
+  if (e === 'legacy' || e === 'walk') return e
+  throw new Error(`platform_connections.engine is '${e}' — not legacy|walk; refusing to select a catalogue for a connection whose engine is unknown`)
 }
 
 /**
@@ -678,6 +728,16 @@ export const DEFAULT_METRICS = [
  */
 export function buildGaql(entry: UniverseEntry, startDate: string, endDate: string, filters: string[] = []): string {
   const select = ['segments.date']
+  // LORAMER_IMPRESSION_SHARE_FAMILY_V1 — A METRIC FAMILY: the entity is the FROM resource (resource_name, as for a
+  // resource-only entry) and the metrics are the family's own (or the served subset the re-probe measured). The
+  // family key is never sent to Google — it is not a vendor segment, it is our name for a set of ratio metrics.
+  if (entry.family) {
+    select.push(`${entry.resource}.resource_name`)
+    const fam = entry.servesMetrics && entry.servesMetrics.length ? entry.servesMetrics : entry.family.metrics
+    select.push(...fam)
+    const whereF = [`segments.date BETWEEN '${startDate}' AND '${endDate}'`, ...filters]
+    return `SELECT ${select.join(', ')} FROM ${entry.resource} WHERE ${whereF.join(' AND ')}`
+  }
   // ⛔ A RESOURCE-ONLY ENTRY CARRIES ITS DIMENSION ON THE RESOURCE, NOT IN A SEGMENT — and Gate-A caught me
   // assuming otherwise. The artifact's segment rows for a `*_view` are the segments SELECTABLE WITH it
   // (device, click_type, ad_network_type…), NOT the view's own grain: `income_range_view` has NO
@@ -949,6 +1009,66 @@ export interface BuiltRows {
   droppedNoDate: number
   droppedEmptySegment: number
   droppedAllZeroMetrics: number
+  /** LORAMER_IMPRESSION_SHARE_FAMILY_V1 — a family row whose every ratio the vendor left unset or marked -1 (not eligible). */
+  droppedNoRatio: number
+}
+
+/**
+ * LORAMER_IMPRESSION_SHARE_FAMILY_V1 — THE FAMILY ROW BUILDER. One row per (date, entity): the vendor's ratio metrics
+ * land in `extra` under their short names (metrics.search_impression_share → search_impression_share — the legacy
+ * writer's keys, google-impression-share.ts:37-43); -1 ("not eligible") and an unset ratio are stored as NULL
+ * (LORAMER_REFUSED_RATIO_IS_NULL_V1 spelling — the legacy `|| 0` zero-fill is NOT reproduced); the four count columns
+ * are 0 (a ratio is not a partition of any total — WRITE-ONLY, never reconciled); breakdown_value is the family's
+ * constant; entity_name is null by ruling (2026-09-15). A row whose every ratio is null is DROPPED and counted as
+ * droppedNoRatio — the vendor answered and nothing here was a grain — which is the attestable 'nongrain' empty.
+ * ⛔ NO derivedRatios: a spend-based ratio over zero counts is not a fact. ⛔ NOT subject to the all-zero drop: a ratio
+ * row is all-zero on the four count columns by construction.
+ */
+export function buildFamilyRows(entry: UniverseEntry, ctx: BuildCtx, apiRows: any[]): BuiltRows {
+  const fam = entry.family!
+  const bt = breakdownTypeFor(entry)
+  const level = entityLevelFor(entry)
+  const metrics = entry.servesMetrics && entry.servesMetrics.length ? entry.servesMetrics : fam.metrics
+  const refusal = refusalStamp(entry)
+  const out: Record<string, unknown>[] = []
+  const seenKeys = new Set<string>()
+  let grainDeclines = 0, droppedNoDate = 0, droppedNoRatio = 0
+  for (const r of apiRows) {
+    const date = r?.segments?.date
+    if (!date) { droppedNoDate++; continue }
+    const id = entityIdFor(entry, r)
+    if (id === null) grainDeclines++
+    const entityId = id ?? VENDOR_DECLINED_GRAIN
+    const key = `${date}|${entityId}`
+    if (seenKeys.has(key)) continue // one row per entity per day: the vendor segments by resource_name already
+    seenKeys.add(key)
+    const ratios: Record<string, number | null> = {}
+    let served = 0
+    for (const m of metrics) {
+      const short = m.replace(/^metrics\./, '')
+      const raw = r?.metrics?.[short]
+      const n = raw === undefined || raw === null ? NaN : Number(raw)
+      const v = Number.isFinite(n) && n >= 0 ? n : null
+      ratios[short] = v
+      if (v !== null) served++
+    }
+    if (served === 0) { droppedNoRatio++; continue }
+    out.push({
+      client_id: ctx.clientId, user_email: ctx.userEmail, platform: 'google', account_id: ctx.customerId,
+      entity_level: level, entity_id: entityId, entity_name: null,
+      parent_entity_id: parentFromResourceName(entityId) ?? ctx.customerId,
+      date, breakdown_type: bt, breakdown_value: fam.value,
+      spend: 0, impressions: 0, clicks: 0, conversions: 0, conversion_value: 0, revenue: 0,
+      extra: {
+        ...ratios,
+        grain: id === null ? 'VENDOR_DECLINED' : 'VENDOR_NAMED',
+        grainSource: 'FROM_RESOURCE_NAME',
+        family: fam.breakdownType,
+        ...(refusal || {}),
+      },
+    })
+  }
+  return { rows: out, grainDeclines, seen: apiRows.length, droppedNoDate, droppedEmptySegment: 0, droppedAllZeroMetrics: 0, droppedNoRatio }
 }
 
 /**
@@ -964,6 +1084,8 @@ export interface BuiltRows {
  * the keys STRICTLY MORE specific than before; it cannot create a collision that did not already exist.
  */
 export function buildUniverseRowsAtGrain(entry: UniverseEntry, ctx: BuildCtx, apiRows: any[]): BuiltRows {
+  // LORAMER_IMPRESSION_SHARE_FAMILY_V1 — a metric family has its own builder (ratios, not counts). Field test, not a name.
+  if (entry.family) return buildFamilyRows(entry, ctx, apiRows)
   const bt = breakdownTypeFor(entry)
   const level = entityLevelFor(entry)
   const segPath = entry.segment ? entry.segment.replace(/^segments\./, '') : null
@@ -1037,7 +1159,7 @@ export function buildUniverseRowsAtGrain(entry: UniverseEntry, ctx: BuildCtx, ap
       },
     })
   }
-  return { rows: out, grainDeclines, seen: apiRows.length, droppedNoDate, droppedEmptySegment, droppedAllZeroMetrics }
+  return { rows: out, grainDeclines, seen: apiRows.length, droppedNoDate, droppedEmptySegment, droppedAllZeroMetrics, droppedNoRatio: 0 }
 }
 
 /**

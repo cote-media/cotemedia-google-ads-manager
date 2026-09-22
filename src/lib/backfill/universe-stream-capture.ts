@@ -66,6 +66,8 @@ export interface StreamCaptureResult {
   droppedNoDate: number
   droppedEmptySegment: number
   droppedAllZeroMetrics: number
+  /** LORAMER_IMPRESSION_SHARE_FAMILY_V1 — family rows whose every ratio was unset or -1; vendor-explained, attests. */
+  droppedNoRatio: number
   /**
    * ⛔ TRUE ONLY WHEN THE VENDOR ANSWERED AND NOTHING IT RETURNED WAS A GRAIN HERE, FOR REASONS THE VENDOR
    * ITSELF EXPLAINS. This is the ATTESTABLE empty. It is false on a MIXED window (any surviving row makes
@@ -121,7 +123,7 @@ export async function captureSurfaceStreaming<TRow>(args: StreamCaptureArgs<TRow
     entry: label, asked: null, apiRows: 0, rowsWritten: 0, daysCommitted: [], observedZero: false,
     skipped: null, exhaustion: null, error: null, entityLevel: surface.entityLevel, grainDeclines: 0,
     orderViolation: false,
-    seen: 0, droppedNoDate: 0, droppedEmptySegment: 0, droppedAllZeroMetrics: 0, nonGrainOnly: false,
+    seen: 0, droppedNoDate: 0, droppedEmptySegment: 0, droppedAllZeroMetrics: 0, droppedNoRatio: 0, nonGrainOnly: false,
     streamMs: 0, upsertMs: 0,
   }
 
@@ -154,6 +156,7 @@ export async function captureSurfaceStreaming<TRow>(args: StreamCaptureArgs<TRow
     out.droppedNoDate += built.droppedNoDate
     out.droppedEmptySegment += built.droppedEmptySegment
     out.droppedAllZeroMetrics += built.droppedAllZeroMetrics
+    out.droppedNoRatio += built.droppedNoRatio ?? 0
     if (built.rows.length) {
       const t0 = Date.now()
       out.rowsWritten += (await upsert(built.rows)).written
@@ -209,7 +212,7 @@ export async function captureSurfaceStreaming<TRow>(args: StreamCaptureArgs<TRow
   // term: at least one such drop actually happened, so this cannot fire on an empty response (that is already
   // `observedZero`). ⛔ IT IS NOT A COUNT OF DROPS — a count cannot be attested, a reason can.
   out.nonGrainOnly = out.seen > 0 && out.rowsWritten === 0 && out.droppedNoDate === 0 &&
-    (out.droppedEmptySegment + out.droppedAllZeroMetrics) > 0
+    (out.droppedEmptySegment + out.droppedAllZeroMetrics + out.droppedNoRatio) > 0
   out.exhaustion = decideExhaustion({
     windowStart: startDate, rowsReturned: out.apiRows, floor: adapter.retention,
     asked: `${adapter.platform} ${surface.resource}/${surface.segment || '(base)'} ${startDate}..${endDate}`,

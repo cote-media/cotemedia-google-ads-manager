@@ -8,7 +8,7 @@
 >
 > ⛔ **EVERY FACTUAL LINE HERE IS VERIFIED AGAINST THE CODE, and is dated.** If a line and the code disagree,
 > THE CODE IS RIGHT and this file is stale — say so and fix it the same day.
-> Last verified against the code: **2026-09-22** (round 9: the order to 9/30 and the 2026-09-21 rulings)
+> Last verified against the code: **2026-09-22** (round 18: the impression-share family for walk connections; rounds 12 and 14 shipped the driver's per-engine catalogue and settings writer)
 
 ---
 
@@ -206,6 +206,7 @@ changed. Days older than the limit are asked; an empty answer there is held and 
 
 **2026-09-22**
 
+- **No reader work in GET; Lora reading the walk's new rows is WIRE, queued by name** (Russ, 2026-09-22, round 18): the walk captures the whole impression-share family for walk connections now; the projection that would read it is its own live-path change (QUEUE ★IMPRESSION-SHARE-READER-REACH), never folded into a capture commit (DECISIONS LORAMER_IMPRESSION_SHARE_FAMILY_V1).
 - **A connection's engine marker must never lie** (Russ, round 8): platform_connections.engine says which engine serves the connection; a row may say walk only when the old engine cannot write for it. Every row is legacy today and new rows default legacy until the one-engine build flips the default in the commit that stops the old writers. The check:data leg engine-marker reads the old engine's own traces and goes red on any walk-marked connection they touch (DECISIONS LORAMER_CONNECTION_ENGINE_MARKER_V1).
 
 **Earlier, still standing**

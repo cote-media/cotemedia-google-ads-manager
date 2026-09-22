@@ -93,8 +93,33 @@ export function capturedToday() {
 //   probed: true,  delivers: false     — ASKED, vendor declined. Carries `vendorReason` VERBATIM.
 //   probed: true,  delivers: true      — ASKED, vendor served. Carries `distinctValues`.
 // A slot that cannot be emitted is a BUILD FAILURE, never a skip — see the throw below.
+// ── LORAMER_IMPRESSION_SHARE_FAMILY_V1 — METRIC FAMILIES, EMITTED FROM THE VENDOR'S METRIC LIST ─────────────────
+// The vendor serves impression share as RATIO METRICS on a resource, not as a segment (google-impression-share.ts, the
+// legacy writer, stores them at campaign / impression_share / 'search'). A family entry is emitted per (resource,
+// value) wherever the catalog's metric list for that resource matches the value's pattern — never a resource name
+// here. Its segment key 'family.<breakdownType>.<value>' keeps every keyed structure unchanged; the `family` field is
+// what the writer, the surface owner and the registry generator branch on (LORAMER_VENDOR_CATALOG_IS_THE_DENOMINATOR_V1:
+// the family list comes from GoogleAdsFieldService, the registry is only ever the numerator).
+export const METRIC_FAMILIES = [
+  { breakdownType: 'impression_share', values: { search: /^metrics\.search_.*impression_share$/, content: /^metrics\.content_.*impression_share$/ } },
+  // auction_insight_* impression share is a per-competitor family under segments.auction_insight_domain — its own entry later.
+]
+export const familySegmentKey = (breakdownType, value) => `family.${breakdownType}.${value}`
+/** PURE. The family entries a catalog resource carries, from its own metric list. */
+export function familyEntriesFor(resource) {
+  const out = []
+  for (const fam of METRIC_FAMILIES) {
+    for (const [value, re] of Object.entries(fam.values)) {
+      const metrics = (resource.metrics || []).filter((m) => re.test(m))
+      if (metrics.length) out.push({ resource: resource.name, segment: familySegmentKey(fam.breakdownType, value), family: { breakdownType: fam.breakdownType, value, metrics } })
+    }
+  }
+  return out
+}
+
 export function build({ catalog, probes, capture }) {
   const entries = []
+  let familyRows = 0
   for (const r of catalog.resources) {
     const cap = capture.resources.includes(r.name)
     const surface = probes.surfaces?.[r.name]
@@ -147,12 +172,28 @@ export function build({ catalog, probes, capture }) {
       }
       entries.push(row)
     }
+    // LORAMER_IMPRESSION_SHARE_FAMILY_V1 — one row per (resource, family value) the vendor's metric list carries. Same
+    // three states as a slot; retained probes are keyed by the family segment key exactly like a slot.
+    for (const fe of familyEntriesFor(r)) {
+      const p = probes.slots?.[`${fe.resource}|${fe.segment}`]
+      const row = { ...fe, capturedToday: false, dateCombinable: true }
+      if (p) Object.assign(row, { probed: true }, p, { family: fe.family, dateCombinable: true })
+      else Object.assign(row, { probed: false, skipReason: 'not reached by any probe pass yet' })
+      if (row.probed === true && row.delivers === false && !row.vendorReason) {
+        row.vendorReason = 'query succeeded and returned 0 rows — an OBSERVED ZERO for THIS account in THIS window, not a vendor refusal and not a capability limit. Another account may deliver.'
+        row.observedZeroForAccount = true
+      }
+      if (row.probed === true && row.delivers === undefined) throw new Error(`REFUSING TO EMIT ${fe.resource}|${fe.segment}: probed:true with no delivers verdict.`)
+      entries.push(row)
+      familyRows++
+    }
   }
-  // ⛔ THE COUNT IS THE CONTRACT. One row per resource + one per declared slot, always.
+  // ⛔ THE COUNT IS THE CONTRACT. One row per resource + one per declared slot + one per family entry, always.
   const expected = catalog.resources.length + catalog.resources.reduce((n, r) => n + (r.segments || []).length, 0)
-  if (entries.length !== expected) {
-    throw new Error(`REFUSING TO WRITE: built ${entries.length} rows for ${expected} catalog slots. Every declared slot emits a row — a shortfall is the 740-missing-slots defect returning.`)
+  if (entries.length !== expected + familyRows) {
+    throw new Error(`REFUSING TO WRITE: built ${entries.length} rows for ${expected} catalog slots + ${familyRows} family entries. Every declared slot emits a row — a shortfall is the 740-missing-slots defect returning.`)
   }
+  build.lastFamilyRows = familyRows
   return entries
 }
 
@@ -292,6 +333,11 @@ if (process.argv[1] && process.argv[1].endsWith('google-ads-capture-universe.mjs
         const k = `${r.name}|${seg}`
         if (probes.slots[k]?.delivers === true) targets.push({ resource: r.name, segment: seg, key: k })
       }
+      // LORAMER_IMPRESSION_SHARE_FAMILY_V1 — a family entry re-probes with ITS OWN metric list, never the writer's five.
+      for (const fe of familyEntriesFor(r)) {
+        const k = `${r.name}|${fe.segment}`
+        if (probes.slots[k]?.delivers === true) targets.push({ resource: r.name, segment: null, key: k, family: fe.family })
+      }
     }
     console.log(`\n[metric-set] BUDGET ARITHMETIC — printed BEFORE spending`)
     console.log(`[metric-set]   entries recorded delivering and still requested : ${targets.length}`)
@@ -302,15 +348,16 @@ if (process.argv[1] && process.argv[1].endsWith('google-ads-capture-universe.mjs
     for (const t of targets) {
       if (spent >= budget) { unreached++; continue }
       const obs = t.key ? probes.slots[t.key] : probes.surfaces[t.resource]
+      const askList = t.family ? t.family.metrics : WRITER_METRICS
       spent++
       try {
-        await customer.query(probeGaql(t.resource, t.segment, WRITER_METRICS.join(', '), START, END))
-        obs.servesMetrics = [...WRITER_METRICS]; obs.refusesMetrics = []; delete obs.metricSetReason
+        await customer.query(probeGaql(t.resource, t.segment, askList.join(', '), START, END))
+        obs.servesMetrics = [...askList]; obs.refusesMetrics = []; delete obs.metricSetReason
         full++
       } catch (e) {
         const vr = reason(e)
-        const bad = refusedMetrics(vr, WRITER_METRICS)
-        const rest = WRITER_METRICS.filter((m) => !bad.includes(m))
+        const bad = refusedMetrics(vr, askList)
+        const rest = askList.filter((m) => !bad.includes(m))
         obs.refusesMetrics = bad; obs.metricSetReason = vr
         if (!bad.length || !rest.length) { obs.servesMetrics = []; none++; continue }
         if (spent >= budget) { unreached++; continue }
@@ -330,6 +377,8 @@ if (process.argv[1] && process.argv[1].endsWith('google-ads-capture-universe.mjs
     if ((r.metrics || []).length === 0) continue
     if (!probes.surfaces[r.name]) work.push({ resource: r.name, segment: null })
     for (const s of r.segments || []) if (!probes.slots[`${r.name}|${s}`]) work.push({ resource: r.name, segment: s })
+    // LORAMER_IMPRESSION_SHARE_FAMILY_V1 — a family slot is probed once, with its own metrics (no segment sent to Google).
+    for (const fe of familyEntriesFor(r)) if (!probes.slots[`${r.name}|${fe.segment}`]) work.push({ resource: r.name, segment: null, familyKey: `${r.name}|${fe.segment}`, familyMetrics: fe.family.metrics })
   }
   console.log(`\n[probe] BUDGET ARITHMETIC — printed BEFORE spending, per the flight rule`)
   console.log(`[probe]   retained observations : ${retainedSlots} slots + ${retainedSurfaces} surfaces (never re-probed, never lost)`)
@@ -345,20 +394,23 @@ if (process.argv[1] && process.argv[1].endsWith('google-ads-capture-universe.mjs
       unreached++
       continue // build() will emit it probed:false; we relabel the reason below
     }
-    const key = w.segment ? `${w.resource}|${w.segment}` : null
+    const key = w.familyKey ? w.familyKey : w.segment ? `${w.resource}|${w.segment}` : null
+    const askMetrics = w.familyMetrics ? [w.familyMetrics.join(', ')] : METRICS
     let done = false
-    for (let mi = 0; mi < METRICS.length && !done; mi++) {
+    for (let mi = 0; mi < askMetrics.length && !done; mi++) {
       if (spent >= budget) break
       spent++
       try {
-        const rows = await customer.query(probeGaql(w.resource, w.segment, METRICS[mi], START, END))
+        const rows = await customer.query(probeGaql(w.resource, w.segment, askMetrics[mi], START, END))
         const path = w.segment ? w.segment.replace(/^segments\./, '').split('.') : null
         const vals = new Set()
         for (const row of rows) {
           const v = path ? path.reduce((a, k) => (a == null ? a : a[k]), row.segments) : row?.[w.resource]?.resource_name
           if (v !== undefined && v !== null) vals.add(String(v))
         }
-        const obs = { dateCombinable: true, delivers: rows.length > 0, distinctValues: vals.size, metricShape: mi === 0 ? null : METRICS[mi] }
+        const obs = w.familyMetrics
+          ? { dateCombinable: true, delivers: rows.length > 0, distinctValues: vals.size, metricShape: null, servesMetrics: rows.length > 0 ? [...w.familyMetrics] : [], refusesMetrics: [] }
+          : { dateCombinable: true, delivers: rows.length > 0, distinctValues: vals.size, metricShape: mi === 0 ? null : METRICS[mi] }
         if (key) probes.slots[key] = obs; else probes.surfaces[w.resource] = obs
         probed++; if (rows.length > 0) served++; else declined++
         done = true
@@ -402,6 +454,7 @@ if (process.argv[1] && process.argv[1].endsWith('google-ads-capture-universe.mjs
       marker: 'LORAMER_UNIVERSE_ARTIFACT_EMITS_EVERY_SLOT_V1',
       declaredSlots: catalog.resources.length + catalog.resources.reduce((n, r) => n + (r.segments || []).length, 0),
       emittedRows: entries.length,
+      familyRows: build.lastFamilyRows ?? entries.filter((e) => e.family).length, // LORAMER_IMPRESSION_SHARE_FAMILY_V1 — rows beyond the catalog's slots
       probedTrue: entries.filter((e) => e.probed === true).length,
       probedFalse: entries.filter((e) => e.probed === false).length,
       delivering: entries.filter((e) => e.delivers === true).length,

@@ -67,7 +67,10 @@ else {
       const doc = JSON.parse(read('docs/google-ads-capture-universe.json'))
       // the same selectable filter the writer applies, restated minimally: the guard needs only that the alias/legacy
       // exclusion holds on every entry the driver could be handed
-      const entries = doc.entries.filter((e) => e.delivers === true)
+      // LORAMER_IMPRESSION_SHARE_FAMILY_V1 — metric-family entries select for WALK connections only (family-selects-by-engine
+      // guard pins the gate); the legacy legs below restate the legacy set, so they exclude `family`; (c′) adds them back.
+      const entriesAll = doc.entries.filter((e) => e.delivers === true)
+      const entries = entriesAll.filter((e) => !e.family)
       const key = (e) => `${e.resource}|${e.segment ?? ''}`
       const alias = new Set(ALIAS_KEYS), legacy = new Set(LEGACY_KEYS)
       const sel = M.selectDriverSurfaces(entries, (e) => alias.has(key(e)), legacy)
@@ -105,16 +108,17 @@ else {
       const hv = strict.filter((e) => M.sliceOf(e) === 'HEAVY').length, rs = strict.filter((e) => M.sliceOf(e) === 'REST').length
       if (hv !== 50 || rs !== 273) findings.push(`(c) the driver catalogue reads HEAVY ${hv} · REST ${rs} on the current artifact; Gate-A 2026-09-10 measured 50 · 269 (N=319) and LORAMER_WALK_BASE_DEALIAS_V1 2026-09-12 re-measured 50 · 273 (N=323: + the four de-aliased bases, all REST) — the catalogue moved; re-measure before trusting the slice map`)
       // (c′) LORAMER_DRIVER_CATALOGUE_PER_ENGINE_V1 — the WALK catalogue: no alias, no legacy exclusion → every entry.
-      const strictAll = entries.filter((e) => (e.segment === null || e.dateCombinable === true) && !(e.segment && DERIVED.has(e.segment))
+      const strictAll = entriesAll.filter((e) => (e.segment === null || e.dateCombinable === true) && !(e.segment && DERIVED.has(e.segment))
         && !DEFERRED.has(key(e)) && !(Array.isArray(e.servesMetrics) && e.servesMetrics.length === 0))
+      const familyInArtifact = strictAll.filter((e) => e.family).length
       const walkSel = M.selectDriverSurfaces(strictAll, () => false, new Set())
       const walkKeys = new Set(walkSel.map(key))
       const aliasInArtifact = strictAll.filter((e) => alias.has(key(e))).length
       const legacyInArtifact = strictAll.filter((e) => legacy.has(key(e)) && !DEALIASED_BASE_KEYS.includes(key(e))).length
       if (walkSel.length !== strictAll.length) findings.push(`(c′) the walk catalogue selects ${walkSel.length} of ${strictAll.length} strict-selectable entries — a walk connection has no other writer, so NOTHING may be excluded`)
-      if (walkSel.length !== strict.length + aliasInArtifact + legacyInArtifact) findings.push(`(c′) walk ${walkSel.length} ≠ legacy ${strict.length} + alias ${aliasInArtifact} + legacy-asked ${legacyInArtifact} — the two catalogues differ by something other than the alias and legacy key sets`)
+      if (walkSel.length !== strict.length + aliasInArtifact + legacyInArtifact + familyInArtifact) findings.push(`(c′) walk ${walkSel.length} ≠ legacy ${strict.length} + alias ${aliasInArtifact} + legacy-asked ${legacyInArtifact} + family ${familyInArtifact} — the two catalogues differ by something other than the alias, legacy and family sets`)
       for (const k of [...ALIAS_KEYS, ...LEGACY_KEYS]) if (strictAll.some((e) => key(e) === k) && !walkKeys.has(k)) findings.push(`(c′) walk catalogue omits ${k}`)
-      console.log(`[driver-skips-alias-covered] (c′) walk catalogue = ${walkSel.length} (legacy ${strict.length} + alias ${aliasInArtifact} + legacy-asked ${legacyInArtifact}; HEAVY ${walkSel.filter((e) => M.sliceOf(e) === 'HEAVY').length} · REST ${walkSel.filter((e) => M.sliceOf(e) === 'REST').length})`)
+      console.log(`[driver-skips-alias-covered] (c′) walk catalogue = ${walkSel.length} (legacy ${strict.length} + alias ${aliasInArtifact} + legacy-asked ${legacyInArtifact} + family ${familyInArtifact}; HEAVY ${walkSel.filter((e) => M.sliceOf(e) === 'HEAVY').length} · REST ${walkSel.filter((e) => M.sliceOf(e) === 'REST').length})`)
     }
   } catch (e) { findings.push(`(a) ${SLICES} could not be compiled or driven: ${e.message}`) }
   finally { rmSync(out, { recursive: true, force: true }) }

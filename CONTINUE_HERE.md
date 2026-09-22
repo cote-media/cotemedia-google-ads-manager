@@ -29,6 +29,11 @@ a JOB — LORAMER_GOOGLE_DELETE_JOB_V1; backup dispatched by the executor, run #
     settings the new engine writes, the 26 driver-skipped surfaces asked daily, and dark-day evidence every proof instrument can
     read. [figures DERIVED from the round-3 report of 2026-09-21 (gate id 268), not re-measured in the repo.] ⛔ ONE MORE ROUND
     BEFORE THE BUILD — round 3 changed it. B1 is NOT the reconnect; the reconnect is step (4).
+    ⇒ B1 SHIPPED IN THREE PIECES 2026-09-22 after rounds 10–17: (i) d6d4560 the driver's catalogue per engine (walk 349 → now 358 with the
+    family) · (ii) ef383bb the driver's settings writer (mode 'driver', the intel's exported normalisers, 177/177 parity) · (iii) this push,
+    LORAMER_IMPRESSION_SHARE_FAMILY_V1 — the whole family for walk connections, every resource the vendor serves it on (six, measured),
+    search + content, at the legacy key; the metric set is the catalog's, not round 3's 5/4/4. Dark days (iv): nothing to build — the
+    ledger attests (round 10/11). ⛔ Lora reading the family is WIRE: ★IMPRESSION-SHARE-READER-REACH precedes any Lora read on a walk connection.
 (2) B4 ONE ENGINE — must be true: nothing writes an old-spelling google row for a walk connection — connect, Backfill, restore,
     sync, catchup and drain. The default for new connections flips to walk in the same build (DECISIONS
     LORAMER_CONNECTION_ENGINE_MARKER_V1 owns why not before). Detector: the engine-marker check:data leg.

@@ -13,9 +13,10 @@
 // so the whole walk is NEVER pre-published. THE PATTERN IS SELF-RE-PUBLISH: each message captures ONE window
 // and, only if the vendor still had rows, publishes the NEXT window before acknowledging. The queue therefore
 // holds O(1) messages per client instead of O(months), and no message ever waits long enough to expire.
+import { supabaseAdmin } from '@/lib/supabase' // LORAMER_IMPRESSION_SHARE_FAMILY_V1 — one read of the connection's engine
 import { NextResponse } from 'next/server'
 import { handleCallback, send } from '@vercel/queue'
-import { loadUniverse, captureUniverseEntry, refusalStamp, VENDOR_FLOOR_DATE, selectableEntries, catalogEligibleEntries, excludedFromWalk, type UniverseEntry } from '@/lib/backfill/google-ads-universe-writer'
+import { loadUniverse, captureUniverseEntry, refusalStamp, VENDOR_FLOOR_DATE, selectableEntriesFor, engineOfConnection, catalogEligibleEntries, excludedFromWalk, type UniverseEntry } from '@/lib/backfill/google-ads-universe-writer' // LORAMER_IMPRESSION_SHARE_FAMILY_V1 — the denominator is the CONNECTION's request set
 import { recordEntryOutcome, readAllEntryStates, readEntryState, isClientComplete, writeCompletionNotice } from '@/lib/backfill/universe-run-state'
 import { decidePublishFleetAware } from '@/lib/backfill/universe-governor'
 // LORAMER_UNIVERSE_WINDOW_LOG_V1 — durable per-window progress, the hard disk floor, and the
@@ -361,7 +362,10 @@ export const POST = handleCallback(async (msg: UniverseMessage, metadata: any) =
   // rows universe_run_state holds). isClientComplete requires states.length >= totalEntries, so 346 < 559
   // made the done signal UNSATISFIABLE BY CONSTRUCTION and `universe_run_notice` had never been written once.
   const doc = loadUniverse()
-  const published = selectableEntries(doc)
+  // LORAMER_IMPRESSION_SHARE_FAMILY_V1 — the denominator is what THIS client's engine publishes: a walk connection's set
+  // carries the metric families, a legacy one's does not. One read of the connection's engine; an unknown engine refuses.
+  const { data: connRow } = await supabaseAdmin.from('platform_connections').select('engine').eq('client_id', clientId).eq('platform', 'google').maybeSingle()
+  const published = selectableEntriesFor(doc, engineOfConnection(connRow as { engine?: string | null } | null))
   const total = published.length
   // ⛔ AND FIXING IT ALONE WOULD HAVE BEEN WORSE THAN LEAVING IT. 'complete' over 346 while 213 catalog
   // entries are excluded is a green flag over a hole, which the governing law forbids outright. The notice

@@ -29,7 +29,7 @@
       "vendorRetentionFloorsComputedFor_2026-08-01": {
         "googleGranularDaily": "2023-07-01 (37 months)",
         "googleSearchTerms": "OUR floor 2026-03-14 (DEFAULT_DAYS=90 from writer ship 2026-06-12). VENDOR limit UNCONFIRMED — probe pending.",
-        "googleImpressionShare_conversionActions": "forward-only since 2026-06-27, no history by construction",
+        "googleImpressionShare_conversionActions": "conversion_action settings: forward-only since 2026-06-27. impression_share: forward-only from 2026-06-27 on LEGACY connections; on WALK connections the walk captures the family to the 37-month wall (LORAMER_IMPRESSION_SHARE_FAMILY_V1, 2026-09-22)",
         "metaAggregate": "2023-07-01 (37 months)",
         "metaUniqueCountFields": "2025-07-01 (13 months)",
         "metaHourly": "2025-07-01 (13 months)",
@@ -75,7 +75,7 @@
     "coverageFindings_cannotBeAnchored": [
       "Foam OH google `keyword` — NEVER COMPLETE in any month of 2024-01..2026-07, across 24 base-complete months. A5 was moved to Bath Fitter.",
       "Foam OH google `search_term` — NEVER COMPLETE. A7 was moved to Bath Fitter. (Consistent with the 2026-03-14 capture floor plus the top-300 cap.)",
-      "Foam OH google `impression_share` and `conversion_action` — NEVER COMPLETE (forward-only families, started 2026-06-27).",
+      "Foam OH google `impression_share` and `conversion_action` — NEVER COMPLETE on a LEGACY connection (forward-only families, started 2026-06-27); impression_share becomes walk-captured to the wall once the connection is walk-marked (LORAMER_IMPRESSION_SHARE_FAMILY_V1).",
       "Influential Drones shopify — ZERO base-complete months across the entire scanned range, despite rows back to 2019-04-13. Nothing on that surface can be anchored.",
       "Foam OH meta base-complete ENDS at 2025-09 — the whole platform is ~10 months behind the others for eval purposes.",
       "Foam OH google geo families are complete for exactly ONE month (2026-03); geo_district, geo_postal, user_geo_county, user_geo_province NEVER.",

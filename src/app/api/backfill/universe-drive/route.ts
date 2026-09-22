@@ -29,7 +29,7 @@
 // ⛔ DRY-RUN IS THE DEFAULT, same as the resumer. `?dryRun=0` publishes.
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { loadUniverse, selectableEntries, readWalkStopAccountFacts, resolveWalkStop, type UniverseEntry } from '@/lib/backfill/google-ads-universe-writer'
+import { loadUniverse, selectableEntriesFor, engineOfConnection, readWalkStopAccountFacts, resolveWalkStop, type UniverseEntry } from '@/lib/backfill/google-ads-universe-writer' // LORAMER_IMPRESSION_SHARE_FAMILY_V1
 import { googleAdsCaptureAdapter, surfaceOfEntry } from '@/lib/backfill/capture-adapters/google-ads.adapter'
 import { rangesStillOwed } from '@/lib/backfill/universe-coverage'
 // ⛔ THE UNWEDGE NEEDS THE ATTEMPT LOG — the same import the RESUMER makes for the same reason. (The module
@@ -98,7 +98,7 @@ export async function GET(request: Request) {
   const customerId = conn.account_id
 
   const doc = loadUniverse()
-  const entries = selectableEntries(doc)
+  const entries = selectableEntriesFor(doc, engineOfConnection(conn)) // LORAMER_IMPRESSION_SHARE_FAMILY_V1 — by the connection's engine
   const byKey = new Map<string, UniverseEntry>(entries.map((e) => [`${e.resource}|${e.segment ?? ''}`, e]))
   const entry = byKey.get(`${resource}|${segment}`)
   if (!entry) return NextResponse.json({ error: `no selectable catalog entry for ${resource}|${segment}` }, { status: 400 })

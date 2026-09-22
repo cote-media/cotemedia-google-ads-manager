@@ -120,8 +120,10 @@ if (routeSrc) {
   if (/const total = doc\.entries\.filter\(/.test(routeSrc)) {
     findings.push(`(f) the done-signal denominator in ${ROUTE} is still the raw catalog filter (559), not selectableEntries (346, what the starter actually publishes). isClientComplete requires states.length >= totalEntries, so the notice can NEVER fire.`)
   }
-  if (!/selectableEntries\(/.test(routeSrc)) {
-    findings.push(`(f) ${ROUTE} does not use selectableEntries for its denominator. The published set is the only honest denominator for 'is this client done'.`)
+  // LORAMER_IMPRESSION_SHARE_FAMILY_V1 (2026-09-22): the published set is PER ENGINE — the starter publishes
+  // selectableEntriesFor(doc, engine) (walk carries the metric families), so the denominator reads the same function.
+  if (!/selectableEntriesFor\(/.test(routeSrc)) {
+    findings.push(`(f) ${ROUTE} does not use selectableEntriesFor (the per-engine published set) for its denominator. The published set is the only honest denominator for 'is this client done'.`)
   }
 }
 

@@ -45,7 +45,10 @@ export const DERIVED_TIME = new Map([
   ['segments.day_of_week', 'Google DayOfWeek enum ordinal, MONDAY=2 ... SUNDAY=8 (isodow + 1)'],
 ])
 /** The writer's own naming rule. Same shape as breakdownTypeFor() — segment short name, else the resource. */
-export const btFor = (e) => (e.segment ? e.segment.replace(/^segments\./, '').replace(/\./g, '_') : e.resource)
+// LORAMER_IMPRESSION_SHARE_FAMILY_V1 — a metric-family key 'family.<breakdownType>.<value>' names its type directly (the
+// same rule as universe-surfaces.ts breakdownTypeForSurface; a .mjs cannot import the TS owner, so the rule is restated
+// here and the drift guard regenerates the block from it).
+export const btFor = (e) => (e.family ? e.family.breakdownType : e.segment ? e.segment.replace(/^segments\./, '').replace(/\./g, '_') : e.resource)
 
 // ⛔ TYPES ALREADY DECLARED BY HAND ARE NOT RE-EMITTED. The registry's granularity is one entry per
 // (platform, breakdown_type); a second line for the same type would make entryFor()/resolveToolType() read

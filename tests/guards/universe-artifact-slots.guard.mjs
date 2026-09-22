@@ -33,12 +33,15 @@ const doc = JSON.parse(readFileSync(join(ROOT, 'docs/google-ads-capture-universe
   const acc = doc.slotAccounting
   if (!acc) findings.push('(A) the artifact carries no slotAccounting block — the slot contract is unstated and therefore unverifiable.')
   else {
-    if (acc.declaredSlots !== acc.emittedRows) findings.push(`(A) slotAccounting says ${acc.declaredSlots} declared slots but ${acc.emittedRows} emitted rows. Every declared slot emits a row; a shortfall is the 740-missing-slots defect.`)
+    // LORAMER_IMPRESSION_SHARE_FAMILY_V1 — metric-family rows are emitted BEYOND the catalog's slots and counted in familyRows.
+    const familyRows = acc.familyRows ?? 0
+    if (familyRows !== doc.entries.filter((e) => e.family).length) findings.push(`(A) slotAccounting.familyRows says ${familyRows} but the artifact holds ${doc.entries.filter((e) => e.family).length} family entr(ies).`)
+    if (acc.declaredSlots + familyRows !== acc.emittedRows) findings.push(`(A) slotAccounting says ${acc.declaredSlots} declared slots + ${familyRows} family rows but ${acc.emittedRows} emitted rows. Every declared slot emits a row; a shortfall is the 740-missing-slots defect.`)
     if (acc.emittedRows !== doc.entries.length) findings.push(`(A) slotAccounting claims ${acc.emittedRows} rows but the artifact holds ${doc.entries.length}. The accounting block is not describing this file.`)
   }
   // Independent of the accounting block: reconstruct the expectation from the rows themselves.
   const resourceRows = doc.entries.filter((e) => e.segment === null || e.segment === undefined)
-  const expected = resourceRows.length + resourceRows.reduce((n, r) => n + (r.selectableSegments || 0), 0)
+  const expected = resourceRows.length + resourceRows.reduce((n, r) => n + (r.selectableSegments || 0), 0) + doc.entries.filter((e) => e.family).length
   if (doc.entries.length !== expected) {
     findings.push(`(A) the artifact holds ${doc.entries.length} rows; its own per-resource selectableSegments counts imply ${expected}. A slot the catalog declares and the file omits is exactly the defect this guard exists for.`)
   }

@@ -93,6 +93,10 @@ export function canonicalBreakdownValue(breakdownType: string, raw: string): str
  */
 export function breakdownTypeForSurface(resource: string, segment: string | null | undefined): string {
   if (!segment) return resource
+  // LORAMER_IMPRESSION_SHARE_FAMILY_V1 — a metric-family key 'family.<breakdownType>.<value>' names its breakdown_type
+  // directly; the value is the row's breakdown_value, never part of the type. Read by the writer (breakdownTypeFor) and
+  // by the coverage module's attestation scope, so a family's zero attests exactly its own breakdown_type.
+  if (segment.startsWith('family.')) return segment.slice('family.'.length).split('.')[0]
   return segment.replace(/^segments\./, '').replace(/\./g, '_')
 }
 
@@ -309,6 +313,9 @@ export const QUALIFIER_BY_SEGMENT: Record<string, QualifierLabel> = {
   // ⛔ NOT time grains despite living on the clock: these answer "WHEN in the cycle", which is a question
   // clients actually ask (dayparting, seasonality) and which the registry already treats as a breakdown.
   'segments.hour':          { label: 'split by hour of day' },
+  // LORAMER_IMPRESSION_SHARE_FAMILY_V1 — metric families (ratio metrics on a resource; one row per entity per day).
+  'family.impression_share.search':  { label: 'impression share on the search network' },
+  'family.impression_share.content': { label: 'impression share on the display network' },
   'segments.day_of_week':   { label: 'split by day of week' },
   'segments.month_of_year': { label: 'split by month of year' },
 

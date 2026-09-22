@@ -30,7 +30,7 @@
 // instead of appended, and no unit is claimed. Measured 2026-09-10 on c39ee088 (registry src/lib/clients/canonical.ts):
 // HEAVY 50/50 → 476,200 rows in 73 s · REST 269/269 → 234,766 rows in 196 s · 0 errors · zero warehouse writes.
 import { supabaseAdmin } from '@/lib/supabase'
-import { loadUniverse, selectableEntries, readWalkStopAccountFacts, type UniverseEntry } from '@/lib/backfill/google-ads-universe-writer'
+import { loadUniverse, selectableEntriesFor, readWalkStopAccountFacts, type UniverseEntry } from '@/lib/backfill/google-ads-universe-writer' // LORAMER_IMPRESSION_SHARE_FAMILY_V1 — the request set by engine
 import { googleAdsCaptureAdapter, surfaceOfEntry } from '@/lib/backfill/capture-adapters/google-ads.adapter'
 import { captureEntityDimension, type DimensionCaptureReport } from '@/lib/backfill/entity-dimension-capture' // LORAMER_ENTITY_DIMENSION_V1
 import { driverSettingsFacts } from '@/lib/backfill/driver-settings' // LORAMER_DRIVER_SETTINGS_WRITER_V1 — walk connections' entity-state slice
@@ -181,7 +181,8 @@ export const DRIVER_ENGINES: ReadonlySet<string> = new Set<DriverEngine>(['legac
  * ⛔ THE ENGINE IS AN ARGUMENT WITH NO DEFAULT. A defaulted engine is indistinguishable from one the caller read.
  */
 export function driverCatalogue(engine: DriverEngine, root = process.cwd()): { heavy: UniverseEntry[]; rest: UniverseEntry[] } {
-  const selectable = selectableEntries(loadUniverse(root))
+  // LORAMER_IMPRESSION_SHARE_FAMILY_V1 — the request set itself is the engine's (walk carries the metric families).
+  const selectable = selectableEntriesFor(loadUniverse(root), engine)
   const all = engine === 'walk'
     ? selectDriverSurfaces(selectable, () => false, new Set<string>())
     : selectDriverSurfaces(

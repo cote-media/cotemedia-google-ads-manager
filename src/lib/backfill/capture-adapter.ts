@@ -236,6 +236,8 @@ export interface CaptureAdapter<TRow = any> {
     droppedEmptySegment: number
     /** VENDOR-EXPLAINED — every metric was zero, i.e. the vendor answered and there was no activity. */
     droppedAllZeroMetrics: number
+    /** LORAMER_IMPRESSION_SHARE_FAMILY_V1 — family rows whose every ratio was unset or -1 (Google only; other adapters omit it). */
+    droppedNoRatio?: number
   }
   /** Vendor error → a readable string. NEVER `String(e)`: a GoogleAdsFailure yields "[object Object]". */
   serializeError(e: unknown): string
