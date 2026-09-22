@@ -12,9 +12,9 @@
     "line_count": 207
   },
   "CONTINUE_HERE.md": {
-    "content_hash": "5d3064fd744b3853a1590ab4f7cb6fdd6e2f506f49baaa2127d005de7edd6cd0",
+    "content_hash": "18e5bb89c024a5ce025fa16fc9e7bf7aae17d5fe2095158638ca36cea81c7dca",
     "last_reconciled_date": "2026-09-22",
-    "last_reconciled_head": "dc358a1",
+    "last_reconciled_head": "13058ff",
     "line_count": 3476
   },
   "LAUNCH_PARKING.md": {
@@ -30,10 +30,10 @@
     "line_count": 145
   },
   "LORAMER_DECISIONS.md": {
-    "content_hash": "c00db60055a4474a2a28a31a615159d1ab2754b4ffb68154ace8135c8c1b4318",
+    "content_hash": "10770bfc65da05b4f05cd7a924da420d421942bcc0b2d31d51623463679ad321",
     "last_reconciled_date": "2026-09-22",
-    "last_reconciled_head": "dc358a1",
-    "line_count": 2880
+    "last_reconciled_head": "13058ff",
+    "line_count": 2888
   },
   "LORAMER_ESSENCE.md": {
     "content_hash": "50f87d19f248bf956e47a8a2e8cf9a72a872832dca5b673aa30b01d0c5273864",
@@ -54,10 +54,10 @@
     "line_count": 58
   },
   "LORAMER_MAP.md": {
-    "content_hash": "6d40addbe953f4658f592d5a8ade0d393dac13610831d89166816171ea605b34",
+    "content_hash": "bdc8559c392c2247168994bee6d68b9ee3c12729c9b79a24276c8d0683354de0",
     "last_reconciled_date": "2026-09-22",
-    "last_reconciled_head": "dc358a1",
-    "line_count": 240
+    "last_reconciled_head": "13058ff",
+    "line_count": 244
   },
   "LORAMER_NAV_REGROUP_PLAN.md": {
     "content_hash": "c59a8d8df5c2483b7c9c349b502b64793260ccffdfcafea11cc22b46193a82d5",
@@ -72,10 +72,10 @@
     "line_count": 1304
   },
   "LORAMER_RESUME_DIGEST.md": {
-    "content_hash": "bc871855bb77cdaa31d30683fcf3f01e6b571b05065a416e30a9959315fbbfc6",
+    "content_hash": "162835e0cf26609bcfc3535c91e6b65b7da05b8fd29fb993094fdfb911fcb57e",
     "last_reconciled_date": "2026-09-22",
-    "last_reconciled_head": "dc358a1",
-    "line_count": 3670
+    "last_reconciled_head": "13058ff",
+    "line_count": 3673
   },
   "LORAMER_WOO_CAPTURED_E1_V1.md": {
     "content_hash": "31ec61bce2866fc8b4368ee370e92f5ee415c41c45080da068e3447caf3d813e",

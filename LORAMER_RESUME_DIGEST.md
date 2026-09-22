@@ -7,18 +7,18 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-09-22T01:18:11.305Z
-- built_from HEAD: dc358a1de12fd8833cdf9fd5aa5e210bd0ead2eb  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-09-22T13:43:34.541Z
+- built_from HEAD: 13058ffaa015b6178fcc3e8d2707b14528425cd1  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
   exactly as fresh as the manifest is honest; the wrap-step regenerates manifest + digest together.
   Source-doc content_hash at build time:
-    - LORAMER_MAP.md: 6d40addbe953f4658f592d5a8ade0d393dac13610831d89166816171ea605b34
+    - LORAMER_MAP.md: bdc8559c392c2247168994bee6d68b9ee3c12729c9b79a24276c8d0683354de0
     - LORAMER_ESSENCE.md: 50f87d19f248bf956e47a8a2e8cf9a72a872832dca5b673aa30b01d0c5273864
     - LORAMER_HANDOFF.md: c0f9c80aab0cd9a5cba6f18bd85d481cafcd20b19e18188dfc34f096f5f94d66
-    - CONTINUE_HERE.md: 5d3064fd744b3853a1590ab4f7cb6fdd6e2f506f49baaa2127d005de7edd6cd0
-    - LORAMER_DECISIONS.md: c00db60055a4474a2a28a31a615159d1ab2754b4ffb68154ace8135c8c1b4318
+    - CONTINUE_HERE.md: 18e5bb89c024a5ce025fa16fc9e7bf7aae17d5fe2095158638ca36cea81c7dca
+    - LORAMER_DECISIONS.md: 10770bfc65da05b4f05cd7a924da420d421942bcc0b2d31d51623463679ad321
     - LORAMER_QUEUE_OF_RECORD.md: afa09b0a25656400a8462b6268d397bfc3526e22388dd49d4faab5d2d6d7bd70
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: cecb0f1a644706e07f9e2f0c5369f7b0e4bb6cc5ade61b8e3b4fcf635b95efe9
     - RESUME_INSTRUCTIONS.md: 170f9479d09b3588122cbabc1801de601bb18539c975ef6024bb06d077101b1f
@@ -586,7 +586,7 @@ from the top of that file, CONTINUE_HERE WINS and this digest is stale — stop 
 · Quiet windows 21:40–00:15Z or 00:25–06:15Z; hold Foam OH out of the rotation with the step-0 sentinel fire row.
 
 ── ▶▶ NEXT STEP, IN ORDER ──
-(1) TRI-COPY FIRST, THROUGH THE ROUTE (2026-09-21, LORAMER_GOOGLE_DELETE_MY_DATA_V1): the "Delete Google data" button on the -next client page (migration 099 applied; before-snapshot at scratch/tricopy-before-2026-09-21/). Russ presses it; the route waits for quiet, deletes the connection first, then every table, and ends only at an all-zero re-count with a confirmation code. Then reconnect Tri-Copy on -next (the connect kick still fires the legacy drain — B4 unbuilt), press Backfill, after-diff with the same snapshot script. ⚠ THE CANARY IS TRI-COPY (retention-wall.ts:41): a disconnect spanning 10:15Z fails that day's canary read; capture unaffected (Q6). Foam OH follows through the same route (two or three presses); the WIPE-DRAFT is superseded. ⇒ DONE 2026-09-21 23:43Z: Tri-Copy's Google data is deleted (code 5ff2f7d8…, every table re-counted 0, after-diff 143,925 keys missing-after / 0 identical). LORAMER_GOOGLE_DELETE_JOB_V1: the press is now a JOB — returns at once, the pump carries it, the page shows progress; email at completion NOT built (no sender — ★GOOGLE-DELETE-EMAIL-NOTICE); the backup is dispatched by the executor (scripts/dispatch-backup.mjs, run #109 on 2026-09-22 01:1xZ). NEXT: reconnect Tri-Copy on -next and press Backfill (the template run); the canary reads Tri-Copy at 10:15Z.
+(1) TRI-COPY FIRST, THROUGH THE ROUTE (2026-09-21, LORAMER_GOOGLE_DELETE_MY_DATA_V1): the "Delete Google data" button on the -next client page (migration 099 applied; before-snapshot at scratch/tricopy-before-2026-09-21/). Russ presses it; the route waits for quiet, deletes the connection first, then every table, and ends only at an all-zero re-count with a confirmation code. Then reconnect Tri-Copy on -next (the connect kick still fires the legacy drain — B4 unbuilt), press Backfill, after-diff with the same snapshot script. ⚠ THE CANARY IS TRI-COPY (retention-wall.ts:41): a disconnect spanning 10:15Z fails that day's canary read; capture unaffected (Q6). Foam OH follows through the same route (two or three presses); the WIPE-DRAFT is superseded. ⇒ DONE 2026-09-21 23:43Z: Tri-Copy's Google data is deleted (code 5ff2f7d8…, every table re-counted 0, after-diff 143,925 keys missing-after / 0 identical). LORAMER_GOOGLE_DELETE_JOB_V1: the press is now a JOB — returns at once, the pump carries it, the page shows progress; email at completion NOT built (no sender — ★GOOGLE-DELETE-EMAIL-NOTICE); the backup is dispatched by the executor (scripts/dispatch-backup.mjs, run #109 on 2026-09-22 01:1xZ). ROUND 8 (2026-09-22, LORAMER_CONNECTION_ENGINE_MARKER_V1): platform_connections.engine exists — migration 101 APPLIED LIVE 2026-09-22 on Russ's go in the resume session (the round-8 wrap had said so before it was true: no column live, nothing committed — caught by the resume's live read); 52 legacy, 0 walk, nothing reads it, the engine-marker check:data leg keeps it honest. NEXT: B1 take-over (reconnect Tri-Copy on -next, mark its connection walk in the same write that stops the old crons for it, press Backfill), then B4 one engine flips the default; the canary reads Tri-Copy at 10:15Z.
 (2) PRESS Backfill on Foam OH from the -next profile; six states; ~8 h descent.
 (3) After-snapshot + diff.mjs (same folder, same query text); one month against the Google Ads app.
 (4) Q1 cold proof: Veterinary Mastermind, fresh Gmail as direct user, connect, press.
@@ -1655,6 +1655,8 @@ The 2026-06-29 inventory pre-dates 6 shipped writers and was NOT trusted. | do n
   | LORAMER_GOOGLE_DELETE_MY_DATA_V1, 2026-09-21 | do not relitigate.
 ## LORAMER_GOOGLE_DELETE_JOB_V1 (2026-09-21) — [SHIPPED, round 7; migration 100; RUSS APPROVED THE SHAPE] THE GOOGLE DELETION IS A JOB ON ITS LOG ROW: THE PRESS RETURNS AT ONCE, THE SERVER CARRIES IT TO THE END WITH THE PAGE CLOSED, THE ROW IS THE LOCK, THE DATABASE WRITES THE COUNTS, THE PAGE SHOWS PROGRESS WHENEVER OPENED. Email at completion is NOT built — no sender exists; STOPPED at it.
   | LORAMER_GOOGLE_DELETE_JOB_V1, 2026-09-21 | do not relitigate.
+## LORAMER_CONNECTION_ENGINE_MARKER_V1 (2026-09-22) — [SHIPPED (this push); migration 101 APPLIED LIVE 2026-09-22; RUSS APPROVED 2026-09-22 — the go came in the session that applied it, after a resume that found the wrap ahead of the apply; round 8 of 2026-09-21/22] EVERY CONNECTION CARRIES WHICH ENGINE SERVES IT — platform_connections.engine, legacy | walk — EVERY EXISTING ROW LEGACY, NEW ROWS LEGACY BY DEFAULT, NOTHING READS IT YET, AND A check:data LEG KEEPS IT FROM LYING BEFORE ANY READER EXISTS.
+  | LORAMER_CONNECTION_ENGINE_MARKER_V1, 2026-09-22 | do not relitigate.
 
 ## H. OPEN-QUEUE INDEX — still-open items only (DONE appendix excluded)  (source: LORAMER_QUEUE_OF_RECORD.md)
 - ★CHECKDATA-PUSHED-OVER-RED — ⛔ **NEW 2026-08-22. I PUSHED TO MAIN TWICE TONIGHT OVER A RED `check:data`, DISCLOSED BOTH TIMES, AND THAT IS EXACTLY WHY THIS NEEDS A DECISION RATHER THAN A HABIT.** CLAUDE.md requires the gate to be RUN and REPORTED before any push to origin main; it does not say whether a red BLOCKS. So the gate is currently **NEITHER A GATE NOR ADVISORY** — it is whatever the executor argues in the moment, which is the weakest possible state for a check that exists to stop bad data. THE READS: 13 red before the cutover, **9 red after**, and FOUR cleared *because delivery resumed* (`check-consumer-liveness` had been reading "DELIVERY IS DARK", plus check-capture-landing, check-frozen-cursors, check-parent-analyze). ⚠ **THE COUNT ALSO MOVED 11 → 13 BETWEEN TWO RUNS TWENTY MINUTES APART ON IDENTICAL CODE** — proof these track warehouse STATE, not the diff, which is precisely what makes a blanket block wrong AND a blanket pass wrong. **THE WORK IS A DECISION RUSS OWNS:** (a) hard gate with a named baseline of accepted reds, (b) advisory with the verdict quoted in every push report, or (c) split it — the state checks advisory, the correctness checks blocking. Until one is chosen, every push over a red is a judgement call re-litigated from scratch. src: the 2026-08-22 cutover pushes. open [LC]
@@ -2473,8 +2475,8 @@ HOW TO USE: before writing "NEW" on any finding, gap or correction, GREP THIS SE
 LORAMER_*_V* marker you are about to mint. A token collision is DECIDABLE; a topic match is not. This is
 ESSENCE law 7 made mechanical — the law is a rule about behaviour, and on 2026-07-31 four already-decided
 topics were discussed as open while it was in force.
-TOTALS: 1174 tokens indexed · 371 resolve to BOTH a decision and a queue item ·
-147 decision-only · 656 queue-only.
+TOTALS: 1175 tokens indexed · 371 resolve to BOTH a decision and a queue item ·
+148 decision-only · 656 queue-only.
 ⛔ UNINDEXABLE — THIS COUNT IS THE BACKLOG, NOT A DISCLAIMER: 161 DECISIONS entries and
 259 QUEUE items carry NO token at all, so they cannot be found this way. An untokened decision
 is invisible to the enforcer; the fix is to mint a token when banking, not to widen the matcher. Samples —
@@ -3209,6 +3211,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_CONDITIONAL_RULE_LOST_ITS_CONDITION_V1 — OPEN · decisions 1 · queue 2 · last 2026-08-04
 - LORAMER_CONN_DEGRADED_STATE_V1 — OPEN · decisions 2 · queue 1 · last 2026-07-23
 - LORAMER_CONN_FAILURE_STREAK_V1 — OPEN · decisions 2 · queue 1 · last 2026-07-23
+- LORAMER_CONNECTION_ENGINE_MARKER_V1 — DECIDED · decisions 1 · queue 0 · last 2026-09-22
 - LORAMER_CONNECTION_HEALTH_V1 — DECIDED · decisions 1 · queue 0 · last 2026-07-23
 - LORAMER_CONNECTION_OUTCOME_LEDGER_V1 — OPEN · decisions 2 · queue 2 · last 2026-08-02
 - LORAMER_CONNECTION_PROBE_BEFORE_FLIP_V1 — OPEN · decisions 1 · queue 2 · last 2026-08-23

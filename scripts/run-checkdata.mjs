@@ -70,6 +70,7 @@ const CHECKS = [
   { name: 'check-completion-claims', cmd: ['scripts/check-completion-claims.mjs', '--guard'] },
   { name: 'check-doc-ownership-data', cmd: ['scripts/check-doc-ownership-data.mjs'] },
   { name: 'google-delete-tables', cmd: ['scripts/check-google-delete-tables.mjs', '--guard'] }, // LORAMER_GOOGLE_DELETE_MY_DATA_V1 — the deletion's table list equals the database's client+platform set
+  { name: 'engine-marker', cmd: ['scripts/check-engine-marker.mjs', '--guard'] }, // LORAMER_CONNECTION_ENGINE_MARKER_V1 — a walk-marked connection has no old-engine write after creation
   { name: 'check-drain-throttle', cmd: ['scripts/check-drain-throttle.mjs', '--guard'] },
   { name: 'check-parent-analyze', cmd: ['scripts/check-parent-analyze.mjs', '--gate'] },
   // LORAMER_ROTATION_SKIP_SCAN_V1 — the rotation read's PLAN stays in the skip-scan cost class (buffers on the deepest ledger).
