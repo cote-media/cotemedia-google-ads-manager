@@ -20,6 +20,11 @@
 //  (f) the driver's pending-set read (forward-observation-log.ts readSliceObservationState) counts only producers
 //      like 'driver-%' — never another family's observations (LORAMER_DRIVER_PENDING_OWN_PRODUCER_V1)
 //  (e) registered in scripts/run-guards.mjs
+//  (c′) LORAMER_DRIVER_CATALOGUE_PER_ENGINE_V1 (2026-09-22): driven with the WALK predicates (no alias, no legacy exclusion)
+//      the selection is EVERY strict-selectable entry — the count is measured from the artifact, never typed — and it
+//      exceeds the legacy count by exactly the alias + legacy key sets the artifact actually carries
+//  (d′) forward-driver.ts driverCatalogue takes the engine (no default), its walk branch carries `() => false` and
+//      `new Set<string>()`, and the call site reads conn.engine and REFUSES any value outside legacy|walk
 import { mkdtempSync, rmSync, readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
@@ -99,6 +104,17 @@ else {
         && !DEFERRED.has(key(e)) && !(Array.isArray(e.servesMetrics) && e.servesMetrics.length === 0))
       const hv = strict.filter((e) => M.sliceOf(e) === 'HEAVY').length, rs = strict.filter((e) => M.sliceOf(e) === 'REST').length
       if (hv !== 50 || rs !== 273) findings.push(`(c) the driver catalogue reads HEAVY ${hv} · REST ${rs} on the current artifact; Gate-A 2026-09-10 measured 50 · 269 (N=319) and LORAMER_WALK_BASE_DEALIAS_V1 2026-09-12 re-measured 50 · 273 (N=323: + the four de-aliased bases, all REST) — the catalogue moved; re-measure before trusting the slice map`)
+      // (c′) LORAMER_DRIVER_CATALOGUE_PER_ENGINE_V1 — the WALK catalogue: no alias, no legacy exclusion → every entry.
+      const strictAll = entries.filter((e) => (e.segment === null || e.dateCombinable === true) && !(e.segment && DERIVED.has(e.segment))
+        && !DEFERRED.has(key(e)) && !(Array.isArray(e.servesMetrics) && e.servesMetrics.length === 0))
+      const walkSel = M.selectDriverSurfaces(strictAll, () => false, new Set())
+      const walkKeys = new Set(walkSel.map(key))
+      const aliasInArtifact = strictAll.filter((e) => alias.has(key(e))).length
+      const legacyInArtifact = strictAll.filter((e) => legacy.has(key(e)) && !DEALIASED_BASE_KEYS.includes(key(e))).length
+      if (walkSel.length !== strictAll.length) findings.push(`(c′) the walk catalogue selects ${walkSel.length} of ${strictAll.length} strict-selectable entries — a walk connection has no other writer, so NOTHING may be excluded`)
+      if (walkSel.length !== strict.length + aliasInArtifact + legacyInArtifact) findings.push(`(c′) walk ${walkSel.length} ≠ legacy ${strict.length} + alias ${aliasInArtifact} + legacy-asked ${legacyInArtifact} — the two catalogues differ by something other than the alias and legacy key sets`)
+      for (const k of [...ALIAS_KEYS, ...LEGACY_KEYS]) if (strictAll.some((e) => key(e) === k) && !walkKeys.has(k)) findings.push(`(c′) walk catalogue omits ${k}`)
+      console.log(`[driver-skips-alias-covered] (c′) walk catalogue = ${walkSel.length} (legacy ${strict.length} + alias ${aliasInArtifact} + legacy-asked ${legacyInArtifact}; HEAVY ${walkSel.filter((e) => M.sliceOf(e) === 'HEAVY').length} · REST ${walkSel.filter((e) => M.sliceOf(e) === 'REST').length})`)
     }
   } catch (e) { findings.push(`(a) ${SLICES} could not be compiled or driven: ${e.message}`) }
   finally { rmSync(out, { recursive: true, force: true }) }
@@ -111,6 +127,19 @@ else {
   const call = callIdx === -1 ? '' : driver.slice(callIdx, callIdx + 600)
   if (!call || !/surfaceOfEntry\s*\(/.test(call) || !/drainAliasFor\s*\(/.test(call)) findings.push(`(d) ${DRIVER} does not wire selectDriverSurfaces' alias predicate through surfaceOfEntry(e) → drainAliasFor(entityLevel, breakdownType) — the driver must ask the registry, never a copied key list`)
   if (!/FORWARD_PRODUCER_SURFACES/.test(driver)) findings.push(`(d) ${DRIVER} does not derive the legacy-asked set from FORWARD_PRODUCER_SURFACES`)
+  // (d′) LORAMER_DRIVER_CATALOGUE_PER_ENGINE_V1 — the catalogue is chosen by the CONNECTION's engine, read from its row.
+  const sig = driver.match(/export function driverCatalogue\(([^)]*)\)/)
+  if (!sig) findings.push(`(d′) ${DRIVER} no longer exports driverCatalogue`)
+  else {
+    if (!/^\s*engine\s*:\s*DriverEngine\s*,/.test(sig[1])) findings.push(`(d′) driverCatalogue's first parameter must be \`engine: DriverEngine\` with NO default — read \`(${sig[1].trim()})\`; a defaulted engine is indistinguishable from one the caller read`)
+    const body = driver.slice(driver.indexOf('export function driverCatalogue'), driver.indexOf('export async function runForwardDriver'))
+    if (!/engine === 'walk'\s*\?\s*selectDriverSurfaces\(\s*selectable\s*,\s*\(\)\s*=>\s*false\s*,\s*new Set<string>\(\)\s*\)/.test(body)) findings.push(`(d′) driverCatalogue's walk branch must select with NO alias predicate (\`() => false\`) and NO legacy keys (\`new Set<string>()\`) — a walk connection has no other writer for the 12 alias twins or the 14 legacy-asked surfaces`)
+  }
+  const run = driver.slice(driver.indexOf('export async function runForwardDriver'))
+  if (!/catalogues\[engine\]/.test(run)) findings.push(`(d′) runForwardDriver does not pick the catalogue by the connection's engine (\`catalogues[engine]\`)`)
+  if (!/conn\.engine/.test(run)) findings.push(`(d′) runForwardDriver does not read \`conn.engine\` from the platform_connections(*) row`)
+  if (!/DRIVER_ENGINES\.has\(/.test(run) || !/REFUSED/.test(run) || !/refusedConnections\.push/.test(run)) findings.push(`(d′) runForwardDriver must REFUSE and record a connection whose engine is outside legacy|walk (DRIVER_ENGINES.has → refusedConnections.push) — never default it`)
+  if (/driverCatalogue\(\s*\)/.test(run)) findings.push(`(d′) runForwardDriver calls driverCatalogue() with no engine`)
 }
 
 const roster = read('scripts/run-guards.mjs')
@@ -121,4 +150,4 @@ if (findings.length) {
   for (const f of findings) console.error('  ' + f)
   process.exit(1)
 }
-console.log('[driver-skips-alias-covered] PASS — selectDriverSurfaces excludes all 12 alias-covered and 14 legacy-asked keys and selects the 4 de-aliased bases on the real catalogue; HEAVY 50 · REST 273 (N=323, LORAMER_WALK_BASE_DEALIAS_V1 2026-09-12 over Gate-A 2026-09-10 at 50 · 269); the driver wires the predicate through surfaceOfEntry → drainAliasFor and FORWARD_PRODUCER_SURFACES.')
+console.log('[driver-skips-alias-covered] PASS — selectDriverSurfaces excludes all 12 alias-covered and 14 legacy-asked keys and selects the 4 de-aliased bases on the real catalogue; LEGACY HEAVY 50 · REST 273 (N=323, LORAMER_WALK_BASE_DEALIAS_V1 2026-09-12 over Gate-A 2026-09-10 at 50 · 269); WALK = every strict-selectable entry, measured (c′); the driver wires the predicate through surfaceOfEntry → drainAliasFor and FORWARD_PRODUCER_SURFACES and picks the catalogue by conn.engine, refusing anything outside legacy|walk (d′, LORAMER_DRIVER_CATALOGUE_PER_ENGINE_V1).')

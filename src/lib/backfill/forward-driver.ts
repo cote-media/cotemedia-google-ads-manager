@@ -70,6 +70,8 @@ const addDaysUTC = (iso: string, n: number): string => { const d = new Date(iso 
 export interface DriverUnitReport {
   clientId: string
   customerId: string
+  /** LORAMER_DRIVER_CATALOGUE_PER_ENGINE_V1 — which catalogue this unit was sized from. */
+  engine: DriverEngine
   slice: DriverSlice
   surfaces: number
   pendingSurfaces: number
@@ -97,9 +99,14 @@ export interface DriverRunReport {
   dryRun: boolean
   startedAt: string
   elapsedMs: number
+  /** The LEGACY catalogue's counts (the fleet's engine today); the walk catalogue is reported beside it. */
   catalogueSurfaces: number
   heavySurfaces: number
   restSurfaces: number
+  /** LORAMER_DRIVER_CATALOGUE_PER_ENGINE_V1 — both catalogues, measured from the artifact this run. */
+  catalogueByEngine: Record<DriverEngine, { heavy: number; rest: number }>
+  /** LORAMER_DRIVER_CATALOGUE_PER_ENGINE_V1 — connections whose engine is not legacy|walk: REFUSED, never defaulted. */
+  refusedConnections: Array<{ clientId: string; customerId: string; engine: string | null; reason: string }>
   excludedClients: string[]
   units: DriverUnitReport[]
   /** LORAMER_ENTITY_DIMENSION_V1 — one entry per client whose dimension was refreshed this run. */
@@ -112,11 +119,13 @@ export interface RunForwardDriverOpts {
   cronRunId?: number | null
   budgetMs?: number
   rateRowsPerSec?: number
-  dryRun?: { upsert: (rows: Record<string, unknown>[]) => Promise<{ written: number }> }
+  /** planOnly (LORAMER_DRIVER_CATALOGUE_PER_ENGINE_V1 Gate-A): resolve engine → catalogue → pending set → decision per unit
+   *  and STOP — no claim, no vendor request, no row. The upsert is required by the type and never called. */
+  dryRun?: { upsert: (rows: Record<string, unknown>[]) => Promise<{ written: number }>; planOnly?: boolean }
   log?: (line: string) => void
 }
 
-type ClientRow = { id: string; user_email: string | null; platform_connections: Array<{ platform: string; account_id: string; account_name?: string | null; user_email?: string | null }> | null }
+type ClientRow = { id: string; user_email: string | null; platform_connections: Array<{ platform: string; account_id: string; account_name?: string | null; user_email?: string | null; engine?: string | null }> | null }
 
 async function claimUnit(clientId: string, slice: DriverSlice): Promise<boolean> {
   const token = `fwd-driver-${slice}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
@@ -136,19 +145,32 @@ export function legacySurfaceKeys(): Set<string> {
   return new Set(Object.values(FORWARD_PRODUCER_SURFACES).flat().map((s) => surfaceKey(s)))
 }
 
+/** LORAMER_DRIVER_CATALOGUE_PER_ENGINE_V1 — the two spellings platform_connections.engine may carry (migration 101's CHECK). */
+export type DriverEngine = 'legacy' | 'walk'
+export const DRIVER_ENGINES: ReadonlySet<string> = new Set<DriverEngine>(['legacy', 'walk'])
+
 /**
- * The driver's catalogue: selectable − alias-covered (drainAliasFor) − legacy-asked (FORWARD_PRODUCER_SURFACES)
- * + the four DE-ALIASED base surfaces. LORAMER_WALK_BASE_DEALIAS_V1 (2026-09-12): forward keeps writing those four
- * at '' (its manifest is read, never edited), and the driver now ALSO asks them at the walk spelling so the
- * lookback lane has walk rows to restate — two writers, two keys (ruling (n), amended 2026-09-12). 17 × 323.
+ * The driver's catalogue, PER ENGINE — LORAMER_DRIVER_CATALOGUE_PER_ENGINE_V1 (2026-09-22, round 12).
+ *
+ * legacy — selectable − alias-covered (drainAliasFor) − legacy-asked (FORWARD_PRODUCER_SURFACES) + the four
+ *   DE-ALIASED base surfaces. LORAMER_WALK_BASE_DEALIAS_V1 (2026-09-12): forward keeps writing those four at ''
+ *   (its manifest is read, never edited), and the driver ALSO asks them at the walk spelling so the lookback lane
+ *   has walk rows to restate — two writers, two keys (ruling (n), amended 2026-09-12). 17 × 323.
+ * walk — EVERY selectable entry. A walk-marked connection has no drain and no legacy family writing for it
+ *   (LORAMER_CONNECTION_ENGINE_MARKER_V1: a row may say walk ONLY when the old engine cannot write for it), so the
+ *   12 alias twins and the 14 legacy-asked surfaces have NO other writer and the driver asks them at the walk
+ *   spelling. Nothing is excluded: 349 on the 2026-09-22 artifact, MEASURED by the guard, never typed here.
+ * ⛔ THE ENGINE IS AN ARGUMENT WITH NO DEFAULT. A defaulted engine is indistinguishable from one the caller read.
  */
-export function driverCatalogue(root = process.cwd()): { heavy: UniverseEntry[]; rest: UniverseEntry[] } {
-  const legacyMinusDealiased = new Set([...legacySurfaceKeys()].filter((k) => !DEALIASED_BASE_SURFACES.has(k)))
-  const all = selectDriverSurfaces(
-    selectableEntries(loadUniverse(root)),
-    (e) => { const s = surfaceOfEntry(e); return drainAliasFor(s.entityLevel, s.breakdownType) !== null },
-    legacyMinusDealiased,
-  )
+export function driverCatalogue(engine: DriverEngine, root = process.cwd()): { heavy: UniverseEntry[]; rest: UniverseEntry[] } {
+  const selectable = selectableEntries(loadUniverse(root))
+  const all = engine === 'walk'
+    ? selectDriverSurfaces(selectable, () => false, new Set<string>())
+    : selectDriverSurfaces(
+        selectable,
+        (e) => { const s = surfaceOfEntry(e); return drainAliasFor(s.entityLevel, s.breakdownType) !== null },
+        new Set([...legacySurfaceKeys()].filter((k) => !DEALIASED_BASE_SURFACES.has(k))),
+      )
   return { heavy: all.filter((e) => sliceOf(e) === 'HEAVY'), rest: all.filter((e) => sliceOf(e) === 'REST') }
 }
 
@@ -158,11 +180,19 @@ export async function runForwardDriver(opts: RunForwardDriverOpts): Promise<Driv
   const budgetMs = opts.budgetMs ?? DRIVER_BUDGET_MS
   const rate = opts.rateRowsPerSec ?? DEFAULT_WRITE_RATE_ROWS_PER_S
   const dry = Boolean(opts.dryRun)
+  const planOnly = Boolean(opts.dryRun?.planOnly)
   const D = opts.targetDate
-  const catalogue = driverCatalogue()
+  // LORAMER_DRIVER_CATALOGUE_PER_ENGINE_V1 — both catalogues once per run; each connection picks by its own engine.
+  const catalogues: Record<DriverEngine, { heavy: UniverseEntry[]; rest: UniverseEntry[] }> = { legacy: driverCatalogue('legacy'), walk: driverCatalogue('walk') }
+  const catalogue = catalogues.legacy
   const report: DriverRunReport = {
     targetDate: D, dryRun: dry, startedAt: new Date(started).toISOString(), elapsedMs: 0,
     catalogueSurfaces: catalogue.heavy.length + catalogue.rest.length, heavySurfaces: catalogue.heavy.length, restSurfaces: catalogue.rest.length,
+    catalogueByEngine: {
+      legacy: { heavy: catalogues.legacy.heavy.length, rest: catalogues.legacy.rest.length },
+      walk: { heavy: catalogues.walk.heavy.length, rest: catalogues.walk.rest.length },
+    },
+    refusedConnections: [],
     excludedClients: [...DRIVER_EXCLUDED_CLIENTS], units: [], entityDimension: [],
   }
 
@@ -182,6 +212,18 @@ export async function runForwardDriver(opts: RunForwardDriverOpts): Promise<Driv
     for (const conn of (client.platform_connections ?? []).filter((c) => c.platform === 'google')) {
       const customerId = conn.account_id
       const userEmail = conn.user_email || client.user_email || ''
+      // ⛔ LORAMER_DRIVER_CATALOGUE_PER_ENGINE_V1 — THE FIRST READER OF platform_connections.engine. Read from the row the
+      // driver already selects (platform_connections(*)), never defaulted: a value outside legacy|walk is REFUSED for
+      // this connection — no claim, no ask — and recorded, so a lying or missing marker is loud, not served.
+      const engineRaw = conn.engine ?? null
+      if (engineRaw === null || !DRIVER_ENGINES.has(engineRaw)) {
+        const reason = `engine '${engineRaw}' is not legacy|walk — REFUSED (no claim, no ask; migration 101 makes the column NOT NULL with a CHECK, so this is a schema drift, not a default to take)`
+        report.refusedConnections.push({ clientId: client.id, customerId, engine: engineRaw, reason })
+        log(`[forward-driver] ${client.id} ${customerId}: ${reason}`)
+        continue
+      }
+      const engine = engineRaw as DriverEngine
+      const connCatalogue = catalogues[engine]
       const state = await readSliceObservationState({ clientId: client.id, vendor: 'google', windowEnd: D })
 
       // ⛔ LORAMER_ENTITY_DIMENSION_V1 — ONCE PER CLIENT PER DRIVER RUN, BESIDE THE CAPTURE LOOP.
@@ -200,7 +242,7 @@ export async function runForwardDriver(opts: RunForwardDriverOpts): Promise<Driv
       }
 
       for (const slice of DRIVER_SLICES) {
-        const entries = slice === 'HEAVY' ? catalogue.heavy : catalogue.rest
+        const entries = slice === 'HEAVY' ? connCatalogue.heavy : connCatalogue.rest
         const surfaces = entries.map((e) => ({ resource: e.resource, segment: e.segment ?? '' }))
         const pendingOnly = surfaces.filter((s) => !state.observedAtWindowEnd.has(surfaceKey(s)))
         // LORAMER_DRIVER_PARTIAL_UNIT_V1 — the estimate is over the PENDING remainder, both terms. Over the whole slice a
@@ -208,7 +250,7 @@ export async function runForwardDriver(opts: RunForwardDriverOpts): Promise<Driv
         const estimateRows = pendingOnly.reduce((sum, s) => sum + (state.lastRowsBySurface.get(surfaceKey(s)) ?? 0), 0)
         const estimateMs = estimateUnitMs({ rows: estimateRows, surfaces: pendingOnly.length, rateRowsPerSec: rate, latencyPerSurfaceMs: LATENCY_PER_SURFACE_MS })
         const unit: DriverUnitReport = {
-          clientId: client.id, customerId, slice, surfaces: surfaces.length, pendingSurfaces: pendingOnly.length, estimateMs, estimateRows,
+          clientId: client.id, customerId, engine, slice, surfaces: surfaces.length, pendingSurfaces: pendingOnly.length, estimateMs, estimateRows,
           decision: 'not-pending', claimed: false, ran: false, actualMs: null, rows: 0, apiRows: 0, requests: 0, errors: 0,
           observationFailures: 0, deferredForDeadline: 0, windowStart: null, windowEnd: D,
         }
@@ -216,8 +258,9 @@ export async function runForwardDriver(opts: RunForwardDriverOpts): Promise<Driv
         if (pendingOnly.length === 0) { log(`[forward-driver] ${client.id} ${slice}: complete for ${D} (${surfaces.length}/${surfaces.length} observed) — not pending`); continue }
         const remainingMs = deadlineAt - Date.now()
         unit.decision = decideUnit({ estimateMs, remainingMs })
-        log(`[forward-driver] ${client.id} ${slice}: pending ${pendingOnly.length}/${surfaces.length} · estimate ${estimateRows} rows ≈ ${Math.round(estimateMs / 1000)} s vs remaining ${Math.round(remainingMs / 1000)} s → ${unit.decision}`)
+        log(`[forward-driver] ${client.id} ${slice} (${engine}): pending ${pendingOnly.length}/${surfaces.length} · estimate ${estimateRows} rows ≈ ${Math.round(estimateMs / 1000)} s vs remaining ${Math.round(remainingMs / 1000)} s → ${unit.decision}`)
         if (unit.decision !== 'run') continue
+        if (planOnly) { unit.note = 'plan only: catalogue, pending set and decision resolved; not claimed, not asked'; continue }
         if (!dry) {
           unit.claimed = await claimUnit(client.id, slice)
           if (!unit.claimed) { unit.decision = 'claim-lost'; log(`[forward-driver] ${client.id} ${slice}: claim lost (another fire holds it) — skipped`); continue }
