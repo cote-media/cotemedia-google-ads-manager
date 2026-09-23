@@ -227,7 +227,7 @@ export const LOOKBACK_REQUESTS_PER_RUN = 2
 export const MISSED_REQUESTS_PER_RUN = 8
 export const MISSED_SURFACES_PER_RUN = 16
 export const MISSED_ALLOWANCE_MS = 20_000
-export const MISSED_WINDOW_DAYS = 90
+export const MISSED_WINDOW_DAYS = 360 // LORAMER_DESCEND_WINDOW_360_V1 (2026-09-22): widened with the descend window; the lane still asks only HOLES, chunked to this width, so a one-day hole is a one-day request and a 200-day hole is one request instead of three
 
 /**
  * LORAMER_MISSED_CURSOR_V1 — where the NEXT fire's enumeration starts, from what THIS fire actually enumerated.

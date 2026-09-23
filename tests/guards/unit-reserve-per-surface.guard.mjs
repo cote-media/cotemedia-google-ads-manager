@@ -47,6 +47,18 @@ try {
   check(tiny === 18015, `(a) the floor is ADDED to, never replaced: 0.01 s/day × 1 day × 1.48 → 18,015 ms — got ${tiny}`)
   const zero = A.unitReserveMs({ maxSecPerDay: 0, days: 90 })
   check(zero === 18000, `(a) a surface that has measured 0 s/day reserves exactly the floor at any width — got ${zero}`)
+  // (a′) LORAMER_DESCEND_WINDOW_360_V1 — the TIME cap beside the row cap: a unit's reserve must fit the 300 s consumer.
+  if (typeof A.timeCappedDays !== 'function') findings.push('(a′) capture-adapter.ts does not export timeCappedDays — a 360-day unit on a slow surface would reserve more than the consumer can run')
+  else {
+    const slow = A.timeCappedDays({ maxSecPerDay: 0.63, days: 360, minDays: 1, consumerMaxS: 300 })
+    check(slow.capped === true && slow.days < 360 && A.unitReserveMs({ maxSecPerDay: 0.63, days: slow.days }) <= 300000, `(a′) at the measured max 0.63 s/day a 360-day unit must be time-capped below 360 with a reserve ≤ 300 s — got ${JSON.stringify(slow)} reserve ${A.unitReserveMs({ maxSecPerDay: 0.63, days: slow.days })}`)
+    const p99 = A.timeCappedDays({ maxSecPerDay: 0.36, days: 360, minDays: 1, consumerMaxS: 300 })
+    check(p99.capped === false && p99.days === 360 && A.unitReserveMs({ maxSecPerDay: 0.36, days: 360 }) <= 300000, `(a′) at the measured p99 0.36 s/day a 360-day unit fits the consumer uncapped — got ${JSON.stringify(p99)}`)
+    const cold = A.timeCappedDays({ maxSecPerDay: null, days: 7, minDays: 1, consumerMaxS: 300 })
+    check(cold.capped === false && cold.days === 7, `(a′) with no history the cap leaves the cold-start window alone — got ${JSON.stringify(cold)}`)
+    const floor = A.timeCappedDays({ maxSecPerDay: 50, days: 360, minDays: 1, consumerMaxS: 300 })
+    check(floor.days >= 1, `(a′) the cap never goes below minDays — got ${JSON.stringify(floor)}`)
+  }
   check(A.UNIT_RESERVE_FLOOR_MS === 18000 && Math.abs(A.UNIT_RESERVE_FACTOR - 1.48) < 1e-9, `(a) UNIT_RESERVE_FLOOR_MS must be 18,000 and UNIT_RESERVE_FACTOR 1.48 — got ${A.UNIT_RESERVE_FLOOR_MS} / ${A.UNIT_RESERVE_FACTOR}`)
 } catch (e) {
   findings.push(`(a) could not drive unitReserveMs — ${e.message}. A guard that cannot run its subject FAILS.`)

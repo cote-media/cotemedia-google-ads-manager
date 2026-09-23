@@ -1,12 +1,14 @@
 #!/usr/bin/env node
-// LORAMER_DESCEND_WINDOW_90_V1 — THE DESCEND AND MISSED WINDOWS ARE 90 DAYS, AND NO PLANNED WINDOW STRADDLES THE WALL.
+// LORAMER_DESCEND_WINDOW_360_V1 — THE DESCEND AND MISSED WINDOWS ARE 360 DAYS (≤ MAX_REQUESTS_PER_RUN), AND NO PLANNED WINDOW STRADDLES THE WALL.
+// (Was LORAMER_DESCEND_WINDOW_90_V1, 2026-09-18. Widened 2026-09-22 on the measured 90-day p99: 32.3 s, n=10,801.)
 //
 // Rounds 2–5 (2026-09-18): no Google date-range cap exists; the 14-day (Airbyte) and 1-day (Singer) prior-art slices
 // are `search`-pagination artefacts; 90 halves Foam OH's requests while the 25 heavy surfaces stay row-budget-capped
 // by sizeFromPolicy. A window that would straddle the 37-month retention line is SPLIT at the line in Airbyte's clip
 // form (utils.py:284-291 `start = max(start, today − days_of_data_storage)`), so past-wall days are asked in their own
 // window and an empty answer there can be told apart from an empty above the line.
-//   (a) google-ads.adapter.ts sizing.maxDays === 90; universe-resumer.ts MISSED_WINDOW_DAYS === 90
+//   (a) google-ads.adapter.ts sizing.maxDays === 360; universe-resumer.ts MISSED_WINDOW_DAYS === 360; and maxDays ≤ MAX_REQUESTS_PER_RUN
+//       (the horizon guard's exact-bound invariant, restated here so the two numbers can never be widened apart)
 //   (b) PURE deriveWindow: a window straddling wallLine starts AT the line; fully above and fully past are untouched;
 //       the stop still clamps; a window that would fall entirely below the stop is null
 //   (c) PURE splitAtWall: a span crossing the line splits into [start..line−1] and [line..end]; others pass through
@@ -32,14 +34,17 @@ const DRIVE = 'src/app/api/backfill/universe-drive/route.ts'
 {
   const a = strip(read(ADAPTER))
   const m = a.match(/const sizing: SizingPolicy = \{[^}]*maxDays: (\d+)[^}]*\}/)
-  check(m && m[1] === '90', `(a) ${ADAPTER}: sizing.maxDays must be 90 (GOOGLE_DESCEND_MAX_DAYS ⇐ rounds 2–5) — found ${m ? m[1] : 'no sizing literal'}.`)
+  check(m && m[1] === '360', `(a) ${ADAPTER}: sizing.maxDays must be 360 (GOOGLE_DESCEND_MAX_DAYS ⇐ LORAMER_DESCEND_WINDOW_360_V1) — found ${m ? m[1] : 'no sizing literal'}.`)
   const r = strip(read(RESUMER))
   const mm = r.match(/export const MISSED_WINDOW_DAYS = (\d+)/)
-  check(mm && mm[1] === '90', `(a) ${RESUMER}: MISSED_WINDOW_DAYS must be 90 — found ${mm ? mm[1] : 'none'}.`)
+  check(mm && mm[1] === '360', `(a) ${RESUMER}: MISSED_WINDOW_DAYS must be 360 — found ${mm ? mm[1] : 'none'}.`)
+  const bite = Number((r.match(/export const MAX_REQUESTS_PER_RUN\s*=\s*(\d+)/) || [])[1])
+  check(Number.isFinite(bite) && m && Number(m[1]) <= bite, `(a) sizing.maxDays (${m ? m[1] : '?'}) must not exceed MAX_REQUESTS_PER_RUN (${bite}) — the exact-bound invariant (universe-horizon-recedes (d)); widen the bite before the window.`)
+  check(Number.isFinite(bite) && mm && Number(mm[1]) <= bite, `(a) MISSED_WINDOW_DAYS (${mm ? mm[1] : '?'}) must not exceed MAX_REQUESTS_PER_RUN (${bite}).`)
 }
 
 // (b)(c)
-const out = mkdtempSync(join(tmpdir(), 'descend-window-90-'))
+const out = mkdtempSync(join(tmpdir(), 'descend-window-360-'))
 try {
   const r = spawnSync(join(ROOT, 'node_modules', '.bin', 'tsc'), [
     resolve(ROOT, RESUMER), '--target', 'es2020', '--module', 'commonjs', '--moduleResolution', 'node',
@@ -91,8 +96,8 @@ try {
 }
 
 if (findings.length) {
-  console.error(`[descend-window-90] FAIL — ${findings.length} finding(s):`)
+  console.error(`[descend-window-360] FAIL — ${findings.length} finding(s):`)
   for (const f of findings) console.error('  • ' + f)
   process.exit(1)
 }
-console.log('[descend-window-90] PASS — maxDays 90 and MISSED_WINDOW_DAYS 90 are pinned; deriveWindow clips a straddling window to start at the wall (Airbyte form) and leaves above/past windows untouched; the missed lane splits holes at the wall; both planners pass wallLine.')
+console.log('[descend-window-360] PASS — maxDays 360 and MISSED_WINDOW_DAYS 360 are pinned under MAX_REQUESTS_PER_RUN; deriveWindow clips a straddling window to start at the wall (Airbyte form) and leaves above/past windows untouched; the missed lane splits holes at the wall; both planners pass wallLine.')

@@ -6,7 +6,8 @@
 //       decoded GoogleAdsFailure; BOTH quota codes (2 RESOURCE_EXHAUSTED and 4 RESOURCE_TEMPORARILY_EXHAUSTED) take the
 //       same path; the code number never decides scope.
 //   (b) PURE: `decideWalkHold` — ACCOUNT → a LANE hold for retry_delay; DEVELOPER → the FLEET row; message-only
-//       "Retry in N seconds" → FLEET for N (scope unknown = today's behaviour); no delay anywhere → 10/20/40 s ×3,
+//       "Retry in N seconds" (scope UNKNOWN) → a LANE hold for N (LORAMER_DESCEND_WINDOW_360_V1, 2026-09-22 — was FLEET);
+//       no delay anywhere → 10/20/40 s ×3,
 //       lane-scoped, then a bounded lane hold. NEVER shorter than a delay Google sent.
 //   (c) STORE: `applyWalkHold` with an ACCOUNT decision touches the lane record and NOT the fleet row; DEVELOPER touches
 //       the fleet row and NOT the lane record.
@@ -98,7 +99,7 @@ if (M) {
   const dD = M.decideWalkHold({ kind: dev, nowMs: NOW, priorBackoffTries: 0 })
   check(dD.kind === 'fleet' && dD.untilMs === NOW + 84106000, `(b) DEVELOPER → FLEET hold for the sent delay — got ${JSON.stringify(dD)}`)
   const dM = M.decideWalkHold({ kind: msgOnly, nowMs: NOW, priorBackoffTries: 0 })
-  check(dM.kind === 'fleet' && dM.untilMs === NOW + 900000, `(b) message-only "Retry in 900" → FLEET for 900 s (scope unknown = today's behaviour) — got ${JSON.stringify(dM)}`)
+  check(dM.kind === 'lane' && dM.untilMs === NOW + 900000 && dM.backoffTries === 0, `(b) message-only "Retry in 900" (scope UNKNOWN) → LANE for the sent 900 s (LORAMER_DESCEND_WINDOW_360_V1) — got ${JSON.stringify(dM)}`)
   const b1 = M.decideWalkHold({ kind: none, nowMs: NOW, priorBackoffTries: 0 })
   const b2 = M.decideWalkHold({ kind: none, nowMs: NOW, priorBackoffTries: 1 })
   const b3 = M.decideWalkHold({ kind: none, nowMs: NOW, priorBackoffTries: 2 })
@@ -120,10 +121,12 @@ if (M && S) {
   const LANE_CLIENT = '11111111-1111-1111-1111-111111111111' // fixture: a made-up lane id — this leg proves WHICH record is written (lane vs fleet), never anything about a real client
   globalThis.__fleet = []
   const laneRows = []
+  const recent = []
   const deps = {
     writeFleet: async (resetIso, detail) => { globalThis.__fleet.push({ resetIso, detail }) },
     upsertLane: async (row) => { laneRows.push(row) },
     readLane: async () => null,
+    readRecentUnnamedHolds: async (sinceIso, except) => recent.filter((r) => r.rate_scope === 'UNKNOWN' && r.armed_at >= sinceIso && r.client_id !== except.clientId),
   }
   const kA = M.classifyWalkQuotaError(failure(2, 'Too many requests. Retry in 4 seconds.', { rate_scope: 2, rate_name: 'Requests per service per method', retry_delay: { seconds: 4 } }))
   await S.applyWalkHold({ kind: kA, lane: { clientId: LANE_CLIENT, vendor: 'google' }, site: 'guard', nowMs: NOW }, deps)
@@ -134,6 +137,18 @@ if (M && S) {
   // an ACCOUNT answer with NO lane context (a caller that did not say which lane) falls back to the fleet — today's behaviour, never a dropped hold
   await S.applyWalkHold({ kind: kA, lane: null, site: 'guard', nowMs: NOW }, deps)
   check(globalThis.__fleet.length === 2, `(c) an ACCOUNT hold with no lane context must fall back to the fleet row rather than drop the hold — fleet=${globalThis.__fleet.length}`)
+  // (u)(v) LORAMER_DESCEND_WINDOW_360_V1 — an UNNAMED refusal holds its lane; a SECOND account's unnamed refusal inside the delay arms the fleet too
+  const kU = M.classifyWalkQuotaError(failure(2, 'Too many requests. Retry in 900 seconds.'))
+  const fleetBefore = globalThis.__fleet.length, lanesBefore = laneRows.length
+  const r1 = await S.applyWalkHold({ kind: kU, lane: { clientId: LANE_CLIENT, vendor: 'google' }, site: 'guard', nowMs: NOW }, deps)
+  check(r1.applied === 'lane' && globalThis.__fleet.length === fleetBefore && laneRows.length === lanesBefore + 1 && laneRows[laneRows.length - 1].rate_scope === 'UNKNOWN', `(u) an UNNAMED refusal with a delay must hold its lane and leave the fleet row alone — got ${JSON.stringify(r1)} fleet=${globalThis.__fleet.length}`)
+  recent.push({ client_id: '22222222-2222-2222-2222-222222222222', vendor: 'google', rate_scope: 'UNKNOWN', armed_at: new Date(NOW - 60000).toISOString() }) // fixture: a made-up second lane id — proves the second-account rule, never a real client
+  const r2 = await S.applyWalkHold({ kind: kU, lane: { clientId: LANE_CLIENT, vendor: 'google' }, site: 'guard', nowMs: NOW }, deps)
+  check(r2.applied === 'lane+fleet' && globalThis.__fleet.length === fleetBefore + 1 && /SECOND ACCOUNT/.test(globalThis.__fleet[globalThis.__fleet.length - 1].detail), `(v) a second distinct account's unnamed refusal inside the delay must arm the fleet too — got ${JSON.stringify(r2)} fleet=${globalThis.__fleet.length}`)
+  recent.length = 0
+  recent.push({ client_id: '22222222-2222-2222-2222-222222222222', vendor: 'google', rate_scope: 'UNKNOWN', armed_at: new Date(NOW - 901000).toISOString() }) // fixture: a made-up second lane id — proves the second-account rule, never a real client
+  const r3 = await S.applyWalkHold({ kind: kU, lane: { clientId: LANE_CLIENT, vendor: 'google' }, site: 'guard', nowMs: NOW }, deps)
+  check(r3.applied === 'lane' && globalThis.__fleet.length === fleetBefore + 1, `(v) a second account's refusal OUTSIDE the delay does not arm the fleet — got ${JSON.stringify(r3)}`)
 }
 
 // ── (d) placement ───────────────────────────────────────────────────────────────────────────────────────────

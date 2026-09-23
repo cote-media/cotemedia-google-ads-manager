@@ -30,6 +30,8 @@ export interface WalkHoldDeps {
   writeFleet: (resetIso: string, detail: string) => Promise<void>
   upsertLane: (row: LaneHoldRow) => Promise<void>
   readLane: (lane: WalkLane) => Promise<LaneHoldRow | null>
+  /** LORAMER_DESCEND_WINDOW_360_V1 — OTHER lanes' UNNAMED-scope holds armed at or after `sinceIso` (the second-account rule). */
+  readRecentUnnamedHolds: (sinceIso: string, except: WalkLane) => Promise<LaneHoldRow[]>
 }
 
 const realDeps: WalkHoldDeps = {
@@ -44,6 +46,12 @@ const realDeps: WalkHoldDeps = {
     if (error) throw new Error(error.message)
     return (data as LaneHoldRow | null) ?? null
   },
+  readRecentUnnamedHolds: async (sinceIso, except) => {
+    const { data, error } = await supabaseAdmin.from('universe_lane_hold').select('*')
+      .eq('vendor', except.vendor).eq('rate_scope', 'UNKNOWN').gte('armed_at', sinceIso).neq('client_id', except.clientId)
+    if (error) throw new Error(error.message)
+    return (data as LaneHoldRow[] | null) ?? []
+  },
 }
 
 /**
@@ -53,7 +61,7 @@ const realDeps: WalkHoldDeps = {
 export async function applyWalkHold(
   a: { kind: WalkQuotaKind; lane: WalkLane | null; site: string; nowMs?: number },
   deps: WalkHoldDeps = realDeps,
-): Promise<{ applied: 'none' | 'fleet' | 'lane'; untilIso: string | null; reason: string }> {
+): Promise<{ applied: 'none' | 'fleet' | 'lane' | 'lane+fleet'; untilIso: string | null; reason: string }> {
   const nowMs = a.nowMs ?? Date.now()
   // The fallback streak is read from the lane record: tries inside the window continue the schedule.
   let priorBackoffTries = 0
@@ -72,6 +80,18 @@ export async function applyWalkHold(
       rate_scope: a.kind.rateScope, rate_name: a.kind.rateName, retry_delay_s: a.kind.retryDelayS,
       backoff_tries: d.backoffTries, reason: detail.slice(0, 900), armed_at: new Date(nowMs).toISOString(),
     })
+    // LORAMER_DESCEND_WINDOW_360_V1 — THE SECOND-ACCOUNT RULE. An unnamed refusal with a delay holds its lane; if ANOTHER
+    // account's lane was armed by an unnamed refusal inside the same delay window, the bucket was the project's, not
+    // the customer's — arm the fleet for the delay too. Bounded: one refused request per active lane before the fleet holds.
+    if (a.kind.rateScope === 'UNKNOWN' && a.kind.retryDelayS !== null) {
+      const sinceIso = new Date(nowMs - a.kind.retryDelayS * 1000).toISOString()
+      const others = await deps.readRecentUnnamedHolds(sinceIso, a.lane).catch(() => [] as LaneHoldRow[])
+      if (others.length > 0) {
+        const who = others.map((o) => o.client_id).slice(0, 5).join(', ')
+        await deps.writeFleet(untilIso, `${detail.slice(0, 380)} · SECOND ACCOUNT refused inside the ${a.kind.retryDelayS} s delay (${who}) — the bucket is the project's; fleet held`)
+        return { applied: 'lane+fleet', untilIso, reason: `${d.reason} · a second account (${who}) was refused inside the delay — fleet held too` }
+      }
+    }
     return { applied: 'lane', untilIso, reason: d.reason }
   }
   await deps.writeFleet(untilIso, detail.slice(0, 480))
@@ -82,7 +102,7 @@ export async function applyWalkHold(
  * THE WALK BOUNDARY'S ARM. Classify, decide, record. Best-effort and loud: a recording failure must never turn a
  * vendor refusal into a second failure, but it must not be silent either.
  */
-export async function armWalkQuota(err: unknown, site: string, lane: WalkLane | null): Promise<{ quota: boolean; applied: 'none' | 'fleet' | 'lane'; untilIso: string | null; described: string | null }> {
+export async function armWalkQuota(err: unknown, site: string, lane: WalkLane | null): Promise<{ quota: boolean; applied: 'none' | 'fleet' | 'lane' | 'lane+fleet'; untilIso: string | null; described: string | null }> {
   const kind = classifyWalkQuotaError(err)
   if (!kind.quota) return { quota: false, applied: 'none', untilIso: null, described: null }
   try {

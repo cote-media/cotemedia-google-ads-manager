@@ -8,7 +8,7 @@
 >
 > ⛔ **EVERY FACTUAL LINE HERE IS VERIFIED AGAINST THE CODE, and is dated.** If a line and the code disagree,
 > THE CODE IS RIGHT and this file is stale — say so and fix it the same day.
-> Last verified against the code: **2026-09-22** (round 23: one engine — the old google writers refuse a walk connection, the default is walk; rounds 12, 14 and 18 shipped the driver's catalogue, its settings writer and the impression-share family)
+> Last verified against the code: **2026-09-22** (round 26: 360-day windows with a time cap and the lane-only hold; round 23 one engine; rounds 12, 14 and 18 the driver's catalogue, its settings writer and the impression-share family)
 
 ---
 
@@ -206,6 +206,7 @@ changed. Days older than the limit are asked; an empty answer there is held and 
 
 **2026-09-22**
 
+- **A descent asks a year at a time, and a throttle on one account holds one account** (round 26, 2026-09-22): descend and missed windows are 360 days, each unit sized to fit the consumer's five minutes by rows and by seconds; a refusal whose bucket Google does not name holds only that customer's lane, and the whole fleet only when a second customer is refused inside the same delay (DECISIONS LORAMER_DESCEND_WINDOW_360_V1).
 - **No reader work in GET; Lora reading the walk's new rows is WIRE, queued by name** (Russ, 2026-09-22, round 18): the walk captures the whole impression-share family for walk connections now; the projection that would read it is its own live-path change (QUEUE ★IMPRESSION-SHARE-READER-REACH), never folded into a capture commit (DECISIONS LORAMER_IMPRESSION_SHARE_FAMILY_V1).
 - **A connection's engine marker must never lie** (Russ, round 8): platform_connections.engine says which engine serves the connection; a row may say walk only when the old engine cannot write for it. Every row is legacy today and new rows default legacy until the one-engine build flips the default in the commit that stops the old writers. The check:data leg engine-marker reads the old engine's own traces and goes red on any walk-marked connection they touch (DECISIONS LORAMER_CONNECTION_ENGINE_MARKER_V1).
 

@@ -797,7 +797,7 @@ async function advance(msg: UniverseMessageV2, adapter: ReturnType<typeof google
   }
   // ⛔ SIZE ON MAX, REPORT PREV. Under-prediction is the direction that costs a request; over-prediction
   // costs a window that finishes early. See universe-sizing.ts for the measurement that ranked them.
-  const sizing = await sizeNextWindow(adapter, { clientId, resource: entry.resource, segment: entry.segment ?? '' })
+  const sizing = await sizeNextWindow(adapter, { clientId, resource: entry.resource, segment: entry.segment ?? '', consumerMaxS: CONSUMER_MAX_DURATION_S })
   const nextStart = (() => {
     const s = addDays(nextEnd, -(sizing.days - 1))
     // ⛔ CLAMP ONLY AGAINST A KNOWN WALL. With `floorDate === null` there is nothing to clamp to, and

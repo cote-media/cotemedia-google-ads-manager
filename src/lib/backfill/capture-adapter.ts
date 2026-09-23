@@ -320,7 +320,7 @@ export function mayInferClosureFromOrder(a: CaptureAdapter): boolean {
 
 export interface SizeVerdict {
   days: number
-  basis: 'cold-start-no-history' | 'max-of-prior-windows' | 'intermittent-fixed'
+  basis: 'cold-start-no-history' | 'max-of-prior-windows' | 'intermittent-fixed' | 'time-capped'
   estimateRowsPerDay: number | null
   sizedOnRowsPerDay: number | null
   reason: string
@@ -353,6 +353,23 @@ export function unitReserveMs(a: { maxSecPerDay: number | null; days: number }):
   const spd = a.maxSecPerDay !== null && Number.isFinite(a.maxSecPerDay) && a.maxSecPerDay > 0 ? a.maxSecPerDay : 0
   const days = Math.max(1, Math.floor(a.days))
   return Math.max(UNIT_RESERVE_FLOOR_MS, Math.round(UNIT_RESERVE_FLOOR_MS + spd * days * UNIT_RESERVE_FACTOR * 1000))
+}
+
+/**
+ * LORAMER_DESCEND_WINDOW_360_V1 (2026-09-22) — THE TIME CAP BESIDE THE ROW CAP. A unit is admitted only when its reserve
+ * fits the consumer's fire (the pump reserves `reserveMs` before every step; the consumer route dies at its maxDuration),
+ * so on a surface whose measured worst seconds-per-day would push a `days`-wide reserve past the fire, the WINDOW shrinks
+ * — never the fire, never the reserve formula. PURE: days ≤ floor((consumerMaxS − floor) ÷ (maxSecPerDay × factor)),
+ * never below minDays. With no history (maxSecPerDay null/0) the sizer's own cold start (coldStartDays, the 18 s floor)
+ * already bounds the unit, so this returns `days` unchanged. MEASURED basis, 2026-09-22: 90-day descend units p99 0.36
+ * s/day, max 0.63 s/day → a 360-day unit reserves 210 s at the p99 but 354 s at the max; this cap sizes the max case
+ * to 302 days so it fits the 300-second consumer.
+ */
+export function timeCappedDays(a: { maxSecPerDay: number | null; days: number; minDays: number; consumerMaxS: number }): { days: number; capped: boolean; capDays: number | null } {
+  const spd = a.maxSecPerDay !== null && Number.isFinite(a.maxSecPerDay) && a.maxSecPerDay > 0 ? a.maxSecPerDay : 0
+  if (spd === 0) return { days: a.days, capped: false, capDays: null }
+  const capDays = Math.max(Math.max(1, Math.floor(a.minDays)), Math.floor((a.consumerMaxS - UNIT_RESERVE_FLOOR_MS / 1000) / (spd * UNIT_RESERVE_FACTOR)))
+  return capDays < a.days ? { days: capDays, capped: true, capDays } : { days: a.days, capped: false, capDays }
 }
 
 /** ≥ this share of prior windows returning ZERO makes a series intermittent; its median is zero by construction. */

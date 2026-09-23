@@ -122,7 +122,7 @@ export async function GET(request: Request) {
   type RotRow = { resource: string; segment: string; last_window_start: string; last_window_end: string; parent_known: boolean }
   const rot = ((rotRows ?? []) as RotRow[]).find((r) => r.resource === resource && (r.segment ?? '') === segment) ?? null
 
-  const sizing = await sizeNextWindow(adapter, { clientId, resource: surface.resource, segment: surface.segment })
+  const sizing = await sizeNextWindow(adapter, { clientId, resource: surface.resource, segment: surface.segment, consumerMaxS: CONSUMER_MAX_DURATION_S })
   // ⛔ THE RECEDE GATE, OVER THE **PARENT WINDOW** — `rot.last_window_*` is the window ASKED after
   // migrations/082, not the last range walked. Both halves of LORAMER_PARENT_WINDOW_IS_THE_UNIT_V1 move
   // together here exactly as they do in the resumer; recording the window while this still measured the range

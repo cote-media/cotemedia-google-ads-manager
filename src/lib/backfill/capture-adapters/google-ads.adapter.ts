@@ -157,11 +157,15 @@ const meter: Meter = {
  * rows ≈ 124 s. Under `'rises-with-range'` that arithmetic points the wrong way, which is why the direction
  * travels with the meter rather than being assumed by the sizer.
  */
-// ⛔ maxDays 90 ⇐ LORAMER_DESCEND_SHAPE_CONVERGED_V1 (rounds 2–5, 2026-09-18): no Google date-range cap exists; the
-// 14-day / 1-day prior-art slices (Airbyte, Singer) are `search`-pagination artefacts and this path streams; 90 halves
-// Foam OH's requests (20,103 → 7,941) while the 25 heavy surfaces stay capped by rowBudget/maxRowsPerDay. 365 waits
-// on a measured 90-day p99. GOOGLE_DESCEND_MAX_DAYS — pinned by descend-window-90.guard.mjs.
-const sizing: SizingPolicy = { rowBudget: 300_000, coldStartDays: 7, minDays: 1, maxDays: 90 }
+// ⛔ maxDays 360 ⇐ LORAMER_DESCEND_WINDOW_360_V1 (rounds 24–25, 2026-09-22), on top of LORAMER_DESCEND_SHAPE_CONVERGED_V1
+// (rounds 2–5, 2026-09-18: no Google date-range cap exists; the 14-day / 1-day prior-art slices are `search`-pagination
+// artefacts and this path streams). THE CONDITION "365 waits on a measured 90-day p99" IS MET: descend 90-day units since
+// 2026-09-18 — n=10,801, p50 3.0 s, p99 32.3 s, max 56.8 s (the live ledger, 2026-09-22). 360, NOT 365: the horizon
+// guard's exact-bound invariant pins maxDays ≤ MAX_REQUESTS_PER_RUN (360), and every wall-bound account needs the same
+// four windows either way. The 25 heavy surfaces stay capped by rowBudget ÷ rows/day AND, since this flight, by
+// seconds: sizeNextWindow caps days so the unit's reserve fits CONSUMER_MAX_DURATION_S. Foam OH's request count at this
+// width: 3,509 (was 7,941 at 90). GOOGLE_DESCEND_MAX_DAYS — pinned by descend-window-360.guard.mjs.
+const sizing: SizingPolicy = { rowBudget: 300_000, coldStartDays: 7, minDays: 1, maxDays: 360 }
 
 export function googleAdsCaptureAdapter(
   streamFor: (gaql: string) => AsyncGenerator<any>,

@@ -16,7 +16,7 @@
 // Coverage is answered from `metrics_daily` by `universe-coverage.ts`, which may not import the attempt-log
 // module. Sizing is an OPTIMISATION: with `day_committed`, a wrong guess costs one re-fetch.
 import { supabaseAdmin } from '@/lib/supabase'
-import { sizeFromPolicy, unitReserveMs, type CaptureAdapter, type SizeVerdict } from '@/lib/backfill/capture-adapter'
+import { sizeFromPolicy, unitReserveMs, timeCappedDays, type CaptureAdapter, type SizeVerdict } from '@/lib/backfill/capture-adapter'
 
 export type { SizeVerdict }
 
@@ -35,7 +35,11 @@ export const dayDiff = (a: string, b: string): number =>
  */
 export async function sizeNextWindow(
   adapter: CaptureAdapter,
-  k: { clientId: string; resource: string; segment: string },
+  // LORAMER_DESCEND_WINDOW_360_V1 — `consumerMaxS` is the fire ceiling the unit must fit (the contract's
+  // CONSUMER_MAX_DURATION_S), handed in by the caller: every caller is a contract importer already, and this module
+  // may not reach the v2 contract (the stream-consumer guard's (e) leg keeps the topic's reach to the route, the
+  // contract, the resumer and the drive).
+  k: { clientId: string; resource: string; segment: string; consumerMaxS: number },
 ): Promise<SizeVerdict> {
   const { data, error } = await supabaseAdmin
     .from('universe_attempt_log')
@@ -70,5 +74,14 @@ export async function sizeNextWindow(
     }
   }
   const verdict = sizeFromPolicy(adapter.sizing, adapter.meter.costDirection, rowsPerDay, totals)
+  // LORAMER_DESCEND_WINDOW_360_V1 — the TIME cap beside the row cap: the unit's reserve must fit the consumer's fire.
+  const cap = timeCappedDays({ maxSecPerDay, days: verdict.days, minDays: adapter.sizing.minDays, consumerMaxS: k.consumerMaxS })
+  if (cap.capped) {
+    const days = cap.days
+    return {
+      ...verdict, days, basis: 'time-capped', maxSecPerDay, reserveMs: unitReserveMs({ maxSecPerDay, days }),
+      reason: `${verdict.reason} → TIME-CAPPED to ${days} day(s): worst ${maxSecPerDay!.toFixed(3)} s/day over the last ${data?.length ?? 0} attempt(s) × ${verdict.days} × 1.48 + 18 s would exceed the ${k.consumerMaxS} s consumer; floor((${k.consumerMaxS} − 18) ÷ (${maxSecPerDay!.toFixed(3)} × 1.48)) = ${cap.capDays}`,
+    }
+  }
   return { ...verdict, maxSecPerDay, reserveMs: unitReserveMs({ maxSecPerDay, days: verdict.days }) }
 }

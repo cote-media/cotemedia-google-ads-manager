@@ -579,7 +579,7 @@ export async function GET(request: Request) {
     // newest ground on first touch, and one window lower each time the last one is fully answered
     // (LORAMER_WALK_HORIZON_RECEDES_V1). Newest-first is still the design: the user has the most recent
     // months within hours. What changed is that depth now actually accrues instead of re-buying day one.
-    const sizing = await sizeNextWindow(adapter, { clientId, resource: surface.resource, segment: surface.segment })
+    const sizing = await sizeNextWindow(adapter, { clientId, resource: surface.resource, segment: surface.segment, consumerMaxS: CONSUMER_MAX_DURATION_S })
     const rot = rotation.get(`${entry.resource}|${entry.segment ?? ''}`) ?? null
 
     // ── ⛔ THE BOUNDARY STRIP — LORAMER_LOOKBACK_LANE_V1 (the top strip of LORAMER_TOP_EDGE_LANE_V1, converted) ──
@@ -867,7 +867,7 @@ export async function GET(request: Request) {
           if (!entry) continue
           const spdKey = `${h.surface.resource}|${h.surface.segment}`
           if (!missedSpd.has(spdKey)) {
-            const sz = await sizeNextWindow(adapter, { clientId, resource: h.surface.resource, segment: h.surface.segment })
+            const sz = await sizeNextWindow(adapter, { clientId, resource: h.surface.resource, segment: h.surface.segment, consumerMaxS: CONSUMER_MAX_DURATION_S })
             missedSpd.set(spdKey, sz.maxSecPerDay ?? null)
           }
           const spd = missedSpd.get(spdKey) ?? null

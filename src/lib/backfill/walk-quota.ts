@@ -125,8 +125,16 @@ export function decideWalkHold(a: { kind: WalkQuotaKind; nowMs: number; priorBac
     if (kind.rateScope === 'ACCOUNT') {
       return { kind: 'lane', untilMs, backoffTries: 0, reason: `${tag} — Google named this ACCOUNT's bucket; holding this lane for the sent ${kind.retryDelayS} s (${kind.delaySource}); other lanes continue` }
     }
-    // DEVELOPER, or a delay whose scope Google did not name: the fleet, exactly as today.
-    return { kind: 'fleet', untilMs, reason: `${tag} — ${kind.rateScope === 'DEVELOPER' ? "Google named the DEVELOPER token's bucket" : 'scope not named by Google'}; holding the fleet for the sent ${kind.retryDelayS} s (${kind.delaySource})` }
+    // LORAMER_DESCEND_WINDOW_360_V1 (2026-09-22): a delay whose scope Google did NOT name holds THIS LANE only. Google's own
+    // doc says the QPS bucket is enforced per customer ID and per Cloud project independently, and every refusal we have
+    // ever received (4, 2026-09-17..21) was unnamed and parked the whole fleet on one account's bucket. If it was the
+    // project bucket, the other active lanes are refused once each and the store arms the fleet on the SECOND distinct
+    // account inside the same delay (applyWalkHold) — bounded to one refused request per active lane.
+    if (kind.rateScope === 'UNKNOWN') {
+      return { kind: 'lane', untilMs, backoffTries: 0, reason: `${tag} — scope not named by Google; holding this lane for the sent ${kind.retryDelayS} s (${kind.delaySource}); the fleet holds only if a second account is refused inside the delay` }
+    }
+    // DEVELOPER: the fleet, exactly as before.
+    return { kind: 'fleet', untilMs, reason: `${tag} — Google named the DEVELOPER token's bucket; holding the fleet for the sent ${kind.retryDelayS} s (${kind.delaySource})` }
   }
   // No delay anywhere: Google's sample schedule, lane-scoped, then a bounded hold rather than a loop.
   const tries = Math.max(0, Math.floor(a.priorBackoffTries)) + 1

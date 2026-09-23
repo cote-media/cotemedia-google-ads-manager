@@ -44,6 +44,10 @@ a JOB — LORAMER_GOOGLE_DELETE_JOB_V1; backup dispatched by the executor, run #
     (90-day p99 35.2 s, n=1,810 — DERIVED from that report). ⚠ The condition itself is written in no repo doc (grepped
     2026-09-22: no 365-day rule in DECISIONS or MAP), so B2's own round states it before the change. Check the largest accounts
     against the rule. Before clients run in parallel, one account's throttle must stop pausing the fleet.
+    ⇒ SHIPPED 2026-09-22 after rounds 24–25, LORAMER_DESCEND_WINDOW_360_V1 (this push): the 90-day p99 measured live (32.3 s, n=10,801 — the
+    condition met); 360 not 365 (the exact-bound invariant); a TIME cap beside the row cap so every unit fits the 300 s consumer (Bath Fitter's
+    heaviest surface sizes to 62 days at 3.07 s/day); an unnamed refusal holds its lane, the fleet only on a second account inside the delay. The
+    parallel-clients half stays queued.
 (4) TRI-COPY PROOF — reconnect on -next (marked walk), press Backfill; the descent and the daily capture run on the one engine;
     zero old-spelling rows written; Russ reconciles it against the Google Ads app. ⚠ retention-wall.ts reads Tri-Copy as the
     canary at 10:15Z (QUEUE ★RETENTION-CANARY-HARDWIRED-TO-ONE-CLIENT).
