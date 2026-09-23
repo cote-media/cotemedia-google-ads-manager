@@ -14,6 +14,9 @@
 // The column must exist once migrations/101 is in the repo: a missing column is RED (schema behind the repo).
 //
 //   node scripts/check-engine-marker.mjs [--guard] [--fixture]
+// LORAMER_ONE_ENGINE_V1 (2026-09-22): since migration 102 new connections default to walk and every old-engine writer refuses
+// a walk row before its first claim (tests/guards/one-engine-writers.guard.mjs pins the source order). This leg is the RUNTIME
+// proof: a walk-marked connection with any old-engine trace after its creation means a writer slipped the predicate.
 //   --fixture: inside ONE transaction that ends in ROLLBACK, mark the oldest google connection 'walk' (adding the
 //              column first if 101 is not applied) and run the same detector — it MUST fire. Nothing persists.
 import { readFileSync } from 'node:fs'

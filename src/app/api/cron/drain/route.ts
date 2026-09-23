@@ -13,6 +13,7 @@
 //    recently-claimed first; no explicit release (the 360s lease both rotates fairness and auto-frees).
 //  • RESUMABLE: cursor writers resume their sync_state cursor; range writers resume via the registry's cursor.
 //    A half-drained connection = forward-complete + however-deep-so-far (idempotent, reconcile-gated) — correct.
+import { legacyEngineServes } from '@/lib/backfill/google-ads-universe-writer' // LORAMER_ONE_ENGINE_V1
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { detectTrigger, startCronRuns, finishCronRun, type CronPlatform } from '@/lib/cron-runs'
@@ -195,7 +196,7 @@ export async function GET(request: Request) {
   // 1) Existing connections for this platform (optionally one). NO-OP if none exist.
   let q = supabaseAdmin
     .from('platform_connections')
-    .select('client_id, platform, account_id, onboard_steps_done, backfill_priority')
+    .select('client_id, platform, account_id, onboard_steps_done, backfill_priority, engine') // LORAMER_ONE_ENGINE_V1 — the engine rides the row
     .eq('platform', platform)
   if (onlyClientId) q = q.eq('client_id', onlyClientId)
   const { data: rows, error: connErr } = await q
@@ -216,7 +217,16 @@ export async function GET(request: Request) {
 
   // 2) Pending = required ⊄ done, real connection (account_id present), deduped by (client_id) for this platform.
   const seen = new Set<string>()
+  // LORAMER_ONE_ENGINE_V1 — FIRST, before account_id, archived, dedupe, priority, the claim and every step, scoped or
+  // unscoped: a connection the legacy engine does not serve never enters `pending`. Recorded beside the ledger (never
+  // inside it — an engine skip was never attempted) and logged per row.
+  const engineSkipped: Array<{ client_id: string; account_id: string; engine: string | null }> = []
   const pending = (rows ?? []).filter((r: any) => {
+    if (!legacyEngineServes(r)) {
+      engineSkipped.push({ client_id: r.client_id, account_id: r.account_id, engine: r.engine ?? null })
+      console.log(`[cron/drain] ${platform} ${r.client_id} ${r.account_id}: engine ${r.engine} — no legacy step; the walk's rotation and the driver serve it`)
+      return false
+    }
     if (!r.account_id) return false
     if (archivedClientIds.has(r.client_id)) return false // LORAMER_DELETE_CLIENT_V1 — archived → no new capture
     if (seen.has(r.client_id)) return false
@@ -229,7 +239,7 @@ export async function GET(request: Request) {
   if (pending.length === 0) {
     // Ran, examined the connection set, found nothing to do. Zero attempted is a REAL reading, not an absence.
     await finishCronRun(cronRunId, { connectionsAttempted: 0, connectionsSucceeded: 0, connectionsErrored: 0, connectionsSkipped: 0 })
-    return NextResponse.json({ platform, dryRun, trigger, cap, selected: 0, note: 'nothing pending — no-op', results: [] }, { status: 200 })
+    return NextResponse.json({ platform, dryRun, trigger, cap, selected: 0, note: 'nothing pending — no-op', engineSkipped, results: [] }, { status: 200 })
   }
 
   // 3) PRIORITY LANE then round-robin: backfill_priority DESC (HIGH new-clients first), then least-recently-claimed
@@ -411,6 +421,7 @@ export async function GET(request: Request) {
 
   return NextResponse.json({
     platform, dryRun, trigger, cap, concurrency,
+    engineSkipped, // LORAMER_ONE_ENGINE_V1 — connections the legacy engine does not serve, with their engine
     pendingTotal: pending.length,
     selected: drained,
     claimSkipped,

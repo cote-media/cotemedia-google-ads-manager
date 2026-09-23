@@ -645,6 +645,16 @@ export function engineOfConnection(conn: { engine?: string | null } | null | und
 }
 
 /**
+ * ⛔ LORAMER_ONE_ENGINE_V1 (2026-09-22) — THE ONE PREDICATE EVERY OLD-ENGINE WRITER ASKS BEFORE IT CLAIMS OR WRITES.
+ * True when the LEGACY engine (cron/sync · cron/catchup · cron/drain · the manual run-backfill engines) serves this
+ * connection; false for a walk-marked one, which the walk's rotation and the forward driver serve instead. Every
+ * non-google row is 'legacy' by construction (migration 101's default until 102 flips it for NEW rows; only google rows
+ * are ever marked walk), so the predicate is platform-agnostic. Throws — never defaults — on a value outside the CHECK.
+ * tests/guards/one-engine-writers.guard.mjs pins every writer to it, in source order before its first claim.
+ */
+export const legacyEngineServes = (conn: { engine?: string | null } | null | undefined): boolean => engineOfConnection(conn) === 'legacy'
+
+/**
  * ⛔ THE VENDOR'S OWN DENOMINATOR — every entry the catalog says DELIVERS and can be asked per-date.
  * LORAMER_VENDOR_CATALOG_IS_THE_DENOMINATOR_V1: completeness is measured against the vendor's list, never
  * ours. `selectableEntries` above is the NUMERATOR — what we actually publish — and the difference between

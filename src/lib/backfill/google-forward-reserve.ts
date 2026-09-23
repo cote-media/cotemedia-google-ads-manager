@@ -81,8 +81,9 @@ export async function googleForwardProgress(
 ): Promise<{ activeClients: number; completedClients: number; pending: boolean }> {
   const { data: conns } = await supabaseAdmin
     .from('platform_connections')
-    .select('client_id')
+    .select('client_id, engine')
     .eq('platform', 'google')
+    .eq('engine', 'legacy') // LORAMER_ONE_ENGINE_V1 — only the connections the legacy forward lane will stamp count as active
     .not('account_id', 'is', null)
   const ids = Array.from(new Set((conns ?? []).map((r: any) => r.client_id as string).filter(Boolean)))
   if (ids.length === 0) return { activeClients: 0, completedClients: 0, pending: false }

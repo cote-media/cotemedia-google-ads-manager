@@ -11,6 +11,7 @@
 // Idempotent on METRICS_DAILY_CONFLICT, so overlap with the forward run is a harmless
 // rewrite. Per-day errors are recorded and skipped (presence detection self-retries).
 
+import { legacyEngineServes } from '@/lib/backfill/google-ads-universe-writer' // LORAMER_ONE_ENGINE_V1 — the one predicate before any claim
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { resolveDateWindow, addDaysIso } from '@/lib/date-range'
@@ -72,6 +73,8 @@ type PlatformConnection = {
   account_id: string
   account_name?: string | null
   user_email?: string | null
+  /** LORAMER_ONE_ENGINE_V1 — which engine serves this connection (migration 101: legacy | walk). Read, never defaulted. */
+  engine?: string | null
 }
 
 type ClientRow = {
@@ -192,7 +195,9 @@ async function computeFillDays(
 // ORDER + fairness. Connection source = platform_connections for all 5 (GA is present there too, verified).
 async function pendingCatchupClients(platform: string, clientRows: ClientRow[]): Promise<ClientRow[]> {
   const connected = clientRows.filter(
-    (c) => (c.platform_connections || []).some((pc) => pc.platform === platform)
+    // LORAMER_ONE_ENGINE_V1 — a connection the legacy engine does not serve is not connected FOR THIS LOOP: no pending
+    // read, no claim, no stamp. Platform-agnostic: only google rows are ever marked walk.
+    (c) => (c.platform_connections || []).some((pc) => pc.platform === platform && legacyEngineServes(pc))
   )
   if (connected.length === 0) return []
   const { data: claimRows } = await supabaseAdmin
@@ -576,7 +581,7 @@ export async function GET(request: Request) {
   for (const client of __pending) {
     if (Date.now() - started > CATCHUP_BUDGET_MS) break // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — budget stop between CLIENTS
     if (!(await claimCatchup('google', client.id))) continue // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — '__catchup_' claim
-    const googleConnections = (client.platform_connections || []).filter(c => c.platform === 'google')
+    const googleConnections = (client.platform_connections || []).filter(c => c.platform === 'google' && legacyEngineServes(c)) // LORAMER_ONE_ENGINE_V1 — the same predicate, on the row the loop touches
     if (googleConnections.length === 0) continue
 
     for (const conn of googleConnections) {

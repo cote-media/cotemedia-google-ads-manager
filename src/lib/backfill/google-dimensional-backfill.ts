@@ -11,6 +11,7 @@
 // SYNTHETIC sync_state key platform='google_dimensional' (the metrics_daily rows stay platform='google'),
 // so re-runs resume and never collide with the account backfill cursor.
 
+import { legacyEngineServes } from '@/lib/backfill/google-ads-universe-writer' // LORAMER_ONE_ENGINE_V1
 import { supabaseAdmin } from '@/lib/supabase'
 import { normalizeMetricsRows } from '@/lib/metrics-normalize' // LORAMER_METRICS_NORMALIZE_V1
 import {
@@ -76,6 +77,10 @@ export async function runGoogleDimensionalBackfill(
   const conn = (client.platform_connections || []).find((c: any) => c.platform === 'google')
   if (!conn) {
     return { status: 400, body: { error: 'Client has no Google connection' } }
+  }
+  // ⛔ LORAMER_ONE_ENGINE_V1 — refused before the token load: the walk serves a walk-marked connection.
+  if (!legacyEngineServes(conn)) {
+    return { status: 409, body: { error: 'this google connection is served by the walk engine; the legacy backfill does not run for it', engine: conn.engine ?? null } }
   }
   const customerId = conn.account_id as string
   const userEmail = (conn.user_email || client.user_email) as string

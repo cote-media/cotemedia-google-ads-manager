@@ -8,7 +8,7 @@
 >
 > ⛔ **EVERY FACTUAL LINE HERE IS VERIFIED AGAINST THE CODE, and is dated.** If a line and the code disagree,
 > THE CODE IS RIGHT and this file is stale — say so and fix it the same day.
-> Last verified against the code: **2026-09-22** (round 18: the impression-share family for walk connections; rounds 12 and 14 shipped the driver's per-engine catalogue and settings writer)
+> Last verified against the code: **2026-09-22** (round 23: one engine — the old google writers refuse a walk connection, the default is walk; rounds 12, 14 and 18 shipped the driver's catalogue, its settings writer and the impression-share family)
 
 ---
 
@@ -224,7 +224,9 @@ changed. Days older than the limit are asked; an empty answer there is held and 
    button, in the same piece of work. Must not break: **a connected client must never show an empty screen.**
    This is why the old writers keep running until this lands.
 3. **Retire the old capture code for Google.** Must not break: the Shopify reviewer's access, and the other
-   four platforms, which still depend on the old writers entirely.
+   four platforms, which still depend on the old writers entirely. ⇒ 2026-09-22 (LORAMER_ONE_ENGINE_V1): the old
+   writers are already OFF for every walk-marked google connection and new connections are the walk's by default;
+   what remains here is deleting the legacy google code once the last legacy connection is reconnected.
 4. **Everything else** — other platforms, other ways to sign up, many customers at once.
 
 ---

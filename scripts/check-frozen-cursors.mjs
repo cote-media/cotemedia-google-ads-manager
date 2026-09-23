@@ -142,7 +142,8 @@ const CURSOR_SQL = `
          (s.updated_at at time zone 'UTC')::date::text                 as "updatedAt",
          exists (select 1 from platform_connections p
                   where p.client_id = s.client_id
-                    and p.platform = split_part(s.platform, '_', 1))   as "hasConn",
+                    and p.platform = split_part(s.platform, '_', 1)
+                    and p.engine = 'legacy')                            as "hasConn", -- LORAMER_ONE_ENGINE_V1: a walk connection's legacy cursors are retired, never frozen
          (select string_agg(distinct p.health, '/') from platform_connections p
            where p.client_id = s.client_id
              and p.platform = split_part(s.platform, '_', 1))          as health

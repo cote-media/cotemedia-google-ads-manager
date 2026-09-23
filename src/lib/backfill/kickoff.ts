@@ -11,7 +11,13 @@ import { waitUntil } from '@vercel/functions'
 // Vercel, then detaches; the drain runs to completion on its OWN invocation (up to 800s), independent of the
 // aborted caller connection. (Even if Vercel ever cancelled the callee on caller-abort, the drain is idempotent +
 // resumable and the cron resumes it — graceful either way.)
-export function kickoffBackfill(origin: string, clientId: string, platform: string): void {
+export function kickoffBackfill(origin: string, clientId: string, platform: string, engine?: string | null): void {
+  // ⛔ LORAMER_ONE_ENGINE_V1 — a google connection the walk serves gets NO legacy drain kick. The drain would refuse it
+  // anyway (its pending filter reads the engine first); this is the second line, so the kick is not a wasted request.
+  if (platform === 'google' && engine === 'walk') {
+    console.log(`[kickoff] google walk connection — no legacy drain kick; the walk's rotation and the driver serve it (client=${clientId})`)
+    return
+  }
   const secret = process.env.CRON_SECRET
   if (!secret) {
     console.error(`[kickoff] CRON_SECRET missing — skipping immediate kickoff (client=${clientId} platform=${platform}); */5 cron fallback covers it`)

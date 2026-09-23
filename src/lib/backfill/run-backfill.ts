@@ -21,6 +21,7 @@
 //   - floorDate: a per-adapter hard floor (e.g. the GA Data API refuses any
 //     start date earlier than 2015-08-14).
 // Adapters that set none of these (Google, Meta) behave EXACTLY as in V2.
+import { legacyEngineServes } from '@/lib/backfill/google-ads-universe-writer' // LORAMER_ONE_ENGINE_V1
 import { supabaseAdmin } from '@/lib/supabase'
 import { normalizeMetricsRows } from '@/lib/metrics-normalize' // LORAMER_METRICS_NORMALIZE_V1
 
@@ -121,7 +122,15 @@ export async function runBackfill(
     account_id: string
     account_name?: string | null
     user_email?: string | null
+    engine?: string | null
   }>
+
+  // ⛔ LORAMER_ONE_ENGINE_V1 — a connection the legacy engine does not serve is REFUSED here, before any token load and any
+  // write: this engine is the old one (the manual /api/backfill/* routes and the drain's account step ride it).
+  const ownConn = connections.find((c) => c.platform === adapter.platform)
+  if (ownConn && !legacyEngineServes(ownConn)) {
+    return { status: 409, body: { error: `this ${adapter.platform} connection is served by the walk engine; the legacy backfill does not run for it`, engine: ownConn.engine ?? null } }
+  }
 
   let token: string
   let accountId: string

@@ -80,10 +80,11 @@ export async function PATCH(request: Request) {
   //      SAME metered __catchup_ lane + Google quota guard. Within-floor gap days are refetched + persisted; days
   //      below a platform floor are never fetched (documented gap, never a false zero). The 35-day catchup window
   //      does NOT bound restore recovery — the retention floor does.
-  const { data: conns } = await supabase.from('platform_connections').select('platform').eq('client_id', id)
+  const { data: conns } = await supabase.from('platform_connections').select('platform, engine').eq('client_id', id) // LORAMER_ONE_ENGINE_V1
+  const engineOf = new Map<string, string | null>((conns || []).map((c: any) => [c.platform as string, (c.engine as string | null) ?? null]))
   const platforms = Array.from(new Set((conns || []).map((c: any) => c.platform).filter(Boolean))) as string[]
   const origin = new URL(request.url).origin
-  for (const p of platforms) kickoffBackfill(origin, id, p)
+  for (const p of platforms) kickoffBackfill(origin, id, p, engineOf.get(p) ?? null)
   kickoffGapBackfill(origin, id, archivedAt.slice(0, 10)) // full [archivedAt, today] gap-fill, all platforms
   return NextResponse.json({ restored: id, kicked: platforms, gapBackfillSince: archivedAt.slice(0, 10) })
 }

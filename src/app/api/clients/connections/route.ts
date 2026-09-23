@@ -39,7 +39,7 @@ export async function POST(request: Request) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   // LORAMER_SELFSERVE_SPINE_V1 step 2 — connect-kickoff: new connection = HIGH priority + immediate drain.
-  kickoffBackfill(new URL(request.url).origin, client_id, platform)
+  kickoffBackfill(new URL(request.url).origin, client_id, platform, (data as { engine?: string | null } | null)?.engine ?? null) // LORAMER_ONE_ENGINE_V1 — the engine off the row just inserted
   return NextResponse.json({ connection: data })
 }
 

@@ -37,6 +37,9 @@ a JOB — LORAMER_GOOGLE_DELETE_JOB_V1; backup dispatched by the executor, run #
 (2) B4 ONE ENGINE — must be true: nothing writes an old-spelling google row for a walk connection — connect, Backfill, restore,
     sync, catchup and drain. The default for new connections flips to walk in the same build (DECISIONS
     LORAMER_CONNECTION_ENGINE_MARKER_V1 owns why not before). Detector: the engine-marker check:data leg.
+    ⇒ SHIPPED 2026-09-22 after rounds 19–22, LORAMER_ONE_ENGINE_V1 (this push): one predicate legacyEngineServes in every old writer before
+    its first claim; migration 102 applied (default walk; 52 rows legacy); the reconnect's INSERT is the marking write. Tri-Copy's
+    reconnect on -next is now step (4) with nothing in front of it except ★IMPRESSION-SHARE-READER-REACH for Lora's answer.
 (3) B2 SPEED — must be true: descend asks move from 90-day to 365-day windows. The 2026-09-18 condition is met per round 3
     (90-day p99 35.2 s, n=1,810 — DERIVED from that report). ⚠ The condition itself is written in no repo doc (grepped
     2026-09-22: no 365-day rule in DECISIONS or MAP), so B2's own round states it before the change. Check the largest accounts

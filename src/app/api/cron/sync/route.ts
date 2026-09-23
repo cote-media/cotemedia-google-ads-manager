@@ -1,6 +1,7 @@
 // LORAMER_FORWARD_CAPTURE_CRON_V1
 // Nightly forward-capture: yesterday's Shopify + Meta + Google metrics -> metrics_daily.
 
+import { legacyEngineServes } from '@/lib/backfill/google-ads-universe-writer' // LORAMER_ONE_ENGINE_V1 — the one predicate before any claim
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { resolveDateWindow } from '@/lib/date-range'
@@ -53,6 +54,8 @@ type PlatformConnection = {
   account_id: string
   account_name?: string | null
   user_email?: string | null
+  /** LORAMER_ONE_ENGINE_V1 — which engine serves this connection (migration 101: legacy | walk). Read, never defaulted. */
+  engine?: string | null
 }
 
 type ClientRow = {
@@ -139,7 +142,9 @@ async function pendingForwardClients(
   captureDate: string
 ): Promise<ClientRow[]> {
   const connected = clientRows.filter(
-    (c) => (c.platform_connections || []).some((pc) => pc.platform === platform)
+    // LORAMER_ONE_ENGINE_V1 — a connection the legacy engine does not serve is not connected FOR THIS LOOP: no pending
+    // read, no claim, no stamp. Platform-agnostic: only google rows are ever marked walk.
+    (c) => (c.platform_connections || []).some((pc) => pc.platform === platform && legacyEngineServes(pc))
   )
   if (connected.length === 0) return []
   const { data: ssRows } = await supabaseAdmin
@@ -726,7 +731,7 @@ export async function GET(request: Request) {
     if (Date.now() - started > FORWARD_BUDGET_MS) break // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — per-fire budget
     if (!(await claimForward('google', client.id))) continue // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — '__fwd_' claim
     const connections = client.platform_connections || []
-    const googleConnections = connections.filter(c => c.platform === 'google')
+    const googleConnections = connections.filter(c => c.platform === 'google' && legacyEngineServes(c)) // LORAMER_ONE_ENGINE_V1 — the same predicate, on the row the loop touches
 
     if (googleConnections.length === 0) {
       continue

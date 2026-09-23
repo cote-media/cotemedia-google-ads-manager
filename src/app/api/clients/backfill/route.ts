@@ -53,7 +53,7 @@ export async function POST(request: Request) {
 
   // The pressed platform must be connected (NO connection created/changed).
   const { data: conns } = await supabaseAdmin
-    .from('platform_connections').select('platform').eq('client_id', id).eq('platform', platform)
+    .from('platform_connections').select('platform, engine').eq('client_id', id).eq('platform', platform) // LORAMER_ONE_ENGINE_V1
   if (!conns || conns.length === 0) return NextResponse.json({ error: `${platform} is not connected on this client` }, { status: 409 })
 
   const origin = url.origin
@@ -63,7 +63,7 @@ export async function POST(request: Request) {
   //     and declines cleanly; the four other platforms' drains are live). (2) interior-gap repair over [since, today].
   //     ⛔ Kept byte-for-byte for every platform — ruling (n): the legacy family remains the one writer of the 52 legacy
   //     keys; the walk owns the catalogue spelling; disjoint surfaces, no row written twice.
-  kickoffBackfill(origin, id, platform)
+  kickoffBackfill(origin, id, platform, (conns[0] as { engine?: string | null }).engine ?? null) // LORAMER_ONE_ENGINE_V1
   kickoffGapBackfill(origin, id, since)
 
   if (platform !== 'google') {
