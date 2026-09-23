@@ -515,6 +515,7 @@ const GUARDS = [
   'tests/guards/fire-plans-until-full.guard.mjs', // LORAMER_FIRE_PLANS_UNTIL_FULL_V1 — the scan stops deriving when the planned reserve fills the fire budget; asked before the stop read and after sizing
   'tests/guards/asking-counts-executed-only.guard.mjs', // LORAMER_FIRE_PLANS_UNTIL_FULL_V1 — the no-progress clock counts executed units, never selected ones
   'tests/guards/run-claim-is-exclusive.guard.mjs', // LORAMER_FIRE_PLANS_UNTIL_FULL_V1 — claim CAS on last_invocation is null; a lease-held fire ends the chain
+  'tests/guards/proof-instruments-read-engine.guard.mjs', // LORAMER_ENGINE_KEYED_INSTRUMENTS_V1 — the proof's instruments read the google account row through googleAccountKeyFor(engine); mirror == source; unknown engine throws
   'tests/guards/unit-reserve-per-surface.guard.mjs', // LORAMER_UNIT_RESERVE_PER_SURFACE_V1 — a unit reserves 18 s + its surface's s/day × days × 1.48 (floor 18 s) from the ledger's duration_ms; the fire and the worker admit against it
   'tests/guards/resume-from-committed-day.guard.mjs', // LORAMER_RESUME_FROM_COMMITTED_DAY_V1 — a retry asks the remainder (Airbyte streams.py:117-130); the bound and the mis-size split reason over it
   'tests/guards/idle-reuse-month.guard.mjs', // LORAMER_IDLE_REUSE_MONTH_V1 — account-activity answers keyed by calendar month, reused for zero requests within the fire and across fires via the ledger's named days

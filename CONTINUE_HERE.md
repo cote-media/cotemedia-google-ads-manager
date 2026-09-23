@@ -59,6 +59,11 @@ a JOB — LORAMER_GOOGLE_DELETE_JOB_V1; backup dispatched by the executor, run #
     NEXT: after the deploy reads READY, Russ presses Backfill history again on -next; the run should reach 2016-04-20 in hours; then the
     reconcile (round 27 §6, August 2026, the walk's customer row). The first production fire's scanMs is the confirming read for the
     scan share (★FIRE-SCAN-FIXED-COST holds the remainder).
+    ⇒ 2026-09-23 (rounds 36–38): the re-pressed run is stepping on the new build (69 units per fire, 0 deferred); check:data's
+    capture-landing judged the walk-marked connection by the LEGACY account row and read 590→1,305 false findings — round 38 BUILT
+    LORAMER_ENGINE_KEYED_INSTRUMENTS_V1 (this push): one predicate googleAccountKeyFor(engine), capture-landing judges the walk's
+    customer row at or above its frontier while running, a guard on the proof's instruments by name. The screen-side readers of the
+    same key (readiness, serving routes, coverage.ts, Lora's query layer) are HELD FOR WIRE by Russ's ruling — ★SCREEN-READERS-HELD-FOR-WIRE.
 (5) COLD PROOF — Veterinary Mastermind, a fresh Gmail as a direct user, a NEW client record; hold the existing Veterinary
     Mastermind client's google lane while it runs (DECISIONS LORAMER_COLD_PROOF_RIG_V1 owns the rig).
 (6) FLEET — every other client, one at a time: Delete Google data → reconnect → Backfill → reconcile. Bath Fitter last. The

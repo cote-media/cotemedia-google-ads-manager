@@ -43,6 +43,7 @@ import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 import pg from 'pg'
 import { KNOWN_ACCOUNT_ROW_VIOLATIONS } from './account-row-invariant.baseline.mjs'
+import { googleAccountKeyFor, googleAccountKeySql } from './lib/engine-keys.mjs' // LORAMER_ENGINE_KEYED_INSTRUMENTS_V1 — the account row is the ENGINE's
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const read = (rel) => { try { return readFileSync(resolve(ROOT, rel), 'utf8') } catch { return null } }
@@ -143,9 +144,12 @@ await client.connect()
 const q = async (text, params) => (await client.query(text, params)).rows
 
 const conns = await q(
-  `select pc.client_id, pc.platform, c.name
+  `select pc.client_id, pc.platform, c.name, pc.engine
      from platform_connections pc join clients c on c.id = pc.client_id
     where c.deleted_at is null order by c.name, pc.platform`)
+// LORAMER_ENGINE_KEYED_INSTRUMENTS_V1 — every connection row carries its engine (migrations/101: legacy|walk, never null);
+// the predicate refuses anything else, so a third spelling cannot slip in as "account".
+for (const c of conns) c.keySql = googleAccountKeySql(c.engine)
 
 // LORAMER_ACCOUNT_ROW_INVARIANT_V1 — focused mode: run only the second assertion, reusing this connection.
 if (INVARIANT_ONLY) {
@@ -167,8 +171,7 @@ for (const c of conns) {
   const [anchor] = await q(
     `select count(*)::int as active_days, max(m.date) as last_active
        from metrics_daily m
-      where m.client_id = $1 and m.platform = $2 and m.entity_level = 'account'
-        and m.breakdown_type = '' and m.breakdown_value = ''
+      where m.client_id = $1 and m.platform = $2 ${c.keySql}
         and m.date >= current_date - $3::int and ${ACTIVE}`,
     [c.client_id, c.platform, WINDOW_DAYS])
   if (!anchor.active_days) continue // dormant in-window: nothing to expect, nothing to flag
@@ -183,8 +186,7 @@ for (const c of conns) {
   const probe = await q(
     `with act as (
         select m.date from metrics_daily m
-         where m.client_id = $1 and m.platform = $2 and m.entity_level = 'account'
-           and m.breakdown_type = '' and m.breakdown_value = ''
+         where m.client_id = $1 and m.platform = $2 ${c.keySql}
            and m.date >= current_date - $3::int and ${ACTIVE})
       select f.bt, f.lvl,
              (select count(*)::int from metrics_daily m
@@ -316,8 +318,8 @@ function fmtDate(d) {
 // days in 243ms (EXPLAIN ANALYZE, all Index Only Scan limit-1 on idx_metrics_daily_client_platform_date; acctDates'
 // triple predicate rides the partial idx_metrics_daily_account_canonical). No ceiling-raise — honours the 8s law.
 // Formatting is done in JS so the index sort order is preserved.
-async function datesFor(q, clientId, platform, accountOnly) {
-  const filt = accountOnly ? `and m.entity_level = 'account' and m.breakdown_type = '' and m.breakdown_value = ''` : ``
+async function datesFor(q, clientId, platform, keySql) {
+  const filt = keySql || `` // LORAMER_ENGINE_KEYED_INSTRUMENTS_V1 — the caller passes the ENGINE's account-row filter, or nothing for "any row"
   const rows = await q(
     `with recursive dd as (
         select (select m.date from metrics_daily m
@@ -336,20 +338,58 @@ async function datesFor(q, clientId, platform, accountOnly) {
 async function runAccountRowInvariant(conns, q, { gateA, guard, proveExact }) {
   console.log('\n════════════════════════════════════════════════════════════════════════════════════════════════════')
   console.log('LORAMER_ACCOUNT_ROW_INVARIANT_V1 (SECOND ASSERTION — live DB, read-only)')
-  console.log("  rule: every (client, platform, date) with ANY row must carry an account row")
-  console.log("        (entity_level='account', breakdown_type='', breakdown_value=''). Uniform — no family exemption.")
+  console.log("  rule: every (client, platform, date) with ANY row must carry the ENGINE's account row — legacy: entity_level='account',")
+  console.log("        breakdown_type='', breakdown_value='' · walk: the customer/customer row (LORAMER_ENGINE_KEYED_INSTRUMENTS_V1). Uniform — no family exemption.")
+  console.log("        A walk connection still descending is judged at or above its customer surface's frontier; days below it are")
+  console.log("        'not yet asked — not judged' (counted, never a pass claim; the hole-map proof owns owed days). Sealed → every day.")
 
-  let tuplesChecked = 0
+  let tuplesChecked = 0, notJudged = 0
   const violations = []
   const scannedPairs = new Set()
   for (const c of conns) {
     scannedPairs.add(`${c.client_id}|${c.platform}`)
-    const allDates = await datesFor(q, c.client_id, c.platform, false)
-    const acctDates = await datesFor(q, c.client_id, c.platform, true)
+    const allDates = await datesFor(q, c.client_id, c.platform, null)
+    const acctDates = await datesFor(q, c.client_id, c.platform, c.keySql)
+    let judged = allDates
+    if (c.platform === 'google' && c.engine === 'walk') {
+      // LORAMER_ENGINE_KEYED_INSTRUMENTS_V1 — the walk's account surface is customer/'' in the attempt ledger. Its frontier is the
+      // oldest window it has finished asking (descend or missed); floor_stop seals it. Days with rows below an unsealed frontier are
+      // ground no lane has claimed for the account row yet — the descend lays one layer across 358 surfaces per ~6 fires, so
+      // breakdown rows routinely land before the customer row for the same day. Judging them would be red on every healthy run;
+      // skipping them silently would be blind. They are COUNTED and printed, and the hole-map proof (interior) owns them.
+      const [cust] = await q(
+        `select min(window_start)::text as frontier,
+                count(*) filter (where outcome = 'floor_stop')::int as sealed,
+                coalesce(json_agg(json_build_array(window_start::text, window_end::text)) filter (where outcome = 'zero'), '[]'::json) as zero_windows
+           from universe_attempt_log
+          where client_id = $1 and vendor = 'google' and phase = 'attempt_finished'
+            and resource = 'customer' and coalesce(segment, '') = '' and lane <> 'lookback'`,
+        [c.client_id])
+      const frontier = cust?.frontier ?? null
+      const sealed = (cust?.sealed ?? 0) > 0
+      const zeroWindows = Array.isArray(cust?.zero_windows) ? cust.zero_windows : []
+      if (!sealed) {
+        judged = frontier ? allDates.filter((d) => d >= frontier) : []
+        const below = allDates.length - judged.length
+        notJudged += below
+        console.log(`  walk ${c.name} (${String(c.client_id).slice(0, 8)}): customer frontier ${frontier ?? '(never asked)'} · unsealed · ${judged.length} day(s) judged at or above it · ${below} day(s) not yet asked — not judged`)
+      } else {
+        console.log(`  walk ${c.name} (${String(c.client_id).slice(0, 8)}): customer surface SEALED — every day judged (${allDates.length})`)
+      }
+      const acct = new Set(acctDates)
+      for (const d of judged) {
+        if (acct.has(d)) continue
+        const attested = zeroWindows.some(([a, b]) => d >= a && d <= b)
+        violations.push({ clientId: c.client_id, client: c.name, platform: c.platform, date: d, cause: attested ? 'customer surface attested EMPTY for this day while breakdown rows exist — a contradiction, not an exemption' : 'no customer row' })
+      }
+      tuplesChecked += judged.length
+      continue
+    }
     tuplesChecked += allDates.length
     for (const d of accountRowViolations(allDates, acctDates))
       violations.push({ clientId: c.client_id, client: c.name, platform: c.platform, date: d })
   }
+  if (notJudged > 0) console.log(`  not yet asked — not judged (walk connections, below the customer frontier): ${notJudged} day(s)`)
 
   // --prove-exact: inject a synthetic violation OUTSIDE the baselined range (in memory only, no DB write) to prove
   // the baseline is a bounded [from..to] window — this out-of-range Shelley woo day must NOT be baselined → guard fails.
@@ -381,7 +421,7 @@ async function runAccountRowInvariant(conns, q, { gateA, guard, proveExact }) {
           where client_id = $1 and platform = $2 and date = $3::date`,
         [v.clientId, v.platform, v.date])
       const label = `${v.client} (${String(v.clientId).slice(0, 8)})`
-      console.log(`     ${label.padEnd(42)} ${v.platform.padEnd(12)} ${v.date}   rows=${row.n} (all breakdown; no account row)`)
+      console.log(`     ${label.padEnd(42)} ${v.platform.padEnd(12)} ${v.date}   rows=${row.n} (all breakdown; ${v.cause ?? 'no account row'})`)
     }
     if (violations.length > 20) console.log(`     … and ${violations.length - 20} more`)
   } else {
@@ -435,8 +475,8 @@ function classifyAgainstBaseline(violations, scannedPairs) {
 async function runGateA(conns, q) {
   console.log('\n  ── GATE-A (real-input, no fixtures, no writes) ──')
   for (const c of conns) {
-    const allDates = await datesFor(q, c.client_id, c.platform, false)
-    const acctDates = await datesFor(q, c.client_id, c.platform, true)
+    const allDates = await datesFor(q, c.client_id, c.platform, null)
+    const acctDates = await datesFor(q, c.client_id, c.platform, c.keySql)
     const baseline = accountRowViolations(allDates, acctDates)
     if (baseline.length !== 0 || acctDates.length < 5) continue // need a clean baseline with room to exclude
     const pick = [...new Set([acctDates[1], acctDates[Math.floor(acctDates.length / 2)], acctDates[acctDates.length - 2]])].sort()
