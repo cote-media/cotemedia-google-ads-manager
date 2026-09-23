@@ -51,6 +51,14 @@ a JOB — LORAMER_GOOGLE_DELETE_JOB_V1; backup dispatched by the executor, run #
 (4) TRI-COPY PROOF — reconnect on -next (marked walk), press Backfill; the descent and the daily capture run on the one engine;
     zero old-spelling rows written; Russ reconciles it against the Google Ads app. ⚠ retention-wall.ts reads Tri-Copy as the
     canary at 10:15Z (QUEUE ★RETENTION-CANARY-HARDWIRED-TO-ONE-CLIENT).
+    ⇒ 2026-09-23: the reconnect landed WALK (round 28: engine walk, kick no-op, marker green, first rotation fire 43 s later, inception
+    2016-04-20); the press ran and the run ENDED FAILED at 16:35:56Z (round 30: at 360-day windows the fire's scan — a per-day coverage
+    probe — ate the whole fire budget on a cold account; the fleet was unaffected). Rounds 31–33 converged the fix; round 34 BUILT
+    LORAMER_FIRE_PLANS_UNTIL_FULL_V1 (this push; migration 103 live): one coverage RPC per candidate, the scan plans only what the fire
+    can execute, deferred units never count as asking, one chain per run. Gate-A's wet fire on Tri-Copy executed 68 units (0 deferred).
+    NEXT: after the deploy reads READY, Russ presses Backfill history again on -next; the run should reach 2016-04-20 in hours; then the
+    reconcile (round 27 §6, August 2026, the walk's customer row). The first production fire's scanMs is the confirming read for the
+    scan share (★FIRE-SCAN-FIXED-COST holds the remainder).
 (5) COLD PROOF — Veterinary Mastermind, a fresh Gmail as a direct user, a NEW client record; hold the existing Veterinary
     Mastermind client's google lane while it runs (DECISIONS LORAMER_COLD_PROOF_RIG_V1 owns the rig).
 (6) FLEET — every other client, one at a time: Delete Google data → reconnect → Backfill → reconcile. Bath Fitter last. The

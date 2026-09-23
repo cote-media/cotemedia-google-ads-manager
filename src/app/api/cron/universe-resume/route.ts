@@ -60,7 +60,7 @@ import { rangesStillOwed } from '@/lib/backfill/universe-coverage'
 import { randomUUID } from 'node:crypto'
 import { appendAttemptStarted, appendAttemptFinished, readAttemptsAtSpan, type AttemptKey, type WriteProvenance } from '@/lib/backfill/universe-attempt-log'
 import { sizeNextWindow, dayDiff } from '@/lib/backfill/universe-sizing'
-import { unitReserveMs } from '@/lib/backfill/capture-adapter' // LORAMER_UNIT_RESERVE_PER_SURFACE_V1
+import { unitReserveMs, timeCappedDays, shouldDeriveNext, PLAN_STOP_RESERVE_MS } from '@/lib/backfill/capture-adapter' // LORAMER_UNIT_RESERVE_PER_SURFACE_V1 · LORAMER_FIRE_PLANS_UNTIL_FULL_V1
 import {
   MAX_ATTEMPTS_AT_MIN_SPAN, LEASE_TTL_S, CONSUMER_MAX_DURATION_S,
   FIRE_WORK_BUDGET_MS, fireDeadlineAt, UNIT_RESERVATION_FLOOR_MS, UNIT_CONCURRENCY,
@@ -461,6 +461,13 @@ export async function GET(request: Request) {
   const refusals: Array<{ label: string; verdict: string; reason: string }> = []
   if (!boundary.known) refusals.push({ label: '(lookback lane)', verdict: 'lookback-boundary-unknown', reason: boundary.reason })
   let scanned = 0
+  // ⛔ LORAMER_FIRE_PLANS_UNTIL_FULL_V1 — THE PLAN IS BOUNDED BY WHAT THIS FIRE CAN EXECUTE. Every planned unit adds its
+  // reserve here; derivation of the next candidate is admitted only while the planned reserve, plus the next candidate's,
+  // still fits before the fire deadline (shouldDeriveNext, capture-adapter.ts). Before this, the scan derived owed ranges
+  // for all 60 candidates first and executed afterwards; on a cold account at 360-day windows that derivation alone took
+  // 203–286 s of the 282 s budget (Tri-Copy, 2026-09-23), every unit was deferred, and the run ended failed.
+  let plannedReserveMs = 0, derivedOf = 0, deferredForPlan = 0
+  const planDeadlineAt = fireDeadlineAt(startedAt)
   let advancedCovered = 0 // LORAMER_WALK_UNWEDGE_AND_HEARTBEAT_V1 — covered-ground advances this fire (0 vendor ops each)
   let sealedHeld = 0     // LORAMER_WALK_FLOOR_SEAL_V1 — sealed surfaces skipped WITHOUT a scan slot this fire
   let sealedThisFire = 0 // LORAMER_WALK_FLOOR_SEAL_V1 — seals WRITTEN this fire (each is once-only evidence)
@@ -543,6 +550,7 @@ export async function GET(request: Request) {
                     rangeSpans: sealedOwed.ranges.map((r) => dayDiff(r.start, r.end) + 1),
                     maxSecPerDay: null, reserveMs: unitReserveMs({ maxSecPerDay: null, days: dayDiff(sealedStrip.windowStart, sealedStrip.windowEnd) + 1 }),
                   })
+                  plannedReserveMs += lookback[lookback.length - 1].reserveMs // LORAMER_FIRE_PLANS_UNTIL_FULL_V1
                 } catch (e: any) {
                   refusals.push({ label: sealedLabel, verdict: 'lookback-coverage-error', reason: String(e?.message ?? e) })
                 }
@@ -557,6 +565,12 @@ export async function GET(request: Request) {
       }
     }
 
+    // ⛔ THE PLAN IS FULL → STOP DERIVING. The entries not reached keep their recency and lead the next fire's scan.
+    if (!shouldDeriveNext({ plannedReserveMs, nextReserveMs: PLAN_STOP_RESERVE_MS, nowMs: Date.now(), deadlineAt: planDeadlineAt, lanes: UNIT_CONCURRENCY })) {
+      deferredForPlan = rotated.length - rotated.indexOf(entry)
+      console.log(`[universe-resume] PLAN FULL ${clientId}: ${derivedOf} unit(s) planned (${plannedReserveMs} ms of reserve) after ${Date.now() - startedAt} ms — ${deferredForPlan} entr(ies) left underived for the next fire`)
+      break
+    }
     scanned++
     const surface = surfaceOfEntry(entry)
     const label = `${surface.resource}${surface.segment ? ' / ' + surface.segment : ''}`
@@ -580,6 +594,13 @@ export async function GET(request: Request) {
     // (LORAMER_WALK_HORIZON_RECEDES_V1). Newest-first is still the design: the user has the most recent
     // months within hours. What changed is that depth now actually accrues instead of re-buying day one.
     const sizing = await sizeNextWindow(adapter, { clientId, resource: surface.resource, segment: surface.segment, consumerMaxS: CONSUMER_MAX_DURATION_S })
+    // ⛔ LORAMER_FIRE_PLANS_UNTIL_FULL_V1 — now the exact reserve is known: a unit this fire cannot execute is not derived.
+    const sizedReserveMs = sizing.reserveMs ?? unitReserveMs({ maxSecPerDay: sizing.maxSecPerDay ?? null, days: sizing.days })
+    if (!shouldDeriveNext({ plannedReserveMs, nextReserveMs: sizedReserveMs, nowMs: Date.now(), deadlineAt: planDeadlineAt, lanes: UNIT_CONCURRENCY })) {
+      deferredForPlan++
+      refusals.push({ label, verdict: 'deferred-for-plan', reason: `its ${sizedReserveMs} ms reserve does not fit beside the ${plannedReserveMs} ms already planned before the fire deadline — left underived for a later fire (0 reads spent on it)` })
+      continue
+    }
     const rot = rotation.get(`${entry.resource}|${entry.segment ?? ''}`) ?? null
 
     // ── ⛔ THE BOUNDARY STRIP — LORAMER_LOOKBACK_LANE_V1 (the top strip of LORAMER_TOP_EDGE_LANE_V1, converted) ──
@@ -611,6 +632,7 @@ export async function GET(request: Request) {
             rangeSpans: stripOwed.ranges.map((r) => dayDiff(r.start, r.end) + 1),
             maxSecPerDay: sizing.maxSecPerDay ?? null, reserveMs: unitReserveMs({ maxSecPerDay: sizing.maxSecPerDay ?? null, days: dayDiff(strip.windowStart, strip.windowEnd) + 1 }),
           })
+          plannedReserveMs += lookback[lookback.length - 1].reserveMs // LORAMER_FIRE_PLANS_UNTIL_FULL_V1 — a strip unit is planned too
         } catch (e: any) {
           // ⛔ A COVERAGE READ THAT THREW IS NOT AN EMPTY STRIP. Record it and let the DESCENT continue — the
           // two lanes fail independently on purpose; a strip probe that cannot answer must not cost the
@@ -805,6 +827,7 @@ export async function GET(request: Request) {
       // LORAMER_UNIT_RESERVE_PER_SURFACE_V1 — sizing already read duration_ms; the reserve is for THIS window's days.
       maxSecPerDay: sizing.maxSecPerDay ?? null, reserveMs: unitReserveMs({ maxSecPerDay: sizing.maxSecPerDay ?? null, days: dayDiff(windowStart, windowEnd) + 1 }),
     })
+    plannedReserveMs += candidates[candidates.length - 1].reserveMs; derivedOf++ // LORAMER_FIRE_PLANS_UNTIL_FULL_V1
   }
 
   // ── BOUNDED BY CONSTRUCTION, IN THE UNIT THAT GETS SPENT ────────────────────────────────────────────
@@ -873,8 +896,11 @@ export async function GET(request: Request) {
           const spd = missedSpd.get(spdKey) ?? null
           const label = `${h.surface.resource}${h.surface.segment ? ' / ' + h.surface.segment : ''}`
           // LORAMER_DESCEND_WINDOW_90_V1 — a hole crossing the retention line is split at it first, so no request straddles it.
+          // LORAMER_FIRE_PLANS_UNTIL_FULL_V1 — chunked under the descend's own time cap: a row-bearing surface's 360-day
+          // missed ask ran 65–70 s (Tri-Copy 2016 ad_group segments); the cap sizes it to its worst s/day, cold surfaces keep 360.
+          const missedDays = timeCappedDays({ maxSecPerDay: spd, days: MISSED_WINDOW_DAYS, minDays: adapter.sizing.minDays, consumerMaxS: CONSUMER_MAX_DURATION_S }).days
           for (const part of splitAtWall(h.start, h.end, wallLine))
-          for (const w of chunkSpanOldestFirst(part.start, part.end, MISSED_WINDOW_DAYS)) {
+          for (const w of chunkSpanOldestFirst(part.start, part.end, missedDays)) {
             missed.push({
               entry, label, ranges: 1, owedDays: w.days,
               windowStart: w.start, windowEnd: w.end, sizingBasis: 'missed-hole',
@@ -1141,6 +1167,8 @@ export async function GET(request: Request) {
     }, null),
     // LORAMER_FIRE_DEADLINE_FROM_FIRE_START_V1 — the scan is now REPORTED, not assumed. It was never
     // recorded anywhere durable, which is why the allowance it fed could be a year stale and look fine.
+    // LORAMER_FIRE_PLANS_UNTIL_FULL_V1 — what the planner committed to, how many candidates it derived, how many it left.
+    plannedReserveMs, derivedOf, deferredForPlan,
     scanMs: captureStartedAt - startedAt, fireWorkBudgetMs: FIRE_WORK_BUDGET_MS,
     elapsedMs, maxDurationS: maxDuration,
   }

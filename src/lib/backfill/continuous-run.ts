@@ -236,6 +236,17 @@ export function runKey(clientId: string, vendor: string): string {
  * `body.held ?? body.meter`, so every healthy step reported "held: google: 19103 + 68 …" and the run's stop
  * reason blamed a hold that never existed. Pure, so the rule is provable without a fire.
  */
+/**
+ * LORAMER_FIRE_PLANS_UNTIL_FULL_V1 — A LEASE-HELD ANSWER ENDS THE CHAIN. The fire answers `held: "FIRE LEASE HELD — …"`
+ * when another fire owns the lane; a chain that keeps stepping on it spins at ~2 s per no-op (measured 2026-09-23:
+ * 116 lease-held fire rows in five minutes while the other invocation's real fire ran). The step exits instead; the
+ * next cron minute resumes when the lease is free. Pure.
+ */
+export function leaseHeldFromFireBody(body: unknown): boolean {
+  const h = heldFromFireBody(body)
+  return h !== null && /^FIRE LEASE HELD/.test(h)
+}
+
 export function heldFromFireBody(body: unknown): string | null {
   const h = (body as { held?: unknown } | null | undefined)?.held
   return typeof h === 'string' && h.length > 0 ? h : null

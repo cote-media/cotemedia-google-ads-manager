@@ -349,6 +349,38 @@ export const UNIT_RESERVE_FLOOR_MS = 18_000
 export const UNIT_RESERVE_FACTOR = 1.48
 
 /** PURE. The reservation for one unit of `days` on a surface whose worst observed cost is `maxSecPerDay` seconds per day. */
+/**
+ * LORAMER_FIRE_PLANS_UNTIL_FULL_V1 — THE PLANNER STOPS WHEN THE BUDGET IS COMMITTED. A fire derives owed ranges for
+ * a candidate ONLY while the reserves it has already planned, plus the next candidate's, still fit before the fire
+ * deadline. Measured 2026-09-23 on Tri-Copy (cold, 360-day candidates): the scan derived all 60 candidates in
+ * 249–286 s of a 282 s budget and every unit was deferred ("ground was offered and not taken"); the run ended
+ * failed. Planning must never outrun what the fire can execute. PLAN_STOP_RESERVE_MS is the floor reserve
+ * (UNIT_RESERVE_FLOOR_MS): before a candidate is sized, its cost is at least that; after sizing the exact reserve
+ * is used. Pure: the route supplies the clock.
+ */
+export const PLAN_STOP_RESERVE_MS = UNIT_RESERVE_FLOOR_MS
+/**
+ * LORAMER_FIRE_PLANS_UNTIL_FULL_V1 — the per-day rate (maxSecPerDay) is measured on attempts of at least this many days.
+ * A request's fixed latency is not a per-day cost: on Tri-Copy the 7-day cold-start asks took ≈1.5 s and read as
+ * 0.21 s/day, so a 360-day unit that takes 1–4 s carried a 130 s reserve and the planner could admit two per fire.
+ * ⇐ 30: at 30 days a 1.5 s fixed cost reads as 0.05 s/day (a 360-day reserve of 44 s — the floor's order), and every
+ * receded window is ≥ 30 days on this policy (minDays 1 is the NARROW path, whose durations are real per-day cost).
+ */
+export const SPD_MIN_WINDOW_DAYS = 30
+export function shouldDeriveNext(a: { plannedReserveMs: number; nextReserveMs: number; nowMs: number; deadlineAt: number; lanes?: number }): boolean {
+  const next = Math.max(PLAN_STOP_RESERVE_MS, Math.floor(a.nextReserveMs))
+  // ⛔ THE PLAN IS JUDGED ON WALL TIME, NOT ON THE SUM OF RESERVES. Units execute `lanes` wide (UNIT_CONCURRENCY, one
+  // queue per surface), so the worst case for the planned set is Σ reserve ÷ lanes — which is exactly what the fire's
+  // own execution admission protects per unit. Judged on the plain sum, a cold account whose every surface carries a
+  // 127 s reserve (a 2016 window with rows really costs 65 s) planned TWO units per fire and starved again (dry fire on
+  // the fix, 2026-09-23 19:11Z: 2 planned, 354 left); on Σ ÷ 12 it plans ~26, and if all 26 truly cost 127 s the fire
+  // still ends inside its budget. `lanes` defaults to 1 (the serial worst case) for callers that do not run wide.
+  const lanes = Math.max(1, Math.floor(a.lanes ?? 1))
+  // + one more floor reserve: the DERIVATION of the admitted candidate spends clock too (measured 1.8–4.8 s each), and
+  // a plan that fits the budget before its own derivation and not after it is the failure this exists to stop.
+  return a.nowMs + Math.ceil((a.plannedReserveMs + next) / lanes) + PLAN_STOP_RESERVE_MS <= a.deadlineAt
+}
+
 export function unitReserveMs(a: { maxSecPerDay: number | null; days: number }): number {
   const spd = a.maxSecPerDay !== null && Number.isFinite(a.maxSecPerDay) && a.maxSecPerDay > 0 ? a.maxSecPerDay : 0
   const days = Math.max(1, Math.floor(a.days))

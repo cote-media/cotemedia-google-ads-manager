@@ -7,19 +7,19 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-09-23T02:06:13.979Z
-- built_from HEAD: 1c6f13bbdf984d98710894996987a7c68e6735a5  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-09-23T19:59:13.766Z
+- built_from HEAD: 4eaebeec48fed029913c50bb3537d150f1856773  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
   exactly as fresh as the manifest is honest; the wrap-step regenerates manifest + digest together.
   Source-doc content_hash at build time:
-    - LORAMER_MAP.md: 769e7b8274883f7b794f3472832f04af5684bc4ba5302273dfa379b01dfe7fb0
+    - LORAMER_MAP.md: a492b296122722721d6a4f9de39cef9fe4c4acb86200b47dca60d1d92b1db181
     - LORAMER_ESSENCE.md: 50f87d19f248bf956e47a8a2e8cf9a72a872832dca5b673aa30b01d0c5273864
     - LORAMER_HANDOFF.md: c0f9c80aab0cd9a5cba6f18bd85d481cafcd20b19e18188dfc34f096f5f94d66
-    - CONTINUE_HERE.md: c560e2f035a318d69cd61113b0ea960b7d2dfbaad23e8a8075bcfc914e61b335
-    - LORAMER_DECISIONS.md: 105be22224f559eee2a2b4178276478d716358d0d539d99fe0d8930deb13be9a
-    - LORAMER_QUEUE_OF_RECORD.md: 924579a3f8d8d9e5def8f92298be771accc82c10f243e36fdcb00533e15fd609
+    - CONTINUE_HERE.md: 9b8b990afd5fd4d48bc4de4cb0881453484a6e393cdb6d644fb74383a050dafe
+    - LORAMER_DECISIONS.md: 8fe9805c7e37dfe2f35de148aa917fc951168b976403c573e09464ad36c0210d
+    - LORAMER_QUEUE_OF_RECORD.md: 1f1da15919ab12af2b9c4c836903b8572947a582be51b52979e8a837ad14e5bd
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: 4ecde52128c64648f515e99fdb4c08e20f601f89b55afdcc4ca0a246f45fed22
     - RESUME_INSTRUCTIONS.md: 170f9479d09b3588122cbabc1801de601bb18539c975ef6024bb06d077101b1f
     - docs/LORAMER_ASSET_LAYER_SCOPE_V1.md: 9086aa59c145420e8e89943691f1cc3e152f1dbc7fbc67ddcb309449594ce865
@@ -619,6 +619,14 @@ a JOB — LORAMER_GOOGLE_DELETE_JOB_V1; backup dispatched by the executor, run #
 (4) TRI-COPY PROOF — reconnect on -next (marked walk), press Backfill; the descent and the daily capture run on the one engine;
     zero old-spelling rows written; Russ reconciles it against the Google Ads app. ⚠ retention-wall.ts reads Tri-Copy as the
     canary at 10:15Z (QUEUE ★RETENTION-CANARY-HARDWIRED-TO-ONE-CLIENT).
+    ⇒ 2026-09-23: the reconnect landed WALK (round 28: engine walk, kick no-op, marker green, first rotation fire 43 s later, inception
+    2016-04-20); the press ran and the run ENDED FAILED at 16:35:56Z (round 30: at 360-day windows the fire's scan — a per-day coverage
+    probe — ate the whole fire budget on a cold account; the fleet was unaffected). Rounds 31–33 converged the fix; round 34 BUILT
+    LORAMER_FIRE_PLANS_UNTIL_FULL_V1 (this push; migration 103 live): one coverage RPC per candidate, the scan plans only what the fire
+    can execute, deferred units never count as asking, one chain per run. Gate-A's wet fire on Tri-Copy executed 68 units (0 deferred).
+    NEXT: after the deploy reads READY, Russ presses Backfill history again on -next; the run should reach 2016-04-20 in hours; then the
+    reconcile (round 27 §6, August 2026, the walk's customer row). The first production fire's scanMs is the confirming read for the
+    scan share (★FIRE-SCAN-FIXED-COST holds the remainder).
 (5) COLD PROOF — Veterinary Mastermind, a fresh Gmail as a direct user, a NEW client record; hold the existing Veterinary
     Mastermind client's google lane while it runs (DECISIONS LORAMER_COLD_PROOF_RIG_V1 owns the rig).
 (6) FLEET — every other client, one at a time: Delete Google data → reconnect → Backfill → reconcile. Bath Fitter last. The
@@ -1702,6 +1710,8 @@ The 2026-06-29 inventory pre-dates 6 shipped writers and was NOT trusted. | do n
   | LORAMER_ONE_ENGINE_V1, 2026-09-22 | do not relitigate.
 ## LORAMER_DESCEND_WINDOW_360_V1 (2026-09-22) — [SHIPPED (this push), round 26; RUSS APPROVED 2026-09-22] DESCEND AND MISSED ASKS MOVE TO 360-DAY WINDOWS, SIZED TO FIT THE 300-SECOND CONSUMER BY ROWS AND BY SECONDS; AN UNNAMED REFUSAL HOLDS ONLY ITS LANE, AND THE FLEET HOLDS ON A SECOND ACCOUNT'S REFUSAL INSIDE THE DELAY.
   | LORAMER_DESCEND_WINDOW_360_V1, 2026-09-22 | do not relitigate.
+## LORAMER_FIRE_PLANS_UNTIL_FULL_V1 (2026-09-23) — [BUILT round 34, SHIPPED on Russ's go (this push); migration 103 APPLIED LIVE 2026-09-23; RUSS APPROVED the build and the migration 2026-09-23] A FIRE PLANS ONLY WHAT IT CAN EXECUTE: coverage is one server-side per-day probe per candidate, the scan stops deriving when the planned reserve (÷ execution width) fills the fire, only executed units feed the no-progress clock, the missed lane chunks under the descend's cap, and one chain runs per run. Fixes the seam LORAMER_DESCEND_WINDOW_360_V1 opened on a cold account.
+  | LORAMER_FIRE_PLANS_UNTIL_FULL_V1, 2026-09-23 | do not relitigate.
 
 ## H. OPEN-QUEUE INDEX — still-open items only (DONE appendix excluded)  (source: LORAMER_QUEUE_OF_RECORD.md)
 - ★CHECKDATA-PUSHED-OVER-RED — ⛔ **NEW 2026-08-22. I PUSHED TO MAIN TWICE TONIGHT OVER A RED `check:data`, DISCLOSED BOTH TIMES, AND THAT IS EXACTLY WHY THIS NEEDS A DECISION RATHER THAN A HABIT.** CLAUDE.md requires the gate to be RUN and REPORTED before any push to origin main; it does not say whether a red BLOCKS. So the gate is currently **NEITHER A GATE NOR ADVISORY** — it is whatever the executor argues in the moment, which is the weakest possible state for a check that exists to stop bad data. THE READS: 13 red before the cutover, **9 red after**, and FOUR cleared *because delivery resumed* (`check-consumer-liveness` had been reading "DELIVERY IS DARK", plus check-capture-landing, check-frozen-cursors, check-parent-analyze). ⚠ **THE COUNT ALSO MOVED 11 → 13 BETWEEN TWO RUNS TWENTY MINUTES APART ON IDENTICAL CODE** — proof these track warehouse STATE, not the diff, which is precisely what makes a blanket block wrong AND a blanket pass wrong. **THE WORK IS A DECISION RUSS OWNS:** (a) hard gate with a named baseline of accepted reds, (b) advisory with the verdict quoted in every push report, or (c) split it — the state checks advisory, the correctness checks blocking. Until one is chosen, every push over a red is a judgement call re-litigated from scratch. src: the 2026-08-22 cutover pushes. open [LC]
@@ -2527,8 +2537,8 @@ HOW TO USE: before writing "NEW" on any finding, gap or correction, GREP THIS SE
 LORAMER_*_V* marker you are about to mint. A token collision is DECIDABLE; a topic match is not. This is
 ESSENCE law 7 made mechanical — the law is a rule about behaviour, and on 2026-07-31 four already-decided
 topics were discussed as open while it was in force.
-TOTALS: 1187 tokens indexed · 377 resolve to BOTH a decision and a queue item ·
-146 decision-only · 664 queue-only.
+TOTALS: 1196 tokens indexed · 378 resolve to BOTH a decision and a queue item ·
+146 decision-only · 672 queue-only.
 ⛔ UNINDEXABLE — THIS COUNT IS THE BACKLOG, NOT A DISCLAIMER: 161 DECISIONS entries and
 259 QUEUE items carry NO token at all, so they cannot be found this way. An untokened decision
 is invisible to the enforcer; the fix is to mint a token when banking, not to widen the matcher. Samples —
@@ -2591,6 +2601,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★CAP-FOLLOWS-GRANT — OPEN · decisions 1 · queue 4 · last 2026-09-21
 - ★CAP-INJECTION-IS-GUARD-ONLY — DONE · decisions 0 · queue 1 · last 2026-09-15
 - ★CAPTURE-FACTS-PROMPT-BLOCK — OPEN · decisions 0 · queue 1 · last 2026-08-01
+- ★CAPTURE-LANDING-ASSUMES-LEGACY-ACCOUNT-ROW — DONE · decisions 0 · queue 1 · last 2026-09-23
 - ★CATALOG-SURFACE-METRIC-INCOMPAT — OPEN · decisions 0 · queue 1 · last 2026-08-14
 - ★CATALOGUE-LACKS-AD-GROUP-AXIS — OPEN · decisions 0 · queue 3 · last 2026-12-14
 - ★CATCHUP-BUDGET-READ-CACHED — OPEN · decisions 1 · queue 2 · last 2026-08-06
@@ -2653,6 +2664,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★CODE-HYGIENE-SWEEP-KNOWN-HAZARDS — OPEN · decisions 0 · queue 1 · last 2026-08-04
 - ★COGS-SKU-JOIN — OPEN · decisions 0 · queue 1 · last 2026-07-31
 - ★COHORT-PRIVACY-DOCS — OPEN · decisions 0 · queue 1 · last 2026-07-24
+- ★COLD-ACCOUNT-FIRE-STARVES-THE-DESCEND — DONE · decisions 0 · queue 1 · last 2026-09-23
 - ★COLD-READ-IS-N-OF-1 — OPEN · decisions 0 · queue 1 · last 2026-08-04
 - ★COMPETITOR-SCHEMA-DIFF — OPEN · decisions 1 · queue 2 · last 2026-09-08
 - ★COMPLETE-FLAG-AUDIT — OPEN · decisions 3 · queue 2 · last 2026-08-07
@@ -2702,6 +2714,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★DOC-CONNECTOR-TRACK — OPEN · decisions 0 · queue 1 · last 2026-07-31
 - ★DOC-FRESHNESS-PER-TYPE — OPEN · decisions 0 · queue 2 · last 2026-07-31
 - ★DOC-OWNERSHIP-GUARD — OPEN · decisions 1 · queue 2 · last 2026-07-31
+- ★DRAIN-ALIAS-PLUS-MINUS-ONE — DONE · decisions 0 · queue 1 · last 2026-09-23
 - ★DRAIN-CRON-RUNS-ORPHANED — OPEN · decisions 3 · queue 5 · last 2026-08-12
 - ★DRAIN-DURATION-ELIGIBILITY-PIN — OPEN · decisions 0 · queue 1 · last 2026-08-01
 - ★DRAIN-EXTENDED-DURATION-TEST — OPEN · decisions 0 · queue 2 · last 2026-08-02
@@ -2721,6 +2734,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★DUPLICATE-CLIENT-NAMES — OPEN · decisions 0 · queue 1 · last 2026-07-24
 - ★DUPLICATE-CLIENT-SAME-AD-ACCOUNT — OPEN · decisions 0 · queue 1 · last 2026-08-01
 - ★E10-EXHAUSTS-THE-CAP — OPEN · decisions 1 · queue 1 · last 2026-08-16
+- ★ENGINE-MARKER-LEG-FLAGS-THE-DRIVERS-OWN-CLAIMS — DONE · decisions 0 · queue 1 · last 2026-09-23
 - ★ENGINE-MARKERS-LIVE-IN-CODE-ONLY — OPEN · decisions 0 · queue 3 · last 2026-09-05
 - ★ENTITY-NAME-AND-GRAIN-UNREACHABLE — DONE · decisions 0 · queue 2 · last 2026-08-15
 - ★ENTITY-RANKING-UNBOUND — OPEN · decisions 0 · queue 1 · last 2026-08-15
@@ -2748,6 +2762,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★FIRE-LOG-FIRED-AT-IS-THE-END — OPEN · decisions 0 · queue 1 · last 2026-09-16
 - ★FIRE-LOG-PUBLISHED-DOUBLE-COUNTS-LOOKBACK — OPEN · decisions 0 · queue 2 · last 2026-11-17
 - ★FIRE-LOG-WITNESSES-DEFERRED — DONE · decisions 0 · queue 2 · last 2026-09-14
+- ★FIRE-SCAN-FIXED-COST — DONE · decisions 0 · queue 2 · last 2026-09-23
 - ★FIRST-FAILURE-AT-UNDERREPORTS — OPEN · decisions 0 · queue 2 · last 2026-07-31
 - ★FIVE-MEASURED-FIELDS-NO-CONSUMER — DONE · decisions 0 · queue 1 · last 2026-08-25
 - ★FLEET-47562-DARK-INTERIOR-DAYS — DONE · decisions 0 · queue 1 · last 2026-08-26
@@ -2793,6 +2808,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★GA-SESSIONS-PERDAY-SUM-NE-RANGE-TOTAL — OPEN · decisions 0 · queue 1 · last 2026-08-14
 - ★GA-TOKEN-ROW-PHANTOM-WRITER — OPEN · decisions 0 · queue 3 · last 2026-07-30
 - ★GA4-RETENTION-WALL-UNESTABLISHED — OPEN · decisions 0 · queue 3 · last 2026-08-01
+- ★GADS-DECOUPLER-REDIRECT-URI-UNREGISTERED — DONE · decisions 0 · queue 2 · last 2026-09-23
 - ★GAQL-OP-COUNT-DISCREPANCY — OPEN · decisions 1 · queue 2 · last 2026-09-30
 - ★GAQL-OP-METER — OPEN · decisions 5 · queue 9 · last 2026-09-30
 - ★GATE-A-GOOGLE-FORWARD-RESTATE — OPEN · decisions 0 · queue 1 · last 2026-09-04
@@ -2941,6 +2957,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★NEXT-LANDING-SCROLL-PREMISE-CORRECTED — DONE · decisions 0 · queue 1 · last 2026-08-07
 - ★NEXT-OVERVIEW-AGE-CARD-SHOWS-ERROR-STRING — OPEN · decisions 0 · queue 1 · last 2026-08-07
 - ★NEXT-RANGE-TEST-READS-VOID-AS-COVERED — OPEN · decisions 0 · queue 1 · last 2026-09-04
+- ★NEXT-RECONNECT-HIDDEN-WHILE-AUTHORIZED — DONE · decisions 0 · queue 2 · last 2026-09-23
 - ★NEXT-SCROLL-LANDING — DONE · decisions 0 · queue 1 · last 2026-08-07
 - ★NEXT-TIMESERIES-SYNTHESIZES-DAYS — DONE · decisions 0 · queue 1 · last 2026-08-24
 - ★NINE-THIRTY-PROOF-SCOPE — OPEN · decisions 1 · queue 4 · last 2026-12-14
@@ -3030,6 +3047,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★ROTATION-INDEX-HEAP-FETCH — OPEN · decisions 0 · queue 2 · last 2026-09-14
 - ★RPC-GRANT-POSTURE-UNAUDITED — DONE · decisions 0 · queue 1 · last 2026-08-14
 - ★RUN-BACKFILL-268-CLAIM-DEFECT — OPEN · decisions 0 · queue 2 · last 2026-09-15
+- ★RUN-PUMP-DOUBLE-CHAIN-ON-CLAIM-RACE — DONE · decisions 0 · queue 2 · last 2026-09-23
 - ★SALES-CHANNEL-THREE-SOURCE-CONFLICT — OPEN · decisions 1 · queue 1 · last 2026-08-02
 - ★SCAN-ALLOWANCE-IS-16S-SHORT — DONE · decisions 0 · queue 1 · last 2026-09-16
 - ★SCAN-COST-GROWS-WITH-THE-FLEET — OPEN · decisions 0 · queue 1 · last 2026-09-16
@@ -3295,7 +3313,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_DELIVERY_DECAY_IS_NOT_THE_CEILING_V1 — DONE · decisions 0 · queue 1 · last 2026-08-22
 - LORAMER_DEPLOY_PINNED_CHAIN_V1 — DONE · decisions 0 · queue 1 · last 2026-09-14
 - LORAMER_DEPLOY_POLL_UNTIL_TERMINAL_V1 — DONE · decisions 0 · queue 1 · last 2026-08-25
-- LORAMER_DESCEND_WINDOW_360_V1 — OPEN · decisions 1 · queue 1 · last 2026-09-22
+- LORAMER_DESCEND_WINDOW_360_V1 — OPEN · decisions 1 · queue 2 · last 2026-09-23
 - LORAMER_DESCENT_SHAPE_CONVERGED_V1 — OPEN · decisions 0 · queue 1 · last 2026-09-22
 - LORAMER_DESKTOP_AUTHORS_MOBILE_VIEWS_V1 — OPEN · decisions 4 · queue 2 · last 2026-08-16
 - LORAMER_DIAGNOSE_FROM_RECORDS_V1 — OPEN · decisions 2 · queue 5 · last 2026-08-16
@@ -3335,6 +3353,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_FIRE_DEADLINE_FROM_FIRE_START_V1 — DONE · decisions 0 · queue 1 · last 2026-09-16
 - LORAMER_FIRE_LOG_WITNESS_BOTH_SLOTS_V1 — DONE · decisions 0 · queue 3 · last 2026-09-14
 - LORAMER_FIRE_LOG_WITNESSES_OPENED_V1 — DONE · decisions 0 · queue 1 · last 2026-09-14
+- LORAMER_FIRE_PLANS_UNTIL_FULL_V1 — DONE · decisions 1 · queue 3 · last 2026-09-23
 - LORAMER_FIRST_CLASS_DIMENSION_DEFAULT_V1 — OPEN · decisions 1 · queue 4 · last 2026-07-18
 - LORAMER_FIXTURE_ROW_MEASURED_AS_REAL_V1 — DONE · decisions 0 · queue 1 · last 2026-08-23
 - LORAMER_FLEET_CEILING_HAS_A_PRIORITY_ORDER_V1 — OPEN · decisions 3 · queue 2 · last 2026-09-15
@@ -3511,7 +3530,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_NEXT_CHAT_VIEWPORT_PROBE_V1 — OPEN · decisions 3 · queue 1 · last 2026-08-05
 - LORAMER_NEXT_CHAT_VISUAL_VIEWPORT_V1 — OPEN · decisions 2 · queue 1 · last 2026-07-26
 - LORAMER_NEXT_CHAT_VISUAL_VIEWPORT_V2 — DECIDED · decisions 2 · queue 0 · last 2026-07-26
-- LORAMER_NEXT_CONNECT_V1 — DONE · decisions 0 · queue 1 · last 2026-07-12
+- LORAMER_NEXT_CONNECT_V1 — DONE · decisions 0 · queue 2 · last 2026-09-23
 - LORAMER_NEXT_CONV_WRITE_V1 — DECIDED · decisions 1 · queue 0 · last 2026-07-23
 - LORAMER_NEXT_CUTOVER_V1 — OPEN · decisions 0 · queue 1 · last 2026-07-12
 - LORAMER_NEXT_ENTITIES_V1 — DONE · decisions 0 · queue 1 · last 2026-07-10
@@ -3553,7 +3572,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_ONE_BLOCK_OUTPUT_V1 — DECIDED · decisions 2 · queue 0 · last 2026-08-05
 - LORAMER_ONE_CLICK_RUN_V1 — OPEN · decisions 0 · queue 1 · last 2026-09-18
 - LORAMER_ONE_CLICK_WALK_V1 — OPEN · decisions 0 · queue 3 · last 2026-09-15
-- LORAMER_ONE_ENGINE_V1 — OPEN · decisions 1 · queue 1 · last 2026-09-22
+- LORAMER_ONE_ENGINE_V1 — OPEN · decisions 1 · queue 2 · last 2026-09-23
 - LORAMER_ONE_LORA_ONE_MODEL_V1 — DECIDED · decisions 1 · queue 0 · last 2026-07-17
 - LORAMER_ONE_SURFACE_PROVEN_TO_INCEPTION_V1 — OPEN · decisions 0 · queue 2 · last 2026-12-14
 - LORAMER_ONE_WORKING_INDICATOR_PER_TURN_V1 — OPEN · decisions 1 · queue 2 · last 2026-08-05

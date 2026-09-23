@@ -13,7 +13,7 @@
 // ⛔ ONE RUN PER LANE, ENFORCED TWICE. The fire lease stops two FIRES of a lane overlapping; the compare-and-set on the
 // run's step counter stops two PUMPS from both advancing one run — the loser reports casLost and its pump exits.
 import { supabaseAdmin } from '@/lib/supabase'
-import { decideChain, applyStep, heldFromFireBody, classifyFireAnswer, type StepOutcome, type RunState } from '@/lib/backfill/continuous-run'
+import { decideChain, applyStep, heldFromFireBody, classifyFireAnswer, type StepOutcome, type RunState, leaseHeldFromFireBody } from '@/lib/backfill/continuous-run'
 import { daysNoLongerOwedSince, askingWithoutProgressSince } from '@/lib/backfill/universe-coverage'
 import { ledgerVendorFor } from '@/lib/backfill/universe-vendor-spelling'
 import type { PumpStepResult } from '@/lib/backfill/universe-run-pump'
@@ -81,9 +81,14 @@ export async function runOneStep(a: { clientId: string; vendor: string; fire: ()
   // has ENDED is free at once. The first cut keyed the busy window on updated_at alone, so every finished slice looked
   // busy for 320 s more and the START's own write cost the first step 5 min 49 s (measured 2026-09-17: 40% idle).
   // Under the same compare-and-set; a loser here exits before it fires anything.
+  // ⛔ LORAMER_FIRE_PLANS_UNTIL_FULL_V1 — AND THE CLAIM IS EXCLUSIVE: `.is('last_invocation', null)`. Keyed on `steps`
+  // alone, a cron invocation reading in the milliseconds between one step's release and the chain's re-claim took the
+  // same step; both chains ran, the loser spun 116 lease-held steps at 2 s each and the winner's real fire lost its
+  // accounting (measured 2026-09-23 15:59–16:04Z on Tri-Copy). A live claim now refuses a second holder outright.
   const { data: claimed, error: claimErr } = await supabaseAdmin.from('universe_run')
     .update({ updated_at: stepStartedAt, last_invocation: invocation })
     .eq('client_id', clientId).eq('vendor', vendor).eq('steps', run.steps)
+    .is('last_invocation', null)
     .select('steps')
   if (claimErr) return { ...base, step: run.steps, chained: false, status: 'failed', reason: `lane claim failed: ${claimErr.message}`, casLost: false }
   if (!claimed || claimed.length === 0) {
@@ -103,6 +108,18 @@ export async function runOneStep(a: { clientId: string; vendor: string; fire: ()
   }
   const stepMs = Date.now() - t0
 
+  // ⛔ LORAMER_FIRE_PLANS_UNTIL_FULL_V1 — A LEASE-HELD ANSWER ENDS THIS CHAIN. Another fire (the rotation, an operator
+  // drive, or a sibling invocation) owns the lane's lease; chaining on it spins at ~2 s per no-op. Release the claim
+  // and exit; the next cron minute resumes when the lease is free. The run row's counters are untouched — nothing
+  // was asked. (The fire's own lease-held heartbeat row is its record; this step writes none.)
+  if (!fatal && leaseHeldFromFireBody(body)) {
+    await supabaseAdmin.from('universe_run')
+      .update({ updated_at: new Date().toISOString(), last_invocation: null })
+      .eq('client_id', clientId).eq('vendor', vendor).eq('steps', run.steps)
+    log(`[universe-run] ${clientId}/${vendor} step ${run.steps + 1} not taken: the lane's fire lease is held — exiting the chain; the next cron minute resumes`)
+    return { ...base, step: run.steps, stepMs, chained: false, status: run.status, reason: 'fire lease held by another fire — chain exited rather than spinning; the next cron minute resumes', casLost: false }
+  }
+
   const fireId: string | null = typeof body?.invocationId === 'string' && body.invocationId.length > 0 ? body.invocationId : null
   const committed = fatal ? 0 : await daysNoLongerOwedThisStep(clientId, vendor, stepStartedAt, fireId)
   const inst = body?.instrument ?? {}
@@ -113,7 +130,10 @@ export async function runOneStep(a: { clientId: string; vendor: string; fire: ()
   const atFloor = !fatal && body?.ok === true && scanned
     && (inst.candidates ?? 0) === 0 && (inst.lookbackCandidates ?? 0) === 0 && (inst.missedCandidates ?? 0) === 0
   const out: StepOutcome = {
-    requestsOpened: Number(inst.requestsSelected ?? 0),
+    // ⛔ LORAMER_FIRE_PLANS_UNTIL_FULL_V1 — EXECUTED units, never SELECTED ones. `requestsSelected` counted units the fire
+    // chose; when every one was deferred for budget (0 started, 0 retired) two fires read as "297 s of asking" and the run
+    // ended failed (Tri-Copy 2026-09-23 16:35:56Z). Only a unit that opened a vendor attempt is an ask.
+    requestsOpened: Number(inst.executedOf ?? 0),
     daysNoLongerOwed: committed < 0 ? 1 : committed,
     atFloor,
     held: heldFromFireBody(body),

@@ -1,5 +1,11 @@
 #!/usr/bin/env node
 // LORAMER_COVERAGE_PROBE_BOUND_V1 — windowCoverage's per-day probes are launched through a SLIDING WINDOW, never all at once.
+// ⛔ AMENDED 2026-09-23 — LORAMER_FIRE_PLANS_UNTIL_FULL_V1: the per-day probe now runs INSIDE Postgres (migrations/103
+// universe_coverage_dates, generate_series × LATERAL limit-1), one RPC per ≤ 900-day part. The four intents below are
+// re-pinned against that shape: (β) a 3,000-day span issues ceil(3000/900) = 4 sequential parts (never two in flight),
+// each ≤ 900 days, covering every day exactly once; (γ) a part that fails rejects the read carrying the error and no later
+// part launches; (δ) covered/uncovered are placed by index in day order with the alias consulted server-side. (α) keeps
+// its static pins (no Promise.all(days.map) launch anywhere; the launcher's one home still imported).
 //
 // THE DEFECT (measured 2026-09-14, fire-7621 class, DECISIONS/QUEUE ★METER-UNREADABLE-HOLD-7621): windowCoverage
 // (universe-coverage.ts) launched `Promise.all(days.map(probe))` — ONE PostgREST fetch per day of the span, all in
@@ -94,7 +100,20 @@ class Q {
     }).then(res, rej)
   }
 }
-module.exports = { supabaseAdmin: { from: (t) => new Q(t) } }
+function datesBetween(a, b) { const o = []; const d = new Date(a + 'T00:00:00Z'); const e = new Date(b + 'T00:00:00Z'); while (d <= e) { o.push(d.toISOString().slice(0, 10)); d.setUTCDate(d.getUTCDate() + 1) } return o }
+async function rpc(name, args) {
+  const S = globalThis.__PROBE_STUB
+  if (name !== 'universe_coverage_dates') return { data: null, error: { message: 'unknown rpc ' + name } }
+  const part = datesBetween(args.p_start, args.p_end)
+  S.launched += 1; S.inFlight += 1; S.maxInFlight = Math.max(S.maxInFlight, S.inFlight); S.parts.push(part.length)
+  await new Promise((ok) => setTimeout(ok, 1))
+  S.inFlight -= 1
+  if (S.failAt && part.includes(S.failAt)) return { data: null, error: { message: 'TypeError: fetch failed (scripted EBUSY in the part holding ' + S.failAt + ')' } }
+  for (const day of part) S.seen.push(day + '|' + args.p_entity_level + '|' + args.p_breakdown_type)
+  const data = part.filter((day) => S.hasRows(day, args.p_entity_level, args.p_breakdown_type) || (args.p_alias_entity_level && S.hasRows(day, args.p_alias_entity_level, args.p_alias_breakdown_type)))
+  return { data, error: null }
+}
+module.exports = { supabaseAdmin: { from: (t) => new Q(t), rpc } }
 `)
   const surfacesJs = join(out, 'src/lib/backfill/universe-surfaces.js')
   Module._resolveFilename = function (request, ...rest) {
@@ -115,7 +134,7 @@ module.exports = { supabaseAdmin: { from: (t) => new Q(t) } }
 
   const K = { clientId: 'c1', platform: 'google', entityLevel: 'campaign', breakdownType: '' }
   const KA = { clientId: 'c1', platform: 'google', entityLevel: 'geographic_view', breakdownType: 'geo_target_city' } // has a drain alias → campaign/geo_city
-  const fresh = (over = {}) => { globalThis.__PROBE_STUB = { launched: 0, inFlight: 0, maxInFlight: 0, seen: [], failAt: null, hasRows: () => false, ...over } }
+  const fresh = (over = {}) => { globalThis.__PROBE_STUB = { launched: 0, inFlight: 0, maxInFlight: 0, seen: [], parts: [], failAt: null, hasRows: () => false, ...over } }
   const days = cov.dayList('2018-03-01', '2026-05-17') // 3,000 days — the skinregimen-class span
   if (days.length !== 3000) findings.push(`fixture: expected a 3,000-day span, got ${days.length}`)
 
@@ -124,8 +143,12 @@ module.exports = { supabaseAdmin: { from: (t) => new Q(t) } }
   await cov.windowCoverage(K, '2018-03-01', '2026-05-17')
   {
     const S = globalThis.__PROBE_STUB
-    if (S.maxInFlight > B) findings.push(`(β) ${S.maxInFlight} probes in flight at once over a 3,000-day span — the bound is ${B}. This is the storm: every day launched at once.`)
-    if (S.launched !== 3000) findings.push(`(β) ${S.launched} probes launched for 3,000 days — expected exactly one per day (no alias on campaign/'')`)
+    const MAXD = Number(cov.COVERAGE_WINDOW_MAX_DAYS)
+    if (!(MAXD > 0 && MAXD <= 1000)) findings.push(`(β) COVERAGE_WINDOW_MAX_DAYS=${cov.COVERAGE_WINDOW_MAX_DAYS} — must be a positive number under PostgREST's 1,000-row default`)
+    const expectParts = Math.ceil(3000 / (MAXD || 900))
+    if (S.maxInFlight > 1) findings.push(`(β) ${S.maxInFlight} coverage RPC parts in flight at once — parts are sequential; the storm must not come back as parallel parts`)
+    if (S.launched !== expectParts) findings.push(`(β) ${S.launched} RPC part(s) for 3,000 days — expected ${expectParts} (≤ ${MAXD} days each)`)
+    if (S.parts.some((n) => n > MAXD) || S.parts.reduce((a, b) => a + b, 0) !== 3000) findings.push(`(β) parts ${JSON.stringify(S.parts)} — every part ≤ ${MAXD} days and the parts must sum to the span`)
     if (new Set(S.seen).size !== 3000) findings.push(`(β) ${new Set(S.seen).size} distinct (day, surface) probes — a day was probed twice or skipped`)
   }
 
@@ -138,7 +161,8 @@ module.exports = { supabaseAdmin: { from: (t) => new Q(t) } }
     const S = globalThis.__PROBE_STUB
     if (!rejected) findings.push(`(γ) a failed probe at day ${days[k]} did NOT reject windowCoverage — a coverage answer was synthesised from a failed read (the module's own header forbids it)`)
     else if (!/fetch failed/.test(String(rejected.message))) findings.push(`(γ) rejected, but the probe's own error is not carried: ${String(rejected.message).slice(0, 120)}`)
-    if (S.launched > k + 1 + B) findings.push(`(γ) ${S.launched} probes launched after a failure at index ${k} — at most ${k + 1 + B} (k + one in-flight window) may launch; the rest must be CANCELLED, never queued behind the failure (that residual is what breaks the meter read and the next fire).`)
+    const failingPart = Math.floor(k / Number(cov.COVERAGE_WINDOW_MAX_DAYS || 900)) + 1
+    if (S.launched > failingPart) findings.push(`(γ) ${S.launched} RPC part(s) launched after a failure inside part ${failingPart} — no later part may launch; the residual after a failure is nothing, never the rest of the span.`)
   }
 
   // ── (δ) ANSWER PARITY: results by index, day order, alias inside the slot ──────────────────────────────
@@ -154,9 +178,7 @@ module.exports = { supabaseAdmin: { from: (t) => new Q(t) } }
     if (got.uncovered.length !== 3000 - 10) findings.push(`(δ) uncovered has ${got.uncovered.length} days — expected ${3000 - 10}`)
     if (got.uncovered.includes(days[105]) || !got.uncovered.includes(days[200])) findings.push(`(δ) uncovered set wrong around the alias day: day 105 uncovered=${got.uncovered.includes(days[105])}, day 200 uncovered=${got.uncovered.includes(days[200])}`)
     if (got.probes !== 3000) findings.push(`(δ) probes=${got.probes} — must remain days.length (3,000); the meaning of the instrument is unchanged`)
-    const aliasProbes = S.seen.filter((s) => s.endsWith('|campaign|geo_city')).length
-    if (aliasProbes !== 3000 - 10) findings.push(`(δ) ${aliasProbes} alias probes — expected one for every day the primary missed (${3000 - 10}); the alias fallback must survive the bound, inside the same slot`)
-    if (S.maxInFlight > B) findings.push(`(δ) ${S.maxInFlight} in flight with the alias re-probe — the alias must run INSIDE the slot, not add a second window`)
+    if (S.maxInFlight > 1) findings.push(`(δ) ${S.maxInFlight} parts in flight with the alias consulted — the alias runs INSIDE the RPC, never as a second launch`)
   }
 } catch (e) {
   findings.push(`could not DRIVE windowCoverage — ${e.message}. A guard that cannot run its subject FAILS rather than passing.`)
@@ -171,4 +193,4 @@ if (findings.length) {
   for (const f of findings) console.error(`  - ${f}`)
   process.exit(1)
 }
-console.log(`[coverage-probe-bound] PASS — DRIVEN on the real compiled coverage module: over a 3,000-day span never more than COVERAGE_PROBE_CONCURRENCY probes are in flight and every day is probed once; a probe failing at day k rejects the read and launches at most k + one window (cancelled, not queued); covered/uncovered are placed by index in day order with the alias fallback inside the slot; no Promise.all(days.map) launch remains; registered.`)
+console.log(`[coverage-probe-bound] PASS — DRIVEN on the real compiled coverage module: a 3,000-day span is read as sequential RPC parts of ≤ COVERAGE_WINDOW_MAX_DAYS (never two in flight), every day probed once inside Postgres; a part that fails rejects the read and launches nothing further; covered/uncovered are placed by index in day order with the alias consulted server-side; no Promise.all(days.map) launch remains; registered.`)

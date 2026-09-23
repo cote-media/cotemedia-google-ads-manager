@@ -469,7 +469,9 @@ try {
           } })
           return h
         }
-        module.exports = { supabaseAdmin: { from: (t) => chain(t) } }
+        // LORAMER_FIRE_PLANS_UNTIL_FULL_V1 — windowCoverage now asks ONE rpc per read; this fake answers as its from() fake did: every day has a row
+        function datesBetween(a, b) { const o = []; const d = new Date(a + 'T00:00:00Z'); const e = new Date(b + 'T00:00:00Z'); while (d <= e) { o.push(d.toISOString().slice(0, 10)); d.setUTCDate(d.getUTCDate() + 1) } return o }
+        module.exports = { supabaseAdmin: { from: (t) => chain(t), rpc: (name, args) => Promise.resolve({ data: datesBetween(args.p_start, args.p_end), error: null }) } }
       `)
       // ⛔ THE COPY MUST LIVE IN ITS OWN DIRECTORY. Node 20's Module._load memoises (parent.path, request)
       // in relativeResolveCache ABOVE the _resolveFilename hook — a copy sharing universe-coverage.js's

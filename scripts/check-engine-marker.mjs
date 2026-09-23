@@ -28,7 +28,10 @@ const GUARD = args.includes('--guard'), FIXTURE = args.includes('--fixture')
 for (const l of readFileSync(resolve(ROOT, '.env.local'), 'utf8').split('\n')) { const m = l.match(/^([A-Z0-9_]+)=(.*)$/); if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '') }
 if (!process.env.SUPABASE_DB_URL) { console.error('[engine-marker] SUPABASE_DB_URL missing'); process.exit(2) }
 
-export const LEGACY_SYNC_STATE_SPELLINGS = `(platform = 'google' or platform like 'google\\_%' escape '\\' or platform like '\\_\\_fwd\\_google%' escape '\\' or platform in ('__drain_google', '__catchup_google'))`
+// LORAMER_FIRE_PLANS_UNTIL_FULL_V1 (2026-09-23) — `__fwd_google:<slice>` is the forward DRIVER's own claim namespace
+// (forward-driver.ts, disjoint from the legacy `__fwd_google` key by the colon); the driver is the walk-era writer leg (a)
+// allows, so its claims are excluded here. Measured RED on the first walk-marked connection (Tri-Copy, 15:54Z) for a true state.
+export const LEGACY_SYNC_STATE_SPELLINGS = `(platform = 'google' or platform like 'google\\_%' escape '\\' or (platform like '\\_\\_fwd\\_google%' escape '\\' and platform not like '\\_\\_fwd\\_google:%' escape '\\') or platform in ('__drain_google', '__catchup_google'))`
 
 /** The detector. Runs on the given client (inside or outside a transaction). Returns { walkCount, legacyCount, findings[] }. */
 export async function detect(db) {

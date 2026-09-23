@@ -92,6 +92,8 @@ export function coveredDaysStrict(
  * the real value, never a copy.
  */
 export const COVERAGE_PROBE_CONCURRENCY = 64
+/** LORAMER_FIRE_PLANS_UNTIL_FULL_V1 — one universe_coverage_dates call answers at most this many days (PostgREST's default max-rows is 1,000); wider windows are split. The function itself RAISES past it. */
+export const COVERAGE_WINDOW_MAX_DAYS = 900
 
 // LORAMER_FANOUT_BOUNDED_GUARD_V1 — mapBounded LIVES IN src/lib/concurrency.ts (its one home) and is re-exported here so
 // the round-6 guard's contract (`coverage.mapBounded`) and every existing importer keep working unchanged.
@@ -140,40 +142,37 @@ export async function windowCoverage(k: CoverageKey, windowStart: string, window
   // is the catastrophic direction named at the top of this file.
   const alias = drainAliasFor(k.entityLevel, k.breakdownType)
 
-  // ⛔ LORAMER_COVERAGE_PROBE_BOUND_V1 — THE PROBES RIDE A SLIDING WINDOW, NEVER `Promise.all(days.map(...))`.
-  // Measured 2026-09-14 (fire-7621 class): the missed lane enumerates inception→T−B, so on a 2016–2018 inception a
-  // wall-less surface launched 3,000–3,700 fetches AT ONCE from one Vercel host; the host's resolver/fd pool exhausted
-  // ("getaddrinfo EBUSY rumpndvubxlcajkrnbvb.supabase.co" → undici "TypeError: fetch failed" — no Postgres error, the
-  // probe itself is 0.123 ms server-side), this call threw, and the meter's own next fetch failed the same way and
-  // read null — 13 of 13 'meter-held' fires since 09-13 20:06Z, Tri-Copy and Influential Drones writing nothing for
-  // 19 h. The per-day `limit 1` shape is unchanged (the header above still holds); only the LAUNCH is bounded.
-  // fan-out: bounded COVERAGE_PROBE_CONCURRENCY
-  const hits = await mapBounded(days, COVERAGE_PROBE_CONCURRENCY, async (day) => {
-    const probe = (entityLevel: string, breakdownType: string) => supabaseAdmin
-      .from('metrics_daily')
-      .select('date')
-      .eq('client_id', k.clientId).eq('platform', k.platform)
-      .eq('entity_level', entityLevel).eq('breakdown_type', breakdownType)
-      .eq('date', day).limit(1)
-    const { data, error } = await probe(k.entityLevel, k.breakdownType)
-    // ⛔ AN ERROR IS NOT AN ABSENCE. Returning `false` here would say "not covered" — the SAFE direction for
-    // walking, but a LIE about the data, and the difference matters the moment this feeds a customer-facing
-    // completeness claim. Throw rather than synthesise an answer from a failed read.
+  // ⛔ LORAMER_FIRE_PLANS_UNTIL_FULL_V1 (2026-09-23) — THE PER-DAY PROBE RUNS INSIDE POSTGRES, ONE ROUND TRIP PER READ.
+  // Until this build each day of the window was its own metrics_daily query from the Vercel host (`.eq('date', day)
+  // .limit(1)`, 64-way concurrent under LORAMER_COVERAGE_PROBE_BOUND_V1): 360 round trips per read, two reads per
+  // candidate, 60 candidates per fire. MEASURED on a cold account (Tri-Copy): the fire's scan took 249–286 s of its
+  // 282 s budget once the candidates became 360-day windows, every unit was deferred, and the run ended failed.
+  // migrations/103 `universe_coverage_dates` performs the SAME probe — generate_series × LATERAL limit-1 on the
+  // primary key, then on the drain-alias key only when the primary misses — as one call: 12–264 ms cold at 360 days
+  // on the fleet's ten heaviest keys, 361 index loops, never a scan (the EXISTS form let the planner scan: 13 s).
+  // ⛔ NOT a ranged `select date … between`: that returns one row per ENTITY per day (Foam OH campaign|user_geo_city:
+  // 1.9 M rows in 360 days), 1,900× PostgREST's row cap, i.e. a truncated answer read as false holes. The function
+  // refuses a window over 900 days (COVERAGE_WINDOW_MAX_DAYS) rather than truncate; callers split wider spans.
+  // ⛔ AN ERROR IS NOT AN ABSENCE. A failed read throws — never a synthesised "not covered" (the safe direction for
+  // walking, but a lie about the data the moment it feeds a completeness claim).
+  const hasSet = new Set<string>()
+  for (let i = 0; i < days.length; i += COVERAGE_WINDOW_MAX_DAYS) {
+    const part = days.slice(i, i + COVERAGE_WINDOW_MAX_DAYS)
+    const { data, error } = await supabaseAdmin.rpc('universe_coverage_dates', {
+      p_client: k.clientId, p_platform: k.platform,
+      p_entity_level: k.entityLevel, p_breakdown_type: k.breakdownType,
+      p_alias_entity_level: alias?.entityLevel ?? null, p_alias_breakdown_type: alias?.breakdownType ?? null,
+      p_start: part[0], p_end: part[part.length - 1],
+    })
     if (error) throw new Error(
-      `[universe-coverage] probe failed for ${k.entityLevel}/${k.breakdownType || '(base)'} on ${day}: ${error.message}. ` +
+      `[universe-coverage] coverage read failed for ${k.entityLevel}/${k.breakdownType || '(base)'} ${part[0]}..${part[part.length - 1]}: ${error.message}. ` +
       `⛔ A COVERAGE ANSWER MUST NOT BE SYNTHESISED FROM A FAILED READ.`)
-    if ((data?.length ?? 0) > 0) return { day, has: true }
-    // ⛔ ONE EXTRA INDEXED PROBE, AND ONLY WHEN THE FIRST FOUND NOTHING. A day already covered under the walk's
-    // own key never pays for it, so the cost lands exactly where the saving is. An alias read that FAILS is
-    // treated the same as the primary — thrown, never synthesised into an answer.
-    if (!alias) return { day, has: false }
-    const { data: aData, error: aErr } = await probe(alias.entityLevel, alias.breakdownType)
-    if (aErr) throw new Error(
-      `[universe-coverage] ALIAS probe failed for ${k.entityLevel}/${k.breakdownType || '(base)'} → ` +
-      `${alias.entityLevel}/${alias.breakdownType} on ${day}: ${aErr.message}. ` +
-      `⛔ A COVERAGE ANSWER MUST NOT BE SYNTHESISED FROM A FAILED READ.`)
-    return { day, has: (aData?.length ?? 0) > 0 }
-  })
+    for (const r of (data ?? []) as Array<string | { universe_coverage_dates?: string }>) {
+      const v = typeof r === 'string' ? r : (r?.universe_coverage_dates ?? null)
+      if (typeof v === 'string') hasSet.add(v.slice(0, 10))
+    }
+  }
+  const hits = days.map((day) => ({ day, has: hasSet.has(day) }))
 
   // ⛔ LORAMER_COMMITTED_DAY_CLOSES_V1 — RULE (b) IS NOW WIRED, AND IT WAS ALWAYS THE MISSING HALF.
   // The header above documents TWO closure rules. Rule (a) — "a later day has rows" — was the only one this
@@ -198,7 +197,7 @@ export async function windowCoverage(k: CoverageKey, windowStart: string, window
   return {
     covered, attestedEmpty,
     uncovered: days.filter((d) => !known.has(d)),
-    probes: days.length, ms: Date.now() - t0,
+    probes: days.length, ms: Date.now() - t0, // probes = days asked (now inside one RPC per ≤900-day part), ms = the round trip(s)
   }
 }
 

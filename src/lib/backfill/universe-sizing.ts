@@ -16,7 +16,7 @@
 // Coverage is answered from `metrics_daily` by `universe-coverage.ts`, which may not import the attempt-log
 // module. Sizing is an OPTIMISATION: with `day_committed`, a wrong guess costs one re-fetch.
 import { supabaseAdmin } from '@/lib/supabase'
-import { sizeFromPolicy, unitReserveMs, timeCappedDays, type CaptureAdapter, type SizeVerdict } from '@/lib/backfill/capture-adapter'
+import { sizeFromPolicy, unitReserveMs, timeCappedDays, SPD_MIN_WINDOW_DAYS, type CaptureAdapter, type SizeVerdict } from '@/lib/backfill/capture-adapter'
 
 export type { SizeVerdict }
 
@@ -68,6 +68,9 @@ export async function sizeNextWindow(
     const rows = Number(r.rows_written ?? 0)
     rowsPerDay.push(rows / days); totals.push(rows)
     const dur = r.duration_ms == null ? null : Number(r.duration_ms)
+    // LORAMER_FIRE_PLANS_UNTIL_FULL_V1 — a window shorter than SPD_MIN_WINDOW_DAYS measures fixed request latency, not a
+    // per-day rate (Tri-Copy's 7-day cold asks: 1.5 s → 0.21 s/day → a 130 s reserve on a 360-day unit that takes 1–4 s).
+    if (days < SPD_MIN_WINDOW_DAYS) continue
     if (dur !== null && Number.isFinite(dur) && dur >= 0) {
       const spd = dur / 1000 / days
       maxSecPerDay = maxSecPerDay === null ? spd : Math.max(maxSecPerDay, spd)
