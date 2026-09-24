@@ -3,7 +3,11 @@
 ⛔ READ LORAMER_MAP.md FIRST (the resume command prints it). This block is the session narrative; the MAP is the picture.
 
 ── WHAT SHIPPED, newest-first (all READY, polled to terminal) ──
-· THIS PUSH — LORAMER_IMPLICIT_PRESENCE_REASK_V1 (round 50, after rounds 46–49 read-only): a proto3 implicit-presence bool arrives ABSENT when
+· THIS PUSH — LORAMER_STABLE_PAGE_ORDER_V1 (round 53, instruments only): rest-all pages PostgREST by Range and carried no order — the driver-day
+  leg held 5,526 rows (the exact server total) but 4,408 distinct and judged 8 of 17 connections short while every one held 323/323 (round 51).
+  Every read now orders by the table's unique key (appended after any caller order); an unknown table refuses to page; guarded red-first.
+  The seven unordered `.range` loops in the query layer and the clients screen are banked for WIRE (★RANGE-LOOPS-NEED-STABLE-ORDER).
+· `e536586` + `1b4254e` LORAMER_IMPLICIT_PRESENCE_REASK_V1 (round 50, after rounds 46–49 read-only): a proto3 implicit-presence bool arrives ABSENT when
   false and the writer dropped that side on 5 asset-interaction entries (the side holding the interactions); IMPLICIT_PRESENCE_DEFAULTS +
   a proto-scan guard; a re-ask queue (migration 105) the FIRE consumes inside its missed slot (4 of 8, lookback first, holes keep 4) — the
   enqueue script never asks Google; two uses on Russ's go: dropped-side (145 windows, 16 clients) and Tri-Copy's retracted windows (386).

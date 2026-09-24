@@ -41,6 +41,19 @@ export async function restAllCounted(path, opts = {}) {
   if (!Number.isInteger(page) || page < 1) throw new Error(`restAll: page must be a positive integer, got ${page}`)
   if (/^rpc\//.test(path)) throw new Error(`restAll: refuses rpc/ paths (${short(path)}) — a SETOF RPC is capped the same way; return jsonb or a scalar`)
 
+  // ⛔ LORAMER_STABLE_PAGE_ORDER_V1 (2026-09-24, round 53) — A RANGE PAGE WITHOUT A TOTAL ORDER IS NOT A PAGE. PostgreSQL: "If sorting
+  // is not chosen, the rows will be returned in an unspecified order … it must not be relied on." MEASURED on the driver-day leg's read
+  // (forward_observation_log, 2026-09-24): 5,526 rows held — exactly the server total, so the held ≠ total guard below could not see it —
+  // but 4,408 DISTINCT: 1,118 duplicates and 1,118 rows never read; 8 of 17 connections judged short while every one held 323/323.
+  // With order=id the same read held 5,526 distinct. So every read orders by the table's UNIQUE key: appended when the caller names no
+  // order, appended AFTER a caller order that is not the key (recorded_at.desc stays first, id breaks its ties). A table this file has no
+  // unique key for REFUSES to page (CANNOT RUN) — paging it unkeyed is the defect. Keys read from pg_index 2026-09-24.
+  const table = path.split('?')[0]
+  const orderKey = ORDER_KEYS[table] ?? (ID_KEYED_TABLES.includes(table) ? 'id' : null)
+  if (!orderKey) throw new Error(`restAll: no unique order known for ${table} — a Range page without a total order is not a page; add its primary key to ORDER_KEYS or ID_KEYED_TABLES (scripts/lib/rest-all.mjs)`)
+  const om = path.match(/(?:[?&])order=([^&]*)/)
+  if (!om) path += (path.includes('?') ? '&' : '?') + 'order=' + orderKey
+  else if (!om[1].split(',').map((x) => x.split('.')[0]).includes(orderKey.split(',')[0])) path = path.replace(om[0], om[0] + ',' + orderKey)
   const rows = []
   let total = null
   for (let start = 0; ; ) {
@@ -68,6 +81,15 @@ export async function restAllCounted(path, opts = {}) {
 }
 
 /** Rows only. Same contract; the total is discarded after the held ≠ total check. */
+/** LORAMER_STABLE_PAGE_ORDER_V1 — tables whose unique order is a composite (no single `id` primary key), read from pg_index 2026-09-24. */
+export const ORDER_KEYS = Object.freeze({
+  metrics_daily: 'id,date',                    // partitioned: primary key (id, date)
+  sync_state: 'client_id,platform',            // unique (client_id, platform), no id
+  entity_state_history: 'client_id,platform,account_id,entity_level,entity_id,state_key,state_value,valid_from', // its primary key
+})
+/** LORAMER_STABLE_PAGE_ORDER_V1 — every public table whose primary key is exactly (id), read from pg_index 2026-09-24 (35). */
+export const ID_KEYED_TABLES = Object.freeze(['anthropic_spend_log','capture_pass_log','chat_turn_failures','client_context','client_conversations','client_members','client_memory','clients','cron_runs','dashboard_layouts','forward_observation_log','ga_tokens','known_floors','lora_tool_decisions','maintenance_analyze_log','meta_compliance_log','meta_tokens','org_client_grants','org_members','organizations','platform_compliance_log','platform_connections','shopify_compliance_log','shopify_tokens','store_bulk_operations','stripe_events','subscriptions','universe_attempt_log','universe_fire_log','universe_reask_queue','universe_run_notice','universe_window_log','upload_audit','uploaded_docs','woocommerce_tokens'])
+
 export async function restAll(path, opts = {}) {
   return (await restAllCounted(path, opts)).rows
 }

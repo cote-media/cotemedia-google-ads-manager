@@ -7,19 +7,19 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-09-24T20:38:00.647Z
-- built_from HEAD: e5365866d0865f78bdbb659340a67fe708dce40c  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-09-24T22:33:16.104Z
+- built_from HEAD: 1b4254e22dc7805f6c4e12dd68dd165f3a30e48c  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
   exactly as fresh as the manifest is honest; the wrap-step regenerates manifest + digest together.
   Source-doc content_hash at build time:
-    - LORAMER_MAP.md: 96b24eec5b633a70fdcb6f5a20eb391bd329cea9356a6d53e373974910ad7adf
+    - LORAMER_MAP.md: e1cd7e7a963ecbfc28b8fa3b0cb374f92685cd9ba68ecacdf1fa620509dd6a29
     - LORAMER_ESSENCE.md: 50f87d19f248bf956e47a8a2e8cf9a72a872832dca5b673aa30b01d0c5273864
     - LORAMER_HANDOFF.md: c0f9c80aab0cd9a5cba6f18bd85d481cafcd20b19e18188dfc34f096f5f94d66
-    - CONTINUE_HERE.md: 9a6f8af849cc7471c8444646408d073f28a46788f31e7e119199a78a9fa0faff
-    - LORAMER_DECISIONS.md: 6fd2c0772cbbe93de2116d75648b3f80b16e3e3cd203bba532e7477b26340b37
-    - LORAMER_QUEUE_OF_RECORD.md: 811cdf704d44e2ae78f691ac57511085e3b2d446b2dc55e32f92e57ca9f8aec2
+    - CONTINUE_HERE.md: 54d20f513778ebc0c00792f9021a33e5d99fb331e10fef1238dec5e5a5ceb88e
+    - LORAMER_DECISIONS.md: edb33e429ad15d83ed20763ea144bd74fe7712962d39887d7534bf033ef3e0f1
+    - LORAMER_QUEUE_OF_RECORD.md: 981620d4634ffd53b03590ee17b6e9bb12371ac6f71e22e32eefbd2b6aaed4bd
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: 4ecde52128c64648f515e99fdb4c08e20f601f89b55afdcc4ca0a246f45fed22
     - RESUME_INSTRUCTIONS.md: 170f9479d09b3588122cbabc1801de601bb18539c975ef6024bb06d077101b1f
     - docs/LORAMER_ASSET_LAYER_SCOPE_V1.md: 9086aa59c145420e8e89943691f1cc3e152f1dbc7fbc67ddcb309449594ce865
@@ -571,7 +571,11 @@ from the top of that file, CONTINUE_HERE WINS and this digest is stale — stop 
 ⛔ READ LORAMER_MAP.md FIRST (the resume command prints it). This block is the session narrative; the MAP is the picture.
 
 ── WHAT SHIPPED, newest-first (all READY, polled to terminal) ──
-· THIS PUSH — LORAMER_IMPLICIT_PRESENCE_REASK_V1 (round 50, after rounds 46–49 read-only): a proto3 implicit-presence bool arrives ABSENT when
+· THIS PUSH — LORAMER_STABLE_PAGE_ORDER_V1 (round 53, instruments only): rest-all pages PostgREST by Range and carried no order — the driver-day
+  leg held 5,526 rows (the exact server total) but 4,408 distinct and judged 8 of 17 connections short while every one held 323/323 (round 51).
+  Every read now orders by the table's unique key (appended after any caller order); an unknown table refuses to page; guarded red-first.
+  The seven unordered `.range` loops in the query layer and the clients screen are banked for WIRE (★RANGE-LOOPS-NEED-STABLE-ORDER).
+· `e536586` + `1b4254e` LORAMER_IMPLICIT_PRESENCE_REASK_V1 (round 50, after rounds 46–49 read-only): a proto3 implicit-presence bool arrives ABSENT when
   false and the writer dropped that side on 5 asset-interaction entries (the side holding the interactions); IMPLICIT_PRESENCE_DEFAULTS +
   a proto-scan guard; a re-ask queue (migration 105) the FIRE consumes inside its missed slot (4 of 8, lookback first, holes keep 4) — the
   enqueue script never asks Google; two uses on Russ's go: dropped-side (145 windows, 16 clients) and Tri-Copy's retracted windows (386).
@@ -1712,6 +1716,8 @@ The 2026-06-29 inventory pre-dates 6 shipped writers and was NOT trusted. | do n
   | LORAMER_IDLE_SEED_RETRACTION_V1, 2026-09-24 | do not relitigate.
 ## LORAMER_IMPLICIT_PRESENCE_REASK_V1 (2026-09-24) — [BUILT round 50, SHIPPED on Russ's go (this push); MIGRATIONS 105 AND 106 APPLIED LIVE BEFORE THE GATE] A FALSE THAT ARRIVES ABSENT IS STILL A VALUE, AND NAMED SURFACE-WINDOWS ARE RE-ASKED BY THE FIRE THROUGH A QUEUE — NEVER BY A SCRIPT THAT ASKS.
   | LORAMER_IMPLICIT_PRESENCE_REASK_V1, 2026-09-24 | do not relitigate.
+## LORAMER_STABLE_PAGE_ORDER_V1 (2026-09-24) — [BUILT round 53, SHIPPED on Russ's go (this push); INSTRUMENTS ONLY] A RANGE PAGE WITHOUT A TOTAL ORDER IS NOT A PAGE: EVERY rest-all READ CARRIES THE TABLE'S UNIQUE KEY, AND A TABLE WITH NO KNOWN KEY REFUSES TO PAGE.
+  | LORAMER_STABLE_PAGE_ORDER_V1, 2026-09-24 | do not relitigate.
 
 ## H. OPEN-QUEUE INDEX — still-open items only (DONE appendix excluded)  (source: LORAMER_QUEUE_OF_RECORD.md)
 - ★CHECKDATA-PUSHED-OVER-RED — ⛔ **NEW 2026-08-22. I PUSHED TO MAIN TWICE TONIGHT OVER A RED `check:data`, DISCLOSED BOTH TIMES, AND THAT IS EXACTLY WHY THIS NEEDS A DECISION RATHER THAN A HABIT.** CLAUDE.md requires the gate to be RUN and REPORTED before any push to origin main; it does not say whether a red BLOCKS. So the gate is currently **NEITHER A GATE NOR ADVISORY** — it is whatever the executor argues in the moment, which is the weakest possible state for a check that exists to stop bad data. THE READS: 13 red before the cutover, **9 red after**, and FOUR cleared *because delivery resumed* (`check-consumer-liveness` had been reading "DELIVERY IS DARK", plus check-capture-landing, check-frozen-cursors, check-parent-analyze). ⚠ **THE COUNT ALSO MOVED 11 → 13 BETWEEN TWO RUNS TWENTY MINUTES APART ON IDENTICAL CODE** — proof these track warehouse STATE, not the diff, which is precisely what makes a blanket block wrong AND a blanket pass wrong. **THE WORK IS A DECISION RUSS OWNS:** (a) hard gate with a named baseline of accepted reds, (b) advisory with the verdict quoted in every push report, or (c) split it — the state checks advisory, the correctness checks blocking. Until one is chosen, every push over a red is a judgement call re-litigated from scratch. src: the 2026-08-22 cutover pushes. open [LC]
@@ -2537,8 +2543,8 @@ HOW TO USE: before writing "NEW" on any finding, gap or correction, GREP THIS SE
 LORAMER_*_V* marker you are about to mint. A token collision is DECIDABLE; a topic match is not. This is
 ESSENCE law 7 made mechanical — the law is a rule about behaviour, and on 2026-07-31 four already-decided
 topics were discussed as open while it was in force.
-TOTALS: 1214 tokens indexed · 383 resolve to BOTH a decision and a queue item ·
-146 decision-only · 685 queue-only.
+TOTALS: 1217 tokens indexed · 384 resolve to BOTH a decision and a queue item ·
+146 decision-only · 687 queue-only.
 ⛔ UNINDEXABLE — THIS COUNT IS THE BACKLOG, NOT A DISCLAIMER: 161 DECISIONS entries and
 259 QUEUE items carry NO token at all, so they cannot be found this way. An untokened decision
 is invisible to the enforcer; the fix is to mint a token when banking, not to widen the matcher. Samples —
@@ -3029,6 +3035,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★QUEUE-TAG-BLIND-TO-TREE — OPEN · decisions 0 · queue 2 · last 2026-08-22
 - ★QUOTA-CLASSIFIER-CONFLATES-DAILY-EXHAUSTION-WITH-RATE-LIMITING — OPEN · decisions 0 · queue 3 · last 2026-09-22
 - ★QUOTA-OUTAGE-INFLATES-CONNECTION-HEALTH — OPEN · decisions 0 · queue 1 · last 2026-08-01
+- ★RANGE-LOOPS-NEED-STABLE-ORDER — DONE · decisions 0 · queue 1 · last 2026-09-24
 - ★RANGELAP-CLAIM-DEFECT — OPEN · decisions 0 · queue 2 · last 2026-09-15
 - ★RANGELAP-RATCHET-SWEEP — OPEN · decisions 0 · queue 4 · last 2026-07-29
 - ★REACH-FREQUENCY-LANE — DONE · decisions 0 · queue 2 · last 2026-09-24
@@ -3043,6 +3050,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★REPORTING-WITH-LORA-OVERLAY — OPEN · decisions 0 · queue 1 · last 2026-08-15
 - ★RESERVATION-FLOOR-REDERIVE-OVERDUE — OPEN · decisions 0 · queue 1 · last 2026-09-16
 - ★RESOLVECHAIN-SCANS-LINEARLY — OPEN · decisions 0 · queue 1 · last 2026-09-16
+- ★REST-PAGING-NEEDS-STABLE-ORDER — DONE · decisions 0 · queue 1 · last 2026-09-24
 - ★REST-READ-HELD-MUST-EQUAL-SERVER-TOTAL — OPEN · decisions 0 · queue 1 · last 2026-09-12
 - ★REST-ROW-CAP-BURN-DOWN — OPEN · decisions 0 · queue 1 · last 2026-09-12
 - ★RESTATEMENT-SWEEP-FLEET — OPEN · decisions 2 · queue 3 · last 2026-09-05
@@ -3692,6 +3700,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_SINGLE_SURFACE_DRIVE_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-17
 - LORAMER_SOFT_LAUNCH_JULY22_V1 — DECIDED · decisions 5 · queue 0 · last 2026-09-15
 - LORAMER_SOURCE_CONFLICT_GATE_V1 — OPEN · decisions 1 · queue 1 · last 2026-07-17
+- LORAMER_STABLE_PAGE_ORDER_V1 — DONE · decisions 1 · queue 1 · last 2026-09-24
 - LORAMER_STATUS_WET_FIRES_ONLY_V1 — DONE · decisions 0 · queue 1 · last 2026-09-14
 - LORAMER_STEADY_STATE_MEDIAN_AND_SPREAD_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-04
 - LORAMER_THREE_CLEAN_RUNS_BEFORE_FAMILY_V1 — DONE · decisions 0 · queue 1 · last 2026-08-19
