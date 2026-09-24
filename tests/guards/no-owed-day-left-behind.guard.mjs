@@ -146,7 +146,7 @@ async function measureClient(CLIENT) {
     d as (
       select s.*, gs::date as day
       from s cross join lateral generate_series(s.ws, s.we, interval '1 day') gs
-    ),
+    ),  -- the ws..we bounds are the surface's own last window (small by construction); no frontier applies here
     withrows as (
       select d.*, exists (
         select 1 from public.metrics_daily md
@@ -164,9 +164,8 @@ async function measureClient(CLIENT) {
                         where c.client_id = $1::uuid and c.vendor = $3::text and c.phase = 'day_committed'
                           and c.resource = w.resource and c.segment = w.segment and c.day = w.day)
         ) ) as covered,
-        exists (select 1 from public.universe_attempt_log a
-                 where a.client_id = $1::uuid and a.vendor = $3::text and a.phase = 'attempt_finished'
-                   and a.outcome in ('zero','nongrain')
+        exists (select 1 from public.universe_attesting_terminals a  -- LORAMER_IDLE_SEED_RETRACTION_V1: zero|nongrain minus retractions
+                 where a.client_id = $1::uuid and a.vendor = $3::text
                    and a.resource = w.resource and a.segment = w.segment
                    and a.window_start <= w.day and a.window_end >= w.day) as attested
       from withrows w
@@ -204,17 +203,22 @@ async function measureClient(CLIENT) {
       select * from json_to_recordset($2::json)
         as x(resource text, segment text, bt text, a_el text, a_bt text, frontier date)
     ),
+    -- LORAMER_IDLE_SEED_RETRACTION_V1 (2026-09-24, round 44 §6): the FRONTIER bounds the series BEFORE it is generated. The first
+    -- cut exploded EVERY attempt_started window into days (Tri-Copy: 20,205 windows × up to 360 days) and only then joined the
+    -- frontier — 855 s in the harness, statement timeouts before that. Now only windows ending above the frontier are joined, and
+    -- the series starts at max(window_start, frontier + 1). Same set, a fraction of the rows.
     asked as (
-      select distinct l.resource, l.segment, gs::date as day
-      from public.universe_attempt_log l
-      cross join lateral generate_series(l.window_start, l.window_end, interval '1 day') gs
-      where l.client_id = $1::uuid and l.vendor = $3::text
-        and l.phase = 'attempt_started' and l.resource <> '__account_inception'
+      select distinct l.resource, l.segment, s.bt, s.a_el, s.a_bt, gs::date as day
+      from s
+      join public.universe_attempt_log l
+        on l.client_id = $1::uuid and l.vendor = $3::text
+       and l.phase = 'attempt_started' and l.resource <> '__account_inception'
+       and l.resource = s.resource and l.segment = s.segment
+       and l.window_end > s.frontier
+      cross join lateral generate_series(greatest(l.window_start, s.frontier + 1), l.window_end, interval '1 day') gs
     ),
     cand as (
-      select s.resource, s.segment, s.bt, s.a_el, s.a_bt, a.day
-      from asked a join s on s.resource = a.resource and s.segment = a.segment
-      where a.day > s.frontier
+      select a.resource, a.segment, a.bt, a.a_el, a.a_bt, a.day from asked a
     ),
     verdict as (
       select c.*,
@@ -225,9 +229,8 @@ async function measureClient(CLIENT) {
                or (c.a_el is not null and md.entity_level = c.a_el and md.breakdown_type = c.a_bt) )
         ) as has_rows,
         exists (
-          select 1 from public.universe_attempt_log a
-          where a.client_id = $1::uuid and a.vendor = $3::text and a.phase = 'attempt_finished'
-            and a.outcome in ('zero','nongrain')
+          select 1 from public.universe_attesting_terminals a  -- LORAMER_IDLE_SEED_RETRACTION_V1: zero|nongrain minus retractions
+          where a.client_id = $1::uuid and a.vendor = $3::text
             and a.resource = c.resource and a.segment = c.segment
             and a.window_start <= c.day and a.window_end >= c.day
         ) as attested
@@ -251,7 +254,12 @@ async function measureClient(CLIENT) {
     where not exists (
       select 1 from public.universe_attempt_log a
       where a.client_id = $1::uuid and a.vendor = $2::text and a.phase = 'attempt_finished'
-        and a.outcome in ('ok','zero','nongrain')
+        and a.outcome = 'ok'
+        and a.resource = b.resource and a.segment = b.segment
+        and a.window_start <= b.window_start and a.window_end >= b.window_end
+    ) and not exists (
+      select 1 from public.universe_attesting_terminals a  -- LORAMER_IDLE_SEED_RETRACTION_V1: an attesting empty, minus retractions
+      where a.client_id = $1::uuid and a.vendor = $2::text
         and a.resource = b.resource and a.segment = b.segment
         and a.window_start <= b.window_start and a.window_end >= b.window_end
     )

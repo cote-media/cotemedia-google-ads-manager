@@ -25,7 +25,8 @@
 //
 // ── RE-SPEC 2026-09-14 — LORAMER_CHECKDATA_RESPEC_BATCH_A_V1 (DECISIONS LORAMER_NONGRAIN_ATTESTS_V1) ────────────
 // The remedy landed: the worker classifies "the vendor answered and nothing was a grain" as outcome 'nongrain', and
-// attestedEmptyDays reads `.in('outcome', ['zero','nongrain'])` (universe-coverage.ts). Two assertions here still
+// attestedEmptyDays reads outcome zero|nongrain — since LORAMER_IDLE_SEED_RETRACTION_V1 through the view
+// universe_attesting_terminals (minus retractions) (universe-coverage.ts). Two assertions here still
 // described the world BEFORE that:
 //   A2 read ONLY outcome='zero' — the exact narrowing the remedy removed — and stayed red on a window that IS
 //      attested (Foam OH campaign/travel_destination_city 2026-03-19..20, attempt 6, outcome nongrain, 2026-08-18).

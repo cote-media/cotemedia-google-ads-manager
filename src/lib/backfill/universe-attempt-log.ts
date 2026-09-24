@@ -26,7 +26,7 @@ export type AttemptOutcome =
   // 'zero' and READS APART from it: folding it into 'ok' left 32 windows across 14 surfaces re-asked forever
   // for 65 wasted requests, and folding it into 'zero' would destroy the very distinction that made the class
   // findable. ⛔ IT IS NOT 'skipped' — that is US declining to ask, and it must never attest.
-  | 'ok' | 'zero' | 'nongrain' | 'skipped' | 'error' | 'quota_stop' | 'floor_stop' | 'abandoned_owed'
+  | 'ok' | 'zero' | 'nongrain' | 'skipped' | 'error' | 'quota_stop' | 'floor_stop' | 'abandoned_owed' | 'retracted' // LORAMER_IDLE_SEED_RETRACTION_V1 — migration 104: a later row that un-attests a zero|nongrain on the same range
 
 /**
  * ⛔ THE PHASES, AS A UNION SO THE DATABASE CAN BE PINNED TO IT — LORAMER_COMPLETION_SIGNAL_V1.

@@ -65,7 +65,12 @@ function makeDb(state) {
       in(c, vs) { q.filters.push((r) => vs.includes(r[c])); return b },
       then(res) {
         if (state.fail) return Promise.resolve({ data: null, count: null, error: { message: state.fail } }).then(res)
-        let rows = [...(state.tables[table] ?? [])]
+        // LORAMER_IDLE_SEED_RETRACTION_V1: the subject reads the VIEW universe_attesting_terminals (zero|nongrain terminals with no
+        // later 'retracted' row on the same range); the stub serves it from the ledger fixture with the view's own predicate.
+        const attesting = (all) => all.filter((r) => r.phase === 'attempt_finished' && (r.outcome === 'zero' || r.outcome === 'nongrain')
+          && !all.some((x) => x.phase === 'attempt_finished' && x.outcome === 'retracted' && x.client_id === r.client_id && x.vendor === r.vendor
+            && x.resource === r.resource && x.segment === r.segment && x.window_start === r.window_start && x.window_end === r.window_end && (x.attempt_no ?? 0) > (r.attempt_no ?? 0)))
+        let rows = [...(state.tables[table] ?? (table === 'universe_attesting_terminals' ? attesting(state.tables.universe_attempt_log ?? []) : []))]
         for (const f of q.filters) rows = rows.filter(f)
         state.reads.push({ table, n: rows.length, head: q.head })
         return Promise.resolve({ data: q.head ? null : rows, count: q.count ? rows.length : null, error: null }).then(res)

@@ -59,10 +59,10 @@ if (M) {
   // (a) empty answer with an empty day list: idle only from ok:true
   const emptyOk = M.idleVerdict({ ...W, canary: 'served', answer: { ok: true, activeDays: [] } })
   check(emptyOk.kind === 'idle', `(a) a successful answer naming no day must read 'idle' (got ${emptyOk.kind}).`)
-  // (a) past the line → unknown on an empty answer, whatever the canary (the account probe is silent there where the surfaces are not)
+  // (a) past the line → 'idle' on an empty answer, whatever the canary (the probe answers there; the round-42 hold is lifted)
   for (const c of ['unknown', 'served']) {
     const past = M.idleVerdict({ windowStart: '2016-05-01', windowEnd: '2016-06-03', wallLine: '2023-08-18', canary: c, answer: { ok: true, activeDays: [] } })
-    check(past.kind === 'unknown', `(a) ⛔ past the line with canary '${c}' an empty account answer read '${past.kind}' — LORAMER_IDLE_PROBE_HELD_PAST_LINE_V1 (measured 2026-09-24): the account probe is silent past the line where the surfaces are not; no idle verdict there, whatever the canary.`)
+    check(past.kind === 'idle', `(a) ⛔ past the line with canary '${c}' an empty account answer read '${past.kind}' — LORAMER_IDLE_SEED_RETRACTION_V1 (2026-09-24): the account probe ANSWERS past the line (312 ok rows naming 130–360 days on Tri-Copy; two direct re-asks zero at customer and campaign level); the round-42 hold rested on a wrong cause and is lifted. An empty answer is 'idle' past the line exactly as above it.`)
   }
   const above = M.idleVerdict({ windowStart: '2025-11-10', windowEnd: '2025-12-13', wallLine: '2023-08-18', canary: 'unknown', answer: { ok: true, activeDays: [] } })
   check(above.kind === 'idle', `(a) above the wall the canary is irrelevant: an empty answer must read 'idle' (got ${above.kind}).`)

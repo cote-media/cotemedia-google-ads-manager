@@ -7,19 +7,19 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-09-24T06:06:24.652Z
-- built_from HEAD: 49440190822e9cc2845e067f67d11a05f0b75401  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-09-24T12:06:31.106Z
+- built_from HEAD: a027df0cc88db2a73c0c9f922c7198d178494233  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
   exactly as fresh as the manifest is honest; the wrap-step regenerates manifest + digest together.
   Source-doc content_hash at build time:
-    - LORAMER_MAP.md: 84a1893be834cbd2dfe8c931e1ae25e99f9d980dc9a5f61e3fbd96c0e9f7e738
+    - LORAMER_MAP.md: e9e6333478482042b6110362c768db57feede51d88b030605f5cf5d79e861248
     - LORAMER_ESSENCE.md: 50f87d19f248bf956e47a8a2e8cf9a72a872832dca5b673aa30b01d0c5273864
     - LORAMER_HANDOFF.md: c0f9c80aab0cd9a5cba6f18bd85d481cafcd20b19e18188dfc34f096f5f94d66
-    - CONTINUE_HERE.md: 5d1cd17ca98032e3bdaf65dbc724d9975bec9ea9abbdd54dc25b6ecb7a0895df
-    - LORAMER_DECISIONS.md: e8218473bcf9e9768cf54c7227b79af0805895e17cdc4984d09bc76747f54858
-    - LORAMER_QUEUE_OF_RECORD.md: 56f5c58b7cca1b38278a959aeef1edea8f30a6a4b8398a21ba71e23386e38f69
+    - CONTINUE_HERE.md: 770b2e3070204de79fefc7e4772eec0641125f7aa8503025912fad9c21c10c0e
+    - LORAMER_DECISIONS.md: 7123af11ce1b40b90166a068f83d836d1258112e97682e7433ea7bf39f718190
+    - LORAMER_QUEUE_OF_RECORD.md: 0f610a74f02722af6c9fc0c04841061c5ae71419b0d271b73036a08f4f6c45cb
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: 4ecde52128c64648f515e99fdb4c08e20f601f89b55afdcc4ca0a246f45fed22
     - RESUME_INSTRUCTIONS.md: 170f9479d09b3588122cbabc1801de601bb18539c975ef6024bb06d077101b1f
     - docs/LORAMER_ASSET_LAYER_SCOPE_V1.md: 9086aa59c145420e8e89943691f1cc3e152f1dbc7fbc67ddcb309449594ce865
@@ -571,7 +571,12 @@ from the top of that file, CONTINUE_HERE WINS and this digest is stale — stop 
 ⛔ READ LORAMER_MAP.md FIRST (the resume command prints it). This block is the session narrative; the MAP is the picture.
 
 ── WHAT SHIPPED, newest-first (all READY, polled to terminal) ──
-· THIS PUSH — LORAMER_IDLE_PROBE_HELD_PAST_LINE_V1 (round 42, found by the wrap's own check:data: capture-landing 210 NEW Tri-Copy days with
+· THIS PUSH — LORAMER_IDLE_SEED_RETRACTION_V1 (round 45, after rounds 43–44 read-only): the cause was NOT a silent probe — the worker stored
+  at most 92 named days and the reuse parser trusted the closed list, so at 360-day windows every month after the 92nd day read idle
+  (20 account windows, 390 surface-windows, 138,600 days; one above the line). Outcome `retracted` + the view universe_attesting_terminals
+  (migration 104, applied live) + every attestation reader on it (guarded) + the whole list written and a short list refused + the
+  round-42 hold lifted + the owed guard bounded by the frontier. 390 retraction rows append on Russ's go.
+· `a027df0` LORAMER_IDLE_PROBE_HELD_PAST_LINE_V1 (round 42, found by the wrap's own check:data: capture-landing 210 NEW Tri-Copy days with
   rows and no account row). Past the line the ACCOUNT idle probe answered "no active day" where the walk's own campaign rows carry 2,030,171
   impressions; 559 surface-windows / 192,252 surface-days on 5 clients were retired idle in three hours. The idle verdict is HELD past the line
   again (surfaces answer for themselves; the surface half of round 41 stands). ⛔ THE FALSE ROWS ARE STILL IN THE LEDGER — head step (1).
@@ -590,14 +595,11 @@ from the top of that file, CONTINUE_HERE WINS and this digest is stale — stop 
   requests_opened 8,072 · 0 steps without progress; deepest past-line window seen 2021-09-02..2022-08-27.
 
 ── ▶▶ NEXT STEP, IN ORDER — first one first (Russ, round 42, 2026-09-24; step 1 inserted by the same night's finding) ──
-(1) REPAIR THE FALSE IDLES — ★FALSE-IDLE-PAST-LINE-REPAIR: read the count at the fix's deploy, decide reader-side rule vs ledger
-    exception in its own round, then re-ask the days they retired. Tri-Copy's proof cannot be scored on top of them. With it, the
-    MORNING READ, read-only: Tri-Copy's run (status, steps, sealed of 358, deepest window per layer) and the 10:15Z canary reading
-    Tri-Copy's LIVE row (the 09-23 canary FAILED only because the row did not exist at 10:15Z — created 15:35Z; DECISIONS:2871's case).
-    ★IDLE-PROBE-PAST-LINE-WITNESS is a Google read on Russ's word.
-(2) FIX no-owed-day-left-behind — a PROOF INSTRUMENT that CANNOT RUN (statement timeout, 801 s; QUEUE ★NO-OWED-DAY-CHECK-CRASHES,
-    amended round 42). The proof cannot score without it. Its own round decides the shape (server-side per-day probe like migration 103,
-    or a per-client LATERAL).
+(1) THE REPAIR SHIPPED (LORAMER_IDLE_SEED_RETRACTION_V1, this push): 390 retraction rows on Russ's go (--apply), then the MORNING
+    READ, read-only: Gate-A (c) and (d) from the push report, Tri-Copy's run (status, steps, sealed of 358, deepest window per layer)
+    and the missed lane re-asking the retracted ground. The 10:15Z canary read SERVED on 2026-09-24 (7 rows, 824 ms).
+(2) no-owed-day-left-behind — the frontier now bounds its series BEFORE generation (round 45); read its runtime and verdict in the next
+    full check:data; if it scores inside its budget, ★NO-OWED-DAY-CHECK-CRASHES closes.
 (3) TRI-COPY PROOF: the run done at its floor, 358 sealed, the hole-map proof scored; then Russ reconciles August 2026 against the
     Google Ads app (round 27 §6 query — the walk's customer row).
 (4) THE NON-DERIVABLE METRICS ROUND under ruling (a) — DECISIONS LORAMER_SESSION_2026_09_23_RULINGS_V1: enumerate every metric that
@@ -1697,7 +1699,8 @@ The 2026-06-29 inventory pre-dates 6 shipped writers and was NOT trusted. | do n
 ## LORAMER_SESSION_2026_09_23_RULINGS_V1 (2026-09-23; banked 2026-09-24, round 42) — [DESTINATION — RUSS, HIS WORDS VERBATIM; DOCS ONLY] TWO STANDING RULINGS FROM THE PAST-LINE DAY: WHAT IS CAPTURED VERSUS COMPUTED, AND WHAT THE SCREEN OWES ONCE DATA COMPLETENESS IS DONE DONE.
   | LORAMER_SESSION_2026_09_23_RULINGS_V1, 2026-09-23 (banked 2026-09-24) | do not relitigate.
 ## LORAMER_IDLE_PROBE_HELD_PAST_LINE_V1 (2026-09-24) — [BUILT round 42, SHIPPED in the wrap push; FOUND BY THE WRAP'S OWN check:data] PAST THE 37-MONTH LINE THE ACCOUNT-LEVEL IDLE PROBE IS SILENT WHERE THE SURFACES ARE NOT; NO IDLE VERDICT IS ISSUED THERE. Amends the idle half of [[LORAMER_PAST_LINE_EMPTY_V1]]; the surface half stands.
-  | LORAMER_IDLE_PROBE_HELD_PAST_LINE_V1, 2026-09-24 | do not relitigate.
+## LORAMER_IDLE_SEED_RETRACTION_V1 (2026-09-24) — [BUILT round 45, SHIPPED on Russ's go (this push); MIGRATION 104 APPLIED LIVE BEFORE THE GATE] A WRONG ATTESTATION IS RETRACTED BY AN APPENDED ROW, ONE VIEW OWNS "WHAT ATTESTS", THE SEED IS WRITTEN WHOLE AND REFUSED WHEN SHORT, AND THE ROUND-42 HOLD IS LIFTED. Supersedes [[LORAMER_IDLE_PROBE_HELD_PAST_LINE_V1]]'s cause and hold.
+  | LORAMER_IDLE_SEED_RETRACTION_V1, 2026-09-24 | do not relitigate.
 
 ## H. OPEN-QUEUE INDEX — still-open items only (DONE appendix excluded)  (source: LORAMER_QUEUE_OF_RECORD.md)
 - ★CHECKDATA-PUSHED-OVER-RED — ⛔ **NEW 2026-08-22. I PUSHED TO MAIN TWICE TONIGHT OVER A RED `check:data`, DISCLOSED BOTH TIMES, AND THAT IS EXACTLY WHY THIS NEEDS A DECISION RATHER THAN A HABIT.** CLAUDE.md requires the gate to be RUN and REPORTED before any push to origin main; it does not say whether a red BLOCKS. So the gate is currently **NEITHER A GATE NOR ADVISORY** — it is whatever the executor argues in the moment, which is the weakest possible state for a check that exists to stop bad data. THE READS: 13 red before the cutover, **9 red after**, and FOUR cleared *because delivery resumed* (`check-consumer-liveness` had been reading "DELIVERY IS DARK", plus check-capture-landing, check-frozen-cursors, check-parent-analyze). ⚠ **THE COUNT ALSO MOVED 11 → 13 BETWEEN TWO RUNS TWENTY MINUTES APART ON IDENTICAL CODE** — proof these track warehouse STATE, not the diff, which is precisely what makes a blanket block wrong AND a blanket pass wrong. **THE WORK IS A DECISION RUSS OWNS:** (a) hard gate with a named baseline of accepted reds, (b) advisory with the verdict quoted in every push report, or (c) split it — the state checks advisory, the correctness checks blocking. Until one is chosen, every push over a red is a judgement call re-litigated from scratch. src: the 2026-08-22 cutover pushes. open [LC]
@@ -2523,8 +2526,8 @@ HOW TO USE: before writing "NEW" on any finding, gap or correction, GREP THIS SE
 LORAMER_*_V* marker you are about to mint. A token collision is DECIDABLE; a topic match is not. This is
 ESSENCE law 7 made mechanical — the law is a rule about behaviour, and on 2026-07-31 four already-decided
 topics were discussed as open while it was in force.
-TOTALS: 1209 tokens indexed · 382 resolve to BOTH a decision and a queue item ·
-146 decision-only · 681 queue-only.
+TOTALS: 1210 tokens indexed · 382 resolve to BOTH a decision and a queue item ·
+146 decision-only · 682 queue-only.
 ⛔ UNINDEXABLE — THIS COUNT IS THE BACKLOG, NOT A DISCLAIMER: 161 DECISIONS entries and
 259 QUEUE items carry NO token at all, so they cannot be found this way. An untokened decision
 is invisible to the enforcer; the fix is to mint a token when banking, not to widen the matcher. Samples —
@@ -3417,8 +3420,9 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_HOOKS_OVER_PROSE_V1 — OPEN · decisions 0 · queue 3 · last 2026-09-10
 - LORAMER_HORIZON_FORK_DEPLOY1_V1 — OPEN · decisions 0 · queue 1 · last 2026-08-17
 - LORAMER_HYDRATED_CUSTOM_RANGE_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-16
-- LORAMER_IDLE_PROBE_HELD_PAST_LINE_V1 — DONE · decisions 1 · queue 1 · last 2026-09-24
+- LORAMER_IDLE_PROBE_HELD_PAST_LINE_V1 — DONE · decisions 0 · queue 1 · last 2026-09-24
 - LORAMER_IDLE_REUSE_MONTH_V1 — DONE · decisions 0 · queue 1 · last 2026-09-18
+- LORAMER_IDLE_SEED_RETRACTION_V1 — DONE · decisions 1 · queue 3 · last 2026-09-24
 - LORAMER_IDLE_SKIP_V1 — DECIDED · decisions 1 · queue 0 · last 2026-09-18
 - LORAMER_IMPRESSION_SHARE_FAMILY_V1 — OPEN · decisions 1 · queue 3 · last 2026-09-24
 - LORAMER_INSIGHT_OPUS_FLOOR_V1 — DONE · decisions 2 · queue 1 · last 2026-07-17

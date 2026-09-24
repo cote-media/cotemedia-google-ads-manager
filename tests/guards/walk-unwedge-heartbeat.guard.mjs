@@ -117,8 +117,8 @@ const findings = []
   // it returned rows and none was a grain at this surface. ⛔ WHAT THIS LEG ACTUALLY GUARDS IS UNCHANGED AND
   // IS THE ONLY THING THAT MATTERS: 'skipped' MUST NEVER APPEAR. That is US declining to ask, and letting our
   // own bookkeeping attest ground the vendor never answered for is the false-all-clear class.
-  const attestSet = !ATTEST_SKIP && attestBody.includes(".eq('phase', 'attempt_finished').in('outcome', ['zero', 'nongrain'])") && !/outcome[^\n]*'skipped'/.test(attestBody)
-  if (!attestSet) findings.push(`(b) ${F_COVERAGE}: attestedEmptyDays no longer filters the exact vendor-attested set ['zero','nongrain'] — or it admitted 'skipped'. A 'skipped' row counting as vendor attestation would let OUR bookkeeping attest ground the vendor never answered for, the false-all-clear class.`)
+  const attestSet = !ATTEST_SKIP && attestBody.includes(".from('universe_attesting_terminals')") && !/outcome[^\n]*'skipped'/.test(attestBody)
+  if (!attestSet) findings.push(`(b) ${F_COVERAGE}: attestedEmptyDays no longer reads the one attesting view universe_attesting_terminals (zero|nongrain minus retractions, LORAMER_IDLE_SEED_RETRACTION_V1) — or it admitted 'skipped'. A 'skipped' row counting as vendor attestation would let OUR bookkeeping attest ground the vendor never answered for, the false-all-clear class.`)
   const skipShape = !ATTEST_SKIP && /appendAttemptFinished\(key, opened\.attemptNo, 'skipped', \{\s*requestsSpent: 0,\s*error: `COVERED_SKIP/.test(route)
   if (!skipShape) findings.push(`(b) ${F_ROUTE}: the covered-skip no longer carries requestsSpent:0 + the COVERED_SKIP marker with rowsWritten OMITTED. rowsWritten must stay null — sizeNextWindow filters .not('rows_written','is',null), and a 0 would feed 'the vendor served nothing' into sizing from a call that never happened.`)
   if (/appendAttemptFinished\(key, opened\.attemptNo, 'skipped', \{[^}]*rowsWritten/.test(route)) {

@@ -367,13 +367,22 @@ async function runAccountRowInvariant(conns, q, { gateA, guard, proveExact }) {
       // stood at 2022), which made every unasked day in between read as a violation (962 false findings). A day is judged
       // only when the customer surface has ANSWERED a window holding it (outcome ok or zero, any lane but lookback); a held
       // window (outcome error) is asked-not-answered and is not judged. Sealed → every day.
+      // LORAMER_IDLE_SEED_RETRACTION_V1 (2026-09-24): the empties come from the VIEW universe_attesting_terminals (zero|nongrain
+      // minus retractions); 'ok' and 'floor_stop' are read from the table — they are answers, not attestations. A retracted
+      // customer window is therefore NOT answered here and its days are not judged until a lane re-asks them.
       const [cust] = await q(
-        `select count(*) filter (where outcome = 'floor_stop')::int as sealed,
-                coalesce(json_agg(json_build_array(window_start::text, window_end::text)) filter (where outcome in ('ok', 'zero', 'nongrain')), '[]'::json) as answered_windows,
+        `with t as (
+           select window_start, window_end, outcome from universe_attempt_log
+            where client_id = $1 and vendor = 'google' and phase = 'attempt_finished' and outcome in ('ok', 'floor_stop')
+              and resource = 'customer' and coalesce(segment, '') = '' and lane <> 'lookback'
+           union all
+           select window_start, window_end, outcome from universe_attesting_terminals
+            where client_id = $1 and vendor = 'google'
+              and resource = 'customer' and coalesce(segment, '') = '' and lane <> 'lookback')
+         select count(*) filter (where outcome = 'floor_stop')::int as sealed,
+                coalesce(json_agg(json_build_array(window_start::text, window_end::text)) filter (where outcome <> 'floor_stop'), '[]'::json) as answered_windows,
                 coalesce(json_agg(json_build_array(window_start::text, window_end::text)) filter (where outcome = 'zero'), '[]'::json) as zero_windows
-           from universe_attempt_log
-          where client_id = $1 and vendor = 'google' and phase = 'attempt_finished'
-            and resource = 'customer' and coalesce(segment, '') = '' and lane <> 'lookback'`,
+           from t`,
         [c.client_id])
       const sealed = (cust?.sealed ?? 0) > 0
       const answered = Array.isArray(cust?.answered_windows) ? cust.answered_windows : []

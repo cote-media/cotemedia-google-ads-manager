@@ -25,6 +25,7 @@ const strip = (src) => src.replace(/\/\*[\s\S]*?\*\//g, '').split('\n').filter((
 
 const LIB = 'src/lib/backfill/universe-idle-skip.ts'
 const WORKER = 'src/lib/backfill/universe-v2-worker.ts'
+const IDLE = 'src/lib/backfill/universe-idle-skip.ts'
 const ROUTE = 'src/app/api/cron/universe-resume/route.ts'
 
 let M = null
@@ -81,7 +82,9 @@ if (M) {
 // (c) placement
 {
   const w = strip(read(WORKER))
-  check(/days=\$\{JSON\.stringify\(answer\.activeDays\.slice\(0, 92\)\)\}/.test(w) || /days=\[\$\{answer\.activeDays\.slice\(0, 92\)\.join\(','\)\}\]/.test(w), `(c) ${WORKER}: the ACCOUNT_ACTIVITY ledger text must carry the named days (days=[…]) so the next fire can reuse the answer.`)
+  check(/days=\[\$\{answer\.activeDays\.join\(','\)\}\]/.test(w) && !/activeDays\.slice\(0,\s*\d+\)/.test(w), `(c) ${WORKER}: the __account_activity row must carry EVERY named day (days=[${'${answer.activeDays.join(\',\')}'}]) — LORAMER_IDLE_SEED_RETRACTION_V1: a capped list (slice(0, 92)) let 360-day windows read every month past the 92nd day as idle; 390 surface-windows were retired false on 2026-09-24.`)
+  const I = strip(read(IDLE))
+  check(/named\s*!==?\s*[a-z]+\.length|\.length\s*!==?\s*named/.test(I) && /active day\(s\)/.test(I), `(c) ${IDLE}: namedDaysFromLedgerText must refuse a list whose length differs from the row's named count ("N active day(s)") — a short list is not the answer; the 1,026 capped seeds must read NOT REUSABLE.`)
   const r = strip(read(ROUTE))
   check(/priorActivityFromLedger\(/.test(r) && /createIdleMemo\(\{ wallLine, canary: canary\.state, prior: idlePrior \}\)/.test(r), `(c) ${ROUTE}: the fire must build the memo from the ledger's prior __account_activity answers (priorActivityFromLedger → createIdleMemo({ …, prior })).`)
 }

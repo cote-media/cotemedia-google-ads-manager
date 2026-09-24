@@ -10,13 +10,12 @@
 // developers.google.com/google-ads/api/docs/reporting/zero-metrics). A successful answer therefore NAMES the active
 // days. A day named active is never idle. A failed, refused or missing answer yields NO verdict, and the window walks
 // surface by surface exactly as before — the skip can only ever remove requests, never facts.
-// ⛔ PAST THE RETENTION WALL no idle verdict is issued at all (LORAMER_IDLE_PROBE_HELD_PAST_LINE_V1, measured; Q6 before it): silence there is
+// ⛔ PAST THE RETENTION LINE the verdict applies exactly as above it (LORAMER_IDLE_SEED_RETRACTION_V1 lifted the round-42 hold; Q6 before it held): silence there is
 // not evidence, whatever the canary reads.
 // ⛔ A MIXED WINDOW IS NEVER SKIPPED. Splitting the surfaces' request to the active range would save no operation
 // (one request per surface either way) and would double the ledger, so a mixed window walks whole; the verdict still
 // names the active range and the idle days so the fire's log says what was seen.
 import type { CanaryState } from '@/lib/backfill/retention-wall'
-import { isPastWall } from '@/lib/backfill/retention-wall'
 
 /** The synthetic ledger resource the account-level request is charged under. Collides with no catalog surface. */
 export const ACCOUNT_ACTIVITY_RESOURCE = '__account_activity'
@@ -53,18 +52,11 @@ export type IdleVerdict =
  */
 export function idleVerdict(a: { windowStart: string; windowEnd: string; wallLine: string; canary: CanaryState; answer: ActivityAnswer }): IdleVerdict {
   if (!a.answer.ok) return { kind: 'unknown', reason: `account activity unanswered — ${a.answer.error}; the window walks surface by surface` }
-  // ⛔ LORAMER_IDLE_PROBE_HELD_PAST_LINE_V1 (2026-09-24, round 42 — MEASURED ON THE LEDGER, 02:51–05:41Z): past the line the
-  // ACCOUNT-LEVEL answer is silent where the SURFACES are not. LORAMER_PAST_LINE_EMPTY_V1 let this verdict apply past the
-  // line on the strength of rounds 39–40, which measured SURFACE answers (daily served to inception) — never this probe.
-  // On the first fires after that push the customer probe named no active day in Tri-Copy's 2020-09-08..2021-09-02 while
-  // the walk's own campaign-level rows in that window carry 2,030,171 impressions on 129 days; 542 windows / 192,252
-  // surface-days on five clients were retired idle in three hours. So past the line NO idle verdict is issued — the window
-  // walks surface by surface and each surface's own empty is 'zero' (that half of PAST_LINE_EMPTY stands: the witness
-  // proved SURFACE empties, and the surfaces are the ones Google answers). The canary does not enter: the hold is
-  // unconditional past the line until a witness proves the account probe there (QUEUE ★IDLE-PROBE-PAST-LINE-WITNESS).
-  if (isPastWall(a.windowEnd, a.wallLine)) {
-    return { kind: 'unknown', reason: `window ${a.windowStart}..${a.windowEnd} is past the retention line ${a.wallLine} (canary ${a.canary}) — the account probe is silent there where the surfaces are not (LORAMER_IDLE_PROBE_HELD_PAST_LINE_V1); no idle verdict, the surfaces answer for themselves` }
-  }
+  // LORAMER_IDLE_SEED_RETRACTION_V1 (2026-09-24): the round-42 hold (LORAMER_IDLE_PROBE_HELD_PAST_LINE_V1) is LIFTED. It rested
+  // on a wrong cause: the account probe ANSWERS past the line (312 ok rows naming 130–360 days on Tri-Copy; two direct re-asks
+  // read zero at customer and campaign level). The false idles came from the capped ledger list, fixed in the parser above and
+  // the worker's write. An empty answer is 'idle' past the line exactly as above it (Russ, 2026-09-23: "If there's data go get it").
+  void a.wallLine; void a.canary
   const inWindow = [...new Set(a.answer.activeDays)].filter((d) => d >= a.windowStart && d <= a.windowEnd).sort()
   if (inWindow.length === 0) {
     return { kind: 'idle', reason: `Google answered and named no active day in ${a.windowStart}..${a.windowEnd} (${ACTIVITY_METRICS.length} metrics, customer level)` }
@@ -123,9 +115,18 @@ function monthBounds(key: string): { start: string; end: string } {
 export type PriorActivity = Map<string, string[]>
 /** The days a ledger row's text names: `days=[2025-10-03,2025-10-20]` (written by the worker since 2026-09-18). null = not carried. */
 export function namedDaysFromLedgerText(error: string | null | undefined): string[] | null {
-  const m = String(error ?? '').match(/days=\[([^\]]*)\]/)
+  const text = String(error ?? '')
+  const m = text.match(/days=\[([^\]]*)\]/)
   if (!m) return null
-  return m[1].split(',').map((d) => d.trim()).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d))
+  const days = m[1].split(',').map((d) => d.trim()).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d))
+  // ⛔ LORAMER_IDLE_SEED_RETRACTION_V1 (2026-09-24): A SHORT LIST IS NOT THE ANSWER. The row names its count
+  // ("N active day(s)"); a list shorter than that count was CAPPED by the writer (slice(0, 92), 2026-09-18..24) and
+  // reading it as complete marked every month after the 92nd day idle — 390 surface-windows retired false. Such a row
+  // is NOT REUSABLE (null): its months are asked again, once, and learned whole. 1,026 capped seeds measured on 2026-09-24.
+  const c = text.match(/(\d+) active day\(s\)/)
+  const named = c ? Number(c[1]) : days.length
+  if (days.length !== named) return null
+  return days
 }
 /**
  * Pure. Builds the reusable prior from finished __account_activity rows (newest first is fine; the first answer for a

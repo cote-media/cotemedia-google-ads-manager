@@ -279,8 +279,11 @@ export async function attestedEmptyDays(k: CoverageKey, windowStart: string, win
   // overlap, so the set this filters is small by construction.
   // `segment` is `''` for the base entry (migrations/061:95, NOT NULL — `.eq` semantics are safe; nothing
   // here needs `.is()`); `?? null` is defence against a relaxed column, and maps to the BASE surface only.
+  // ⛔ LORAMER_IDLE_SEED_RETRACTION_V1 (2026-09-24): the read is the VIEW universe_attesting_terminals (migration 104) — zero|nongrain
+  // terminals with NO later 'retracted' row on the same range. A retraction (an appended row, never an update) is the only way a
+  // wrong attestation leaves this set; reading the table here would re-trust it. tests/guards/attesting-readers-use-the-view pins this.
   const { data, error } = await supabaseAdmin
-    .from('universe_attempt_log')
+    .from('universe_attesting_terminals')
     .select('window_start, window_end, segment, message_key, invocation_id, lane')
     .eq('client_id', k.clientId).eq('vendor', k.platform)
     .eq('resource', k.entityLevel)
@@ -288,8 +291,8 @@ export async function attestedEmptyDays(k: CoverageKey, windowStart: string, win
     // returned nothing. 'nongrain' = it returned rows and none was a grain at this surface (segment not
     // applicable, or every metric zero) — LORAMER_NONGRAIN_ATTESTS_V1. Both are the VENDOR answering; neither
     // is our bookkeeping. ⛔ 'skipped' STILL MUST NOT APPEAR HERE: that is US declining to ask, and letting it
-    // attest is the false-all-clear class.
-    .eq('phase', 'attempt_finished').in('outcome', ['zero', 'nongrain'])
+    // attest is the false-all-clear class. (The view carries exactly zero|nongrain; the phase filter is kept for the reader's eye.)
+    .eq('phase', 'attempt_finished')
     // ⛔ ONLY THE DESCENDING LANE MAY ATTEST — LORAMER_TOP_EDGE_LANE_V1, 2026-08-19, AND IT IS THE ONE CLAUSE
     // THAT MAKES AN UNMEASURED VENDOR LAG HARMLESS. At the top edge a `zero` and a NOT-YET-SERVED day are
     // indistinguishable: Google publishes a 37-month lookback but says NOTHING about how far behind today a
@@ -541,10 +544,10 @@ export async function daysNoLongerOwedSince(
   // (2) Terminals that attest — few by construction (one per attempt), lane resolved from the attempt_started row
   // of the same message, exactly as attestedEmptyDays does, because terminal rows do not carry the lane truthfully.
   let terminalsQ = supabaseAdmin
-    .from('universe_attempt_log')
+    .from('universe_attesting_terminals') // LORAMER_IDLE_SEED_RETRACTION_V1 — attesting terminals minus retractions
     .select('window_start, window_end, message_key, invocation_id')
     .eq('client_id', k.clientId).eq('vendor', k.vendor)
-    .eq('phase', 'attempt_finished').in('outcome', ['zero', 'nongrain'])
+    .eq('phase', 'attempt_finished')
     .gte('recorded_at', sinceIso)
   if (prefix) terminalsQ = terminalsQ.like('invocation_id', prefix)
   const { data, error: tErr } = await terminalsQ
@@ -593,9 +596,9 @@ export async function askingWithoutProgressSince(
   let lastProgressAt: string | null = (c?.[0] as { recorded_at?: string } | undefined)?.recorded_at ?? null
   // newest ATTESTING terminal — few candidates, lanes resolved from their attempt_started rows as attestedEmptyDays does
   const { data: t, error: tErr } = await supabaseAdmin
-    .from('universe_attempt_log').select('recorded_at, message_key, invocation_id')
+    .from('universe_attesting_terminals').select('recorded_at, message_key, invocation_id') // LORAMER_IDLE_SEED_RETRACTION_V1
     .eq('client_id', k.clientId).eq('vendor', k.vendor)
-    .eq('phase', 'attempt_finished').in('outcome', ['zero', 'nongrain'])
+    .eq('phase', 'attempt_finished')
     .gte('recorded_at', sinceIso).order('recorded_at', { ascending: false }).limit(50)
   if (tErr) throw fail('attested', tErr.message)
   const terms = (t ?? []) as Array<{ recorded_at: string; message_key: string | null; invocation_id: string | null }>

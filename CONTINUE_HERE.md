@@ -3,7 +3,12 @@
 ⛔ READ LORAMER_MAP.md FIRST (the resume command prints it). This block is the session narrative; the MAP is the picture.
 
 ── WHAT SHIPPED, newest-first (all READY, polled to terminal) ──
-· THIS PUSH — LORAMER_IDLE_PROBE_HELD_PAST_LINE_V1 (round 42, found by the wrap's own check:data: capture-landing 210 NEW Tri-Copy days with
+· THIS PUSH — LORAMER_IDLE_SEED_RETRACTION_V1 (round 45, after rounds 43–44 read-only): the cause was NOT a silent probe — the worker stored
+  at most 92 named days and the reuse parser trusted the closed list, so at 360-day windows every month after the 92nd day read idle
+  (20 account windows, 390 surface-windows, 138,600 days; one above the line). Outcome `retracted` + the view universe_attesting_terminals
+  (migration 104, applied live) + every attestation reader on it (guarded) + the whole list written and a short list refused + the
+  round-42 hold lifted + the owed guard bounded by the frontier. 390 retraction rows append on Russ's go.
+· `a027df0` LORAMER_IDLE_PROBE_HELD_PAST_LINE_V1 (round 42, found by the wrap's own check:data: capture-landing 210 NEW Tri-Copy days with
   rows and no account row). Past the line the ACCOUNT idle probe answered "no active day" where the walk's own campaign rows carry 2,030,171
   impressions; 559 surface-windows / 192,252 surface-days on 5 clients were retired idle in three hours. The idle verdict is HELD past the line
   again (surfaces answer for themselves; the surface half of round 41 stands). ⛔ THE FALSE ROWS ARE STILL IN THE LEDGER — head step (1).
@@ -22,14 +27,11 @@
   requests_opened 8,072 · 0 steps without progress; deepest past-line window seen 2021-09-02..2022-08-27.
 
 ── ▶▶ NEXT STEP, IN ORDER — first one first (Russ, round 42, 2026-09-24; step 1 inserted by the same night's finding) ──
-(1) REPAIR THE FALSE IDLES — ★FALSE-IDLE-PAST-LINE-REPAIR: read the count at the fix's deploy, decide reader-side rule vs ledger
-    exception in its own round, then re-ask the days they retired. Tri-Copy's proof cannot be scored on top of them. With it, the
-    MORNING READ, read-only: Tri-Copy's run (status, steps, sealed of 358, deepest window per layer) and the 10:15Z canary reading
-    Tri-Copy's LIVE row (the 09-23 canary FAILED only because the row did not exist at 10:15Z — created 15:35Z; DECISIONS:2871's case).
-    ★IDLE-PROBE-PAST-LINE-WITNESS is a Google read on Russ's word.
-(2) FIX no-owed-day-left-behind — a PROOF INSTRUMENT that CANNOT RUN (statement timeout, 801 s; QUEUE ★NO-OWED-DAY-CHECK-CRASHES,
-    amended round 42). The proof cannot score without it. Its own round decides the shape (server-side per-day probe like migration 103,
-    or a per-client LATERAL).
+(1) THE REPAIR SHIPPED (LORAMER_IDLE_SEED_RETRACTION_V1, this push): 390 retraction rows on Russ's go (--apply), then the MORNING
+    READ, read-only: Gate-A (c) and (d) from the push report, Tri-Copy's run (status, steps, sealed of 358, deepest window per layer)
+    and the missed lane re-asking the retracted ground. The 10:15Z canary read SERVED on 2026-09-24 (7 rows, 824 ms).
+(2) no-owed-day-left-behind — the frontier now bounds its series BEFORE generation (round 45); read its runtime and verdict in the next
+    full check:data; if it scores inside its budget, ★NO-OWED-DAY-CHECK-CRASHES closes.
 (3) TRI-COPY PROOF: the run done at its floor, 358 sealed, the hole-map proof scored; then Russ reconciles August 2026 against the
     Google Ads app (round 27 §6 query — the walk's customer row).
 (4) THE NON-DERIVABLE METRICS ROUND under ruling (a) — DECISIONS LORAMER_SESSION_2026_09_23_RULINGS_V1: enumerate every metric that

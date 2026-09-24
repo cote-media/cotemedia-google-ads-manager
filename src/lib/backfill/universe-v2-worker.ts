@@ -489,7 +489,10 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance, opts
           await appendAttemptFinished(actKey, o.attemptNo, answer.ok ? (answer.activeDays.length ? 'ok' : 'zero') : 'error', {
             rowsWritten: 0, requestsSpent: 1, diskFreeBytes: floor.freeBytes,
             // LORAMER_IDLE_REUSE_MONTH_V1 — the named days ride the row so the next fire can reuse the answer by month.
-            error: answer.ok ? `ACCOUNT_ACTIVITY — ${answer.activeDays.length} active day(s) named by the vendor in ${w.windowStart}..${w.windowEnd} days=[${answer.activeDays.slice(0, 92).join(',')}]` : `ACCOUNT_ACTIVITY unanswered — ${answer.error}`,
+            // ⛔ LORAMER_IDLE_SEED_RETRACTION_V1 (2026-09-24): EVERY named day, never a prefix. The first cut wrote slice(0, 92);
+            // at 360-day windows every month after the 92nd named day then read IDLE on reuse (390 surface-windows retired
+            // false in three hours). ≤360 dates ≈ 4 KB of text; the parser refuses any list shorter than the named count.
+            error: answer.ok ? `ACCOUNT_ACTIVITY — ${answer.activeDays.length} active day(s) named by the vendor in ${w.windowStart}..${w.windowEnd} days=[${answer.activeDays.join(',')}]` : `ACCOUNT_ACTIVITY unanswered — ${answer.error}`,
           }, prov)
         } catch (e: any) {
           console.error(`[universe-v2] IDLE-SKIP ledger write failed for ${clientId} ${w.windowStart}..${w.windowEnd}: ${String(e?.message ?? e)}`)
