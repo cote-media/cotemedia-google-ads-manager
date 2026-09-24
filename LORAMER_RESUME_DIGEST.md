@@ -7,19 +7,19 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-09-24T12:06:31.106Z
-- built_from HEAD: a027df0cc88db2a73c0c9f922c7198d178494233  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-09-24T18:28:54.504Z
+- built_from HEAD: 5d6bfdb8ad7ccf2baf84ee2a9ae079ee70455f09  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
   exactly as fresh as the manifest is honest; the wrap-step regenerates manifest + digest together.
   Source-doc content_hash at build time:
-    - LORAMER_MAP.md: e9e6333478482042b6110362c768db57feede51d88b030605f5cf5d79e861248
+    - LORAMER_MAP.md: 96b24eec5b633a70fdcb6f5a20eb391bd329cea9356a6d53e373974910ad7adf
     - LORAMER_ESSENCE.md: 50f87d19f248bf956e47a8a2e8cf9a72a872832dca5b673aa30b01d0c5273864
     - LORAMER_HANDOFF.md: c0f9c80aab0cd9a5cba6f18bd85d481cafcd20b19e18188dfc34f096f5f94d66
-    - CONTINUE_HERE.md: 770b2e3070204de79fefc7e4772eec0641125f7aa8503025912fad9c21c10c0e
-    - LORAMER_DECISIONS.md: 7123af11ce1b40b90166a068f83d836d1258112e97682e7433ea7bf39f718190
-    - LORAMER_QUEUE_OF_RECORD.md: 0f610a74f02722af6c9fc0c04841061c5ae71419b0d271b73036a08f4f6c45cb
+    - CONTINUE_HERE.md: 9a6f8af849cc7471c8444646408d073f28a46788f31e7e119199a78a9fa0faff
+    - LORAMER_DECISIONS.md: eb9103206f7a138e01bbfd11b03bc676bb234f8df1aad3d345160f1bd3b726b5
+    - LORAMER_QUEUE_OF_RECORD.md: 811cdf704d44e2ae78f691ac57511085e3b2d446b2dc55e32f92e57ca9f8aec2
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: 4ecde52128c64648f515e99fdb4c08e20f601f89b55afdcc4ca0a246f45fed22
     - RESUME_INSTRUCTIONS.md: 170f9479d09b3588122cbabc1801de601bb18539c975ef6024bb06d077101b1f
     - docs/LORAMER_ASSET_LAYER_SCOPE_V1.md: 9086aa59c145420e8e89943691f1cc3e152f1dbc7fbc67ddcb309449594ce865
@@ -571,7 +571,13 @@ from the top of that file, CONTINUE_HERE WINS and this digest is stale — stop 
 ⛔ READ LORAMER_MAP.md FIRST (the resume command prints it). This block is the session narrative; the MAP is the picture.
 
 ── WHAT SHIPPED, newest-first (all READY, polled to terminal) ──
-· THIS PUSH — LORAMER_IDLE_SEED_RETRACTION_V1 (round 45, after rounds 43–44 read-only): the cause was NOT a silent probe — the worker stored
+· THIS PUSH — LORAMER_IMPLICIT_PRESENCE_REASK_V1 (round 50, after rounds 46–49 read-only): a proto3 implicit-presence bool arrives ABSENT when
+  false and the writer dropped that side on 5 asset-interaction entries (the side holding the interactions); IMPLICIT_PRESENCE_DEFAULTS +
+  a proto-scan guard; a re-ask queue (migration 105) the FIRE consumes inside its missed slot (4 of 8, lookback first, holes keep 4) — the
+  enqueue script never asks Google; two uses on Russ's go: dropped-side (145 windows, 16 clients) and Tri-Copy's retracted windows (386).
+  Also measured this arc: the impression-share family is non-additive at every grain (captured, never computed); search-term surfaces
+  withhold terms per grain; reach/frequency campaign-only ≤92 days within 3 years; Bath Fitter's "conversion gap" was the descend frontier.
+· `5d6bfdb` LORAMER_IDLE_SEED_RETRACTION_V1 (round 45, after rounds 43–44 read-only): the cause was NOT a silent probe — the worker stored
   at most 92 named days and the reuse parser trusted the closed list, so at 360-day windows every month after the 92nd day read idle
   (20 account windows, 390 surface-windows, 138,600 days; one above the line). Outcome `retracted` + the view universe_attesting_terminals
   (migration 104, applied live) + every attestation reader on it (guarded) + the whole list written and a short list refused + the
@@ -595,7 +601,10 @@ from the top of that file, CONTINUE_HERE WINS and this digest is stale — stop 
   requests_opened 8,072 · 0 steps without progress; deepest past-line window seen 2021-09-02..2022-08-27.
 
 ── ▶▶ NEXT STEP, IN ORDER — first one first (Russ, round 42, 2026-09-24; step 1 inserted by the same night's finding) ──
-(1) THE REPAIR SHIPPED (LORAMER_IDLE_SEED_RETRACTION_V1, this push): 390 retraction rows on Russ's go (--apply), then the MORNING
+(1) THE RE-ASKS (LORAMER_IMPLICIT_PRESENCE_REASK_V1, this push): on Russ's go both --apply, then read Gate-A (d)–(f); the queue drains
+    at 4 per fire per client (Tri-Copy's 386 in ~2–3 h of pump steps; the fleet's 145 in ~2 rotation laps). check:data's reask-queue-exhausted
+    leg is the stall detector. Then the retraction's own read: the retracted windows answered, Tri-Copy's owed days toward zero.
+(1-was) THE REPAIR SHIPPED (LORAMER_IDLE_SEED_RETRACTION_V1, 5d6bfdb): 390 retraction rows applied 14:14Z, then the MORNING
     READ, read-only: Gate-A (c) and (d) from the push report, Tri-Copy's run (status, steps, sealed of 358, deepest window per layer)
     and the missed lane re-asking the retracted ground. The 10:15Z canary read SERVED on 2026-09-24 (7 rows, 824 ms).
 (2) no-owed-day-left-behind — the frontier now bounds its series BEFORE generation (round 45); read its runtime and verdict in the next
@@ -1701,6 +1710,8 @@ The 2026-06-29 inventory pre-dates 6 shipped writers and was NOT trusted. | do n
 ## LORAMER_IDLE_PROBE_HELD_PAST_LINE_V1 (2026-09-24) — [BUILT round 42, SHIPPED in the wrap push; FOUND BY THE WRAP'S OWN check:data] PAST THE 37-MONTH LINE THE ACCOUNT-LEVEL IDLE PROBE IS SILENT WHERE THE SURFACES ARE NOT; NO IDLE VERDICT IS ISSUED THERE. Amends the idle half of [[LORAMER_PAST_LINE_EMPTY_V1]]; the surface half stands.
 ## LORAMER_IDLE_SEED_RETRACTION_V1 (2026-09-24) — [BUILT round 45, SHIPPED on Russ's go (this push); MIGRATION 104 APPLIED LIVE BEFORE THE GATE] A WRONG ATTESTATION IS RETRACTED BY AN APPENDED ROW, ONE VIEW OWNS "WHAT ATTESTS", THE SEED IS WRITTEN WHOLE AND REFUSED WHEN SHORT, AND THE ROUND-42 HOLD IS LIFTED. Supersedes [[LORAMER_IDLE_PROBE_HELD_PAST_LINE_V1]]'s cause and hold.
   | LORAMER_IDLE_SEED_RETRACTION_V1, 2026-09-24 | do not relitigate.
+## LORAMER_IMPLICIT_PRESENCE_REASK_V1 (2026-09-24) — [BUILT round 50, SHIPPED on Russ's go (this push); MIGRATIONS 105 AND 106 APPLIED LIVE BEFORE THE GATE] A FALSE THAT ARRIVES ABSENT IS STILL A VALUE, AND NAMED SURFACE-WINDOWS ARE RE-ASKED BY THE FIRE THROUGH A QUEUE — NEVER BY A SCRIPT THAT ASKS.
+  | LORAMER_IMPLICIT_PRESENCE_REASK_V1, 2026-09-24 | do not relitigate.
 
 ## H. OPEN-QUEUE INDEX — still-open items only (DONE appendix excluded)  (source: LORAMER_QUEUE_OF_RECORD.md)
 - ★CHECKDATA-PUSHED-OVER-RED — ⛔ **NEW 2026-08-22. I PUSHED TO MAIN TWICE TONIGHT OVER A RED `check:data`, DISCLOSED BOTH TIMES, AND THAT IS EXACTLY WHY THIS NEEDS A DECISION RATHER THAN A HABIT.** CLAUDE.md requires the gate to be RUN and REPORTED before any push to origin main; it does not say whether a red BLOCKS. So the gate is currently **NEITHER A GATE NOR ADVISORY** — it is whatever the executor argues in the moment, which is the weakest possible state for a check that exists to stop bad data. THE READS: 13 red before the cutover, **9 red after**, and FOUR cleared *because delivery resumed* (`check-consumer-liveness` had been reading "DELIVERY IS DARK", plus check-capture-landing, check-frozen-cursors, check-parent-analyze). ⚠ **THE COUNT ALSO MOVED 11 → 13 BETWEEN TWO RUNS TWENTY MINUTES APART ON IDENTICAL CODE** — proof these track warehouse STATE, not the diff, which is precisely what makes a blanket block wrong AND a blanket pass wrong. **THE WORK IS A DECISION RUSS OWNS:** (a) hard gate with a named baseline of accepted reds, (b) advisory with the verdict quoted in every push report, or (c) split it — the state checks advisory, the correctness checks blocking. Until one is chosen, every push over a red is a judgement call re-litigated from scratch. src: the 2026-08-22 cutover pushes. open [LC]
@@ -2526,8 +2537,8 @@ HOW TO USE: before writing "NEW" on any finding, gap or correction, GREP THIS SE
 LORAMER_*_V* marker you are about to mint. A token collision is DECIDABLE; a topic match is not. This is
 ESSENCE law 7 made mechanical — the law is a rule about behaviour, and on 2026-07-31 four already-decided
 topics were discussed as open while it was in force.
-TOTALS: 1210 tokens indexed · 382 resolve to BOTH a decision and a queue item ·
-146 decision-only · 682 queue-only.
+TOTALS: 1214 tokens indexed · 383 resolve to BOTH a decision and a queue item ·
+146 decision-only · 685 queue-only.
 ⛔ UNINDEXABLE — THIS COUNT IS THE BACKLOG, NOT A DISCLAIMER: 161 DECISIONS entries and
 259 QUEUE items carry NO token at all, so they cannot be found this way. An untokened decision
 is invisible to the enforcer; the fix is to mint a token when banking, not to widen the matcher. Samples —
@@ -2719,6 +2730,8 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★DRIVER-ALLOCATION-LITERAL-18TH-CONNECTION — OPEN · decisions 0 · queue 2 · last 2026-09-15
 - ★DRIVER-SPENDS-UNGATED — OPEN · decisions 0 · queue 1 · last 2026-09-15
 - ★DRONES-META-CAPTURE-CLIFF-2026-08 — OPEN · decisions 0 · queue 2 · last 2026-08-24
+- ★DROPPED-SIDE-IMPLICIT-PRESENCE — DONE · decisions 0 · queue 1 · last 2026-09-24
+- ★DROPPED-SIDE-IMPRESSIONS-PER-ASSET — DONE · decisions 0 · queue 1 · last 2026-09-24
 - ★DRYRUN-EQUALS-TRUE-TRAP — DECIDED · decisions 1 · queue 0 · last 2026-09-15
 - ★DRYRUN-EQUALS-TRUE-TRAP-ON-SYNC-AND-DRAIN — OPEN · decisions 0 · queue 1 · last 2026-08-09
 - ★DRYRUN-IS-NOT-ZERO-WRITE — OPEN · decisions 0 · queue 1 · last 2026-07-27
@@ -3021,6 +3034,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★REACH-FREQUENCY-LANE — DONE · decisions 0 · queue 2 · last 2026-09-24
 - ★READER-SCOPE-IS-NINE-FILES — OPEN · decisions 0 · queue 1 · last 2026-09-16
 - ★READINESS-SIGNALS-RPC-TIMEOUT — OPEN · decisions 0 · queue 1 · last 2026-08-13
+- ★REASK-QUEUE — DONE · decisions 0 · queue 1 · last 2026-09-24
 - ★RECONCILE-TO-VENDOR-UI-UNRECORDED — OPEN · decisions 0 · queue 2 · last 2026-12-14
 - ★RECONNECT-HAS-NO-STATE-MACHINE — OPEN · decisions 0 · queue 2 · last 2026-08-23
 - ★REFUSAL-STATUS-UNMEASURED-READ-AS-CLEAN — DONE · decisions 0 · queue 1 · last 2026-08-25
@@ -3424,6 +3438,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_IDLE_REUSE_MONTH_V1 — DONE · decisions 0 · queue 1 · last 2026-09-18
 - LORAMER_IDLE_SEED_RETRACTION_V1 — DONE · decisions 1 · queue 3 · last 2026-09-24
 - LORAMER_IDLE_SKIP_V1 — DECIDED · decisions 1 · queue 0 · last 2026-09-18
+- LORAMER_IMPLICIT_PRESENCE_REASK_V1 — DONE · decisions 1 · queue 2 · last 2026-09-24
 - LORAMER_IMPRESSION_SHARE_FAMILY_V1 — OPEN · decisions 1 · queue 3 · last 2026-09-24
 - LORAMER_INSIGHT_OPUS_FLOOR_V1 — DONE · decisions 2 · queue 1 · last 2026-07-17
 - LORAMER_INSTRUMENT_CLIENT_LITERAL_GUARD_V1 — DONE · decisions 0 · queue 1 · last 2026-09-15

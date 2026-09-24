@@ -165,6 +165,8 @@ export interface DeadlineOpts {
   canary?: CanaryReading
   /** LORAMER_PAST_LINE_EMPTY_V1 — called once per empty answer past the 37-month line; the answer is retired as 'zero' like any empty, and counted so the fire's instrument stays loud. */
   onPastLineEmpty?: () => void
+  /** LORAMER_IMPLICIT_PRESENCE_REASK_V1 — the unit's terminal outcome, so the fire can settle a re-ask queue row from it. */
+  onOutcome?: (outcome: 'error' | 'skipped' | 'zero' | 'nongrain' | 'ok') => void
   /** LORAMER_UNIT_RESERVE_PER_SURFACE_V1 — this surface's worst observed seconds-per-day (null = unmeasured); range admission reserves per range from it. */
   maxSecPerDay?: number | null
 }
@@ -575,6 +577,7 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance, opts
         : res.apiRows === 0 ? 'zero'
         : res.nonGrainOnly ? 'nongrain'
         : 'ok'
+      opts.onOutcome?.(outcome)
       // ⛔ LORAMER_PAST_LINE_EMPTY_V1 (Russ, 2026-09-23: "If there's data go get it") — A SUCCESS-EMPTY PAST THE 37-MONTH
       // LINE IS A ZERO, exactly as above it. Until this build it was recorded under 'error' with UNRESOLVED_PAST_WALL and
       // held for the missed lane (LORAMER_WALL_HOLD_NEVER_RETIRE_V1, Q6). MEASURED before the flip (rounds 39–40): Google
@@ -704,7 +707,8 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance, opts
 // extra named export here is a build risk in a step whose whole contract is "nothing changes". The poll
 // lane will need it, and the correct home is then a lib module — that relocation belongs to step 2,
 // not to this one.
-export async function processMessage(msg: UniverseMessageV2, opts: DeadlineOpts = {}): Promise<{ requestsOpened: number; pastLineEmpty: number }> {
+export async function processMessage(msg: UniverseMessageV2, opts: DeadlineOpts = {}): Promise<{ requestsOpened: number; pastLineEmpty: number; outcome: 'error' | 'skipped' | 'zero' | 'nongrain' | 'ok' | null }> {
+  let lastOutcome: 'error' | 'skipped' | 'zero' | 'nongrain' | 'ok' | null = null // LORAMER_IMPLICIT_PRESENCE_REASK_V1 — the fire settles a queue row from it
   // ⛔ THE PROVENANCE IS MINTED BEFORE ANYTHING CAN FAIL. `messageKey` is the PUBLISHER's idempotency key,
   // riding on the message — the fact we already had and threw away. `invocationId` is THIS DELIVERY's, and it
   // is a second fact rather than a duplicate: a redelivery carries the SAME message key, so nothing keyed on
@@ -733,7 +737,7 @@ export async function processMessage(msg: UniverseMessageV2, opts: DeadlineOpts 
   let pastLineEmpty = 0
   const counted: DeadlineOpts = { ...opts, onPastLineEmpty: () => { pastLineEmpty++; opts.onPastLineEmpty?.() } }
   try {
-    requestsOpened = await runOneMessage(msg, prov, counted)
+    requestsOpened = await runOneMessage(msg, prov, { ...counted, onOutcome: (o) => { lastOutcome = o; counted.onOutcome?.(o) } })
   } catch (e: any) {
     // ⛔ RECORD AND RETHROW. Swallowing here would convert a crash into a silent success and hand the queue a
     // 2xx for work that did not happen — the exact inversion of what this row exists to prevent.
@@ -752,7 +756,7 @@ export async function processMessage(msg: UniverseMessageV2, opts: DeadlineOpts 
         `observer — it did not fail, it became unreadable. NOT rethrown: a throw from finally would replace the real error.`)
     }
   }
-  return { requestsOpened, pastLineEmpty }
+  return { requestsOpened, pastLineEmpty, outcome: lastOutcome }
 }
 
 /**

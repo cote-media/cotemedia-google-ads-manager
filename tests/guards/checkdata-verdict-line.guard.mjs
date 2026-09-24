@@ -85,6 +85,7 @@ const EXPECTED_ROSTER = [
   'scripts/check-capture-landing.mjs --invariant-only --guard',
   'scripts/check-frozen-cursors.mjs --guard',
   'scripts/check-retention-canary.mjs', // LORAMER_RETENTION_WALL_CANARY_V1 (2026-09-18)
+  'scripts/check-reask-queue.mjs', // LORAMER_IMPLICIT_PRESENCE_REASK_V1 — a re-ask queue row at REASK_MAX_TRIES with done_at null is a finding
   'tests/guards/canonical-client-identity.guard.mjs --db',
   'scripts/breakdown-reachability-check.mjs --gate',
   'scripts/check-completion-claims.mjs --guard',

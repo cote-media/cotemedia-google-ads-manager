@@ -227,6 +227,11 @@ export const LOOKBACK_REQUESTS_PER_RUN = 2
 export const MISSED_REQUESTS_PER_RUN = 8
 export const MISSED_SURFACES_PER_RUN = 16
 export const MISSED_ALLOWANCE_MS = 20_000
+// LORAMER_IMPLICIT_PRESENCE_REASK_V1 (2026-09-24, round 50) — the RE-ASK QUEUE the missed lane consumes FIRST, for at most half
+// its bound (4 of 8), so real holes keep the other half every fire; a row that ends in an error terminal is tried REASK_MAX_TRIES
+// times, then held visible to check:data (reask-queue-exhausted), never re-tried silently and never dropped.
+export const REASK_REQUESTS_PER_RUN = 4
+export const REASK_MAX_TRIES = 3
 export const MISSED_WINDOW_DAYS = 360 // LORAMER_DESCEND_WINDOW_360_V1 (2026-09-22): widened with the descend window; the lane still asks only HOLES, chunked to this width, so a one-day hole is a one-day request and a 200-day hole is one request instead of three
 
 /**

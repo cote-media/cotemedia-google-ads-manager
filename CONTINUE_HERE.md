@@ -3,7 +3,13 @@
 ⛔ READ LORAMER_MAP.md FIRST (the resume command prints it). This block is the session narrative; the MAP is the picture.
 
 ── WHAT SHIPPED, newest-first (all READY, polled to terminal) ──
-· THIS PUSH — LORAMER_IDLE_SEED_RETRACTION_V1 (round 45, after rounds 43–44 read-only): the cause was NOT a silent probe — the worker stored
+· THIS PUSH — LORAMER_IMPLICIT_PRESENCE_REASK_V1 (round 50, after rounds 46–49 read-only): a proto3 implicit-presence bool arrives ABSENT when
+  false and the writer dropped that side on 5 asset-interaction entries (the side holding the interactions); IMPLICIT_PRESENCE_DEFAULTS +
+  a proto-scan guard; a re-ask queue (migration 105) the FIRE consumes inside its missed slot (4 of 8, lookback first, holes keep 4) — the
+  enqueue script never asks Google; two uses on Russ's go: dropped-side (145 windows, 16 clients) and Tri-Copy's retracted windows (386).
+  Also measured this arc: the impression-share family is non-additive at every grain (captured, never computed); search-term surfaces
+  withhold terms per grain; reach/frequency campaign-only ≤92 days within 3 years; Bath Fitter's "conversion gap" was the descend frontier.
+· `5d6bfdb` LORAMER_IDLE_SEED_RETRACTION_V1 (round 45, after rounds 43–44 read-only): the cause was NOT a silent probe — the worker stored
   at most 92 named days and the reuse parser trusted the closed list, so at 360-day windows every month after the 92nd day read idle
   (20 account windows, 390 surface-windows, 138,600 days; one above the line). Outcome `retracted` + the view universe_attesting_terminals
   (migration 104, applied live) + every attestation reader on it (guarded) + the whole list written and a short list refused + the
@@ -27,7 +33,10 @@
   requests_opened 8,072 · 0 steps without progress; deepest past-line window seen 2021-09-02..2022-08-27.
 
 ── ▶▶ NEXT STEP, IN ORDER — first one first (Russ, round 42, 2026-09-24; step 1 inserted by the same night's finding) ──
-(1) THE REPAIR SHIPPED (LORAMER_IDLE_SEED_RETRACTION_V1, this push): 390 retraction rows on Russ's go (--apply), then the MORNING
+(1) THE RE-ASKS (LORAMER_IMPLICIT_PRESENCE_REASK_V1, this push): on Russ's go both --apply, then read Gate-A (d)–(f); the queue drains
+    at 4 per fire per client (Tri-Copy's 386 in ~2–3 h of pump steps; the fleet's 145 in ~2 rotation laps). check:data's reask-queue-exhausted
+    leg is the stall detector. Then the retraction's own read: the retracted windows answered, Tri-Copy's owed days toward zero.
+(1-was) THE REPAIR SHIPPED (LORAMER_IDLE_SEED_RETRACTION_V1, 5d6bfdb): 390 retraction rows applied 14:14Z, then the MORNING
     READ, read-only: Gate-A (c) and (d) from the push report, Tri-Copy's run (status, steps, sealed of 358, deepest window per layer)
     and the missed lane re-asking the retracted ground. The 10:15Z canary read SERVED on 2026-09-24 (7 rows, 824 ms).
 (2) no-owed-day-left-behind — the frontier now bounds its series BEFORE generation (round 45); read its runtime and verdict in the next

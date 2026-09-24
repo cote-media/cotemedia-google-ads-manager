@@ -41,6 +41,7 @@ export const GOOGLE_DELETE_TABLES: readonly DeleteTable[] = [
   { table: 'store_bulk_operations', scope: 'platform', fn: 'google_delete_client_capture' },
   // 5 — the walk state, children first, inception LAST (its absence is what starts a re-descent on reconnect)
   { table: 'universe_missed_cursor', scope: 'vendor', fn: 'google_delete_client_walk_state' },
+  { table: 'universe_reask_queue', scope: 'vendor', fn: 'google_delete_client_walk_state' }, // LORAMER_IMPLICIT_PRESENCE_REASK_V1 — a client's queued re-asks go with its Google data (migration 105; client+platform scoped)
   { table: 'universe_run_notice', scope: 'vendor', fn: 'google_delete_client_walk_state' },
   { table: 'universe_run_state', scope: 'vendor', fn: 'google_delete_client_walk_state' },
   { table: 'universe_run', scope: 'vendor', fn: 'google_delete_client_walk_state' },

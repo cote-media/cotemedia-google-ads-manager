@@ -61,7 +61,7 @@ if (!/ATTESTING_LANES[^=]*=\s*new Set\(\['descend',\s*'lookback',\s*'missed'\]\)
 if (!/if\s*\(!ATTESTING_LANES\.has\(lane\)\)\s*continue/.test(coverage)) findings.push(`(e) attestedEmptyDays does not filter by ATTESTING_LANES`)
 // (f) own bound + shared meter
 if (!/export const MISSED_REQUESTS_PER_RUN\s*=\s*\d+/.test(resumer)) findings.push(`(f) ${RESUMER} declares no MISSED_REQUESTS_PER_RUN`)
-if (route && !/boundedSelection\(missed,\s*MISSED_REQUESTS_PER_RUN\)/.test(route)) findings.push(`(f) ${ROUTE} does not admit missed candidates under MISSED_REQUESTS_PER_RUN`)
+if (route && !/boundedSelection\(missed,\s*MISSED_REQUESTS_PER_RUN( - selReask\.requests)?\)/.test(route)) // LORAMER_IMPLICIT_PRESENCE_REASK_V1: the re-ask queue takes at most REASK_REQUESTS_PER_RUN of this bound; the holes keep the rest findings.push(`(f) ${ROUTE} does not admit missed candidates under MISSED_REQUESTS_PER_RUN`)
 if (route && !/mayFetchProgram\(adapter,\s*\[\.\.\.sel\.taken,\s*\.\.\.lookbackToSend,\s*\.\.\.selMissed\.taken\]/.test(route)) findings.push(`(f) ${ROUTE} does not meter the missed lane's spans with the other lanes in mayFetchProgram — a lane the meter cannot see is a governor granting itself the difference`)
 // (g) registered
 if (!/missed-lane-shape\.guard\.mjs/.test(read('scripts/run-guards.mjs'))) findings.push('(g) not registered in scripts/run-guards.mjs')

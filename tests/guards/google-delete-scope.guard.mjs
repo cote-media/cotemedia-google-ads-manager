@@ -22,12 +22,13 @@ import { resolve } from 'node:path'
 const ROOT = process.env.LORAMER_GUARD_ROOT || process.cwd()
 const SQL = 'migrations/099_google_delete_client_data.sql'
 const SQL2 = 'migrations/100_google_delete_job.sql' // the later definitions win: LORAMER_GOOGLE_DELETE_JOB_V1 re-creates the delete functions with p_code
+const SQL3 = 'migrations/106_google_delete_reask_queue.sql' // later still: LORAMER_IMPLICIT_PRESENCE_REASK_V1 adds universe_reask_queue to the walk-state delete and the count
 const TABLES = 'src/lib/google-delete/tables.ts'
 const ROUTE = 'src/app/api/clients/google/delete-data/route.ts'
 const findings = []
 const read = (rel) => { try { return readFileSync(resolve(ROOT, rel), 'utf8') } catch { findings.push(`UNREADABLE ${rel} — a guard that cannot read its evidence FAILS`); return '' } }
 
-const sql = read(SQL) + '\n' + read(SQL2), tablesTs = read(TABLES), route = read(ROUTE)
+const sql = read(SQL) + '\n' + read(SQL2) + '\n' + read(SQL3), tablesTs = read(TABLES), route = read(ROUTE)
 const job = read('src/lib/google-delete/job.ts')
 if (sql && tablesTs && route) {
   // the declared list
@@ -68,7 +69,7 @@ if (sql && tablesTs && route) {
   // (e) equality with the declared list, and the declared function
   const declaredSet = new Set(declared.map((t) => t.table))
   for (const t of declared) {
-    if (!deletedBy.has(t.table)) findings.push(`(e) ${t.table} is declared in ${TABLES} but no function in ${SQL} deletes from it`)
+    if (!deletedBy.has(t.table)) findings.push(`(e) ${t.table} is declared in ${TABLES} but no function in ${SQL} / ${SQL2} / ${SQL3} deletes from it`)
     else if (deletedBy.get(t.table) !== t.fn) findings.push(`(e) ${t.table} is declared under ${t.fn} but ${SQL} deletes it in ${deletedBy.get(t.table)}`)
   }
   for (const [table, fn] of deletedBy) if (!declaredSet.has(table)) findings.push(`(e) ${SQL} deletes from ${table} (in ${fn}) but ${TABLES} does not declare it — the list must be the one place`)

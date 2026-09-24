@@ -1093,6 +1093,21 @@ export function buildFamilyRows(entry: UniverseEntry, ctx: BuildCtx, apiRows: an
  * re-fetches the same window and re-upserts the same keys. Adding entity_id to the aggregation key makes
  * the keys STRICTLY MORE specific than before; it cannot create a collision that did not already exist.
  */
+/**
+ * ⛔ LORAMER_IMPLICIT_PRESENCE_REASK_V1 (2026-09-24, round 50) — A FALSE THAT ARRIVES ABSENT IS STILL A VALUE.
+ * proto3 does not serialise a scalar set to its default, and a nested field declared without `optional` (IMPLICIT presence)
+ * therefore ARRIVES MISSING when false: google/ads/googleads/v23/common/segments.proto:606 `bool interaction_on_this_asset = 2;`
+ * inside AssetInteractionTarget (compare :144 `optional bool conversion_adjustment`, explicit — false is serialised). The first
+ * cut read the missing leaf as '' and dropped the row as "no segment value": half the rows on five entries, the half that holds
+ * the interactions (Tri-Copy 2025-07: false clicks 5,789 vs true 302; both sides carry the asset's impressions).
+ * THE RULE: when the leaf is undefined AND its parent message arrived, the value is this table's; a row with no parent message at
+ * all stays noise (the segment is not applicable). Keyed by the segment path without `segments.`; the guard
+ * implicit-presence-defaults parses the shipped proto for every catalogue segment and fails on any implicit bool this table lacks.
+ */
+export const IMPLICIT_PRESENCE_DEFAULTS: Record<string, string> = {
+  'asset_interaction_target.interaction_on_this_asset': 'false',
+}
+
 export function buildUniverseRowsAtGrain(entry: UniverseEntry, ctx: BuildCtx, apiRows: any[]): BuiltRows {
   // LORAMER_IMPRESSION_SHARE_FAMILY_V1 — a metric family has its own builder (ratios, not counts). Field test, not a name.
   if (entry.family) return buildFamilyRows(entry, ctx, apiRows)
@@ -1116,7 +1131,11 @@ export function buildUniverseRowsAtGrain(entry: UniverseEntry, ctx: BuildCtx, ap
     // spelling; the drain's is the incumbent and wins. device: the ordinal "4" becomes DESKTOP
     // (`google-device.ts:31-33`). hour: "0" becomes "00" (`google-hour.ts:33`). Anything else passes through —
     // a fact only the walk writes has no incumbent to conform to, and inventing one would repeat the mistake.
-    const rawValue = raw === undefined || raw === null ? '' : String(raw)
+    // LORAMER_IMPLICIT_PRESENCE_REASK_V1 — an ABSENT leaf under a PRESENT parent message is the proto3 default, not "no value".
+    const parentPath = segPath && segPath.includes('.') ? segPath.slice(0, segPath.lastIndexOf('.')) : null
+    const parentPresent = parentPath !== null && parentPath.split('.').reduce((a: any, k) => (a == null ? a : a[k]), r?.segments) != null
+    const implicitDefault = raw === undefined && segPath !== null && parentPresent ? IMPLICIT_PRESENCE_DEFAULTS[segPath] : undefined
+    const rawValue = raw === undefined || raw === null ? (implicitDefault ?? '') : String(raw)
     const value = rawValue === '' ? '' : canonicalBreakdownValue(bt, rawValue)
     // ⛔ THE FILTER IS CORRECT AND STAYS. Google's own convention is that a NULL segment means the segment
     // is NOT APPLICABLE (travel_destination_city on a non-travel account), and its shopping guidance is to

@@ -521,6 +521,8 @@ const GUARDS = [
   'tests/guards/idle-reuse-month.guard.mjs', // LORAMER_IDLE_REUSE_MONTH_V1 — account-activity answers keyed by calendar month, reused for zero requests within the fire and across fires via the ledger's named days
   'tests/guards/past-line-empty.guard.mjs', // LORAMER_PAST_LINE_EMPTY_V1 (was wall-hold-never-retire) — an empty past the 37-month line is recorded empty under every canary state; no worker path emits UNRESOLVED_PAST_WALL (Russ 2026-09-23: "If there's data go get it")
   'tests/guards/attesting-readers-use-the-view.guard.mjs', // LORAMER_PAST_LINE_EMPTY_V1 (was wall-hold-never-retire) — an empty past the 37-month line is recorded empty under every canary state; no worker path emits UNRESOLVED_PAST_WALL (Russ 2026-09-23: "If there's data go get it")
+  'tests/guards/implicit-presence-defaults.guard.mjs', // LORAMER_IMPLICIT_PRESENCE_REASK_V1 — an absent implicit-presence bool lands as its default; the proto scan
+  'tests/guards/reask-queue-shape.guard.mjs', // LORAMER_IMPLICIT_PRESENCE_REASK_V1 — the fire consumes the re-ask queue inside the missed slot, half the bound
   'tests/guards/run-end-kind.guard.mjs', // LORAMER_RUN_END_KIND_V1 — every way a run ends has a named kind (floor / stopped / failed); the two 'done' reasons are constants
   'tests/guards/status-run-fields.guard.mjs', // LORAMER_STATUS_RUN_FIELDS_V1 — the readout carries run/progress/stalled additively; finished_at wins over a stale claim; a dead pump reads stalled (10 min)
   'tests/guards/one-click-start-once.guard.mjs', // LORAMER_ONE_CLICK_RUN_V1 — the press starts the run once (DB-conditional; a live row returns unchanged; floor-done + complete is the meter); preflight keys the token on the connection's email

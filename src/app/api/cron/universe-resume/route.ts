@@ -84,7 +84,8 @@ import { DRIVER_EXCLUDED_CLIENTS } from '@/lib/backfill/forward-driver'
 // ⛔ LORAMER_V2_QUOTA_SENTINEL_WIRED_V1 — the SHARED predicate. `holdGoogleWork`, never `.paused`.
 import { readGoogleQuotaPause, holdGoogleWork } from '@/lib/backfill/google-quota-store'
 import { recordQuotaHold } from '@/lib/backfill/universe-quota-hold' // LORAMER_V2_QUOTA_HOLD_IS_DURABLE_V1
-import { readWalkLaneHold, holdWalkLane } from '@/lib/backfill/walk-quota-store' // LORAMER_WALK_QUOTA_SCOPE_V1 — this lane's own hold
+import { readWalkLaneHold, holdWalkLane } from '@/lib/backfill/walk-quota-store'
+import { readReaskQueue, answeredSince, chunksStillOwed, settleReaskRow, terminalOutcomeFor } from '@/lib/backfill/universe-reask-queue' // LORAMER_IMPLICIT_PRESENCE_REASK_V1 // LORAMER_WALK_QUOTA_SCOPE_V1 — this lane's own hold
 import {
   assessCoverage, decideRepublish, boundedSelection,
   orderLeastRecentlyServed, pickLeastRecentlyServed, type ServedRow, // 2/2 B — one client per fire, never-served first
@@ -94,6 +95,7 @@ import {
   MAX_REQUESTS_PER_RUN, MAX_ENTRIES_SCANNED_PER_RUN, WINDOWS_PER_PUBLISHED_MESSAGE,
   LOOKBACK_REQUESTS_PER_RUN, LOOKBACK_WINDOW_DAYS_BASIC,
   SEALED_STRIP_DERIVATIONS_PER_RUN,
+  REASK_REQUESTS_PER_RUN, // LORAMER_IMPLICIT_PRESENCE_REASK_V1 — the re-ask queue's share of the missed bound
   MISSED_REQUESTS_PER_RUN, MISSED_SURFACES_PER_RUN, MISSED_ALLOWANCE_MS, MISSED_WINDOW_DAYS, chunkSpanOldestFirst, splitAtWall, advanceMissedCursor, // LORAMER_MISSED_DAY_WALK_V1 / LORAMER_MISSED_CURSOR_V1
   missedFireColumns, // LORAMER_MISSED_FIRE_DURABILITY_V1 — the fire row carries the lane's cursor facts (092)
   addDaysISO,
@@ -448,6 +450,9 @@ export async function GET(request: Request) {
     /** LORAMER_UNIT_RESERVE_PER_SURFACE_V1 — the surface's worst observed s/day (null = unmeasured) and this unit's reserve. */
     maxSecPerDay: number | null
     reserveMs: number
+    /** LORAMER_IMPLICIT_PRESENCE_REASK_V1 — set when this unit serves a re-ask queue row; reaskWhole when it is the row's whole range. */
+    reaskId?: number
+    reaskWhole?: boolean
   }
   const candidates: Candidate[] = []
   // ⛔ THE SECOND LANE — LORAMER_LOOKBACK_LANE_V1 (the top-edge lane of LORAMER_TOP_EDGE_LANE_V1 CONVERTED, ruling
@@ -849,6 +854,11 @@ export async function GET(request: Request) {
   // sweep. Now each fire starts at the stored cursor and the cursor advances only past what the enumerator actually
   // reached (its nextEntry), wrapping at the catalogue end: one sweep = every entry, whatever the allowance does.
   const missed: Candidate[] = []
+  // LORAMER_IMPLICIT_PRESENCE_REASK_V1 — the re-ask queue (migration 105): named surface-windows this fire asks FIRST inside the
+  // missed slot, for at most REASK_REQUESTS_PER_RUN of the missed lane's bound; the hole scan keeps the rest. Read only when the
+  // missed lane itself may run (same boundary and inception facts); settled per unit below.
+  const reaskCandidates: Candidate[] = []
+  let reaskQueued = 0, reaskSettledByLedger = 0, reaskDone = 0, reaskErrored = 0, reaskReadError: string | null = null
   let missedFrom = 0, missedSweep = 0, missedCursorNext: number | null = null, missedWrapped = false
   let missedCursorWriteError: string | null = null
   let missedScanned = 0, missedNextEntry: number | null = null, missedOwedDaysSeen = 0, missedSurfacesWithHoles = 0
@@ -864,6 +874,39 @@ export async function GET(request: Request) {
       const stored = await readMissedCursor(clientId, adapter.platform)
       missedSweep = stored.sweep
       missedFrom = stored.cursor >= entries.length ? 0 : stored.cursor
+      try {
+        const rows = await readReaskQueue(clientId, adapter.platform)
+        reaskQueued = rows.length
+        const reaskSpd = new Map<string, number | null>()
+        let reaskRequests = 0
+        for (const row of rows) {
+          if (reaskRequests >= REASK_REQUESTS_PER_RUN) break
+          const entry = byKey.get(`${row.resource}|${row.segment}`)
+          if (!entry) { if (!dryRun) await settleReaskRow(row.id, { kind: 'error', error: `no walk entry ${row.resource}|${row.segment}` }); reaskErrored++; continue }
+          const spdKey = `${row.resource}|${row.segment}`
+          if (!reaskSpd.has(spdKey)) {
+            const sz = await sizeNextWindow(adapter, { clientId, resource: row.resource, segment: row.segment, consumerMaxS: CONSUMER_MAX_DURATION_S })
+            reaskSpd.set(spdKey, sz.maxSecPerDay ?? null)
+          }
+          const spd = reaskSpd.get(spdKey) ?? null
+          const days = timeCappedDays({ maxSecPerDay: spd, days: MISSED_WINDOW_DAYS, minDays: adapter.sizing.minDays, consumerMaxS: CONSUMER_MAX_DURATION_S }).days
+          const chunks = chunksStillOwed(chunkSpanOldestFirst(row.window_start, row.window_end, days), await answeredSince(row))
+          if (chunks.length === 0) { if (!dryRun) await settleReaskRow(row.id, { kind: 'done' }); reaskSettledByLedger++; continue }
+          const label = `${row.resource}${row.segment ? ' / ' + row.segment : ''}`
+          for (const w of chunks) {
+            if (reaskRequests >= REASK_REQUESTS_PER_RUN) break
+            reaskRequests++
+            reaskCandidates.push({
+              entry, label, ranges: 1, owedDays: w.days,
+              windowStart: w.start, windowEnd: w.end, sizingBasis: 'reask-queue',
+              anchorBasis: `re-ask queue row ${row.id} (${row.reason}) ${row.window_start}..${row.window_end}; chunk ${w.start}..${w.end}`,
+              receded: false, stopBasis: `boundary T−${boundary.days} — ${boundary.basis}`,
+              rangeSpans: [w.days], maxSecPerDay: spd, reserveMs: unitReserveMs({ maxSecPerDay: spd, days: w.days }),
+              reaskId: row.id, reaskWhole: w.start === row.window_start && w.end === row.window_end && chunks.length === 1,
+            })
+          }
+        }
+      } catch (e: any) { reaskReadError = String(e?.message ?? e); refusals.push({ label: '(reask queue)', verdict: 'reask-read-error', reason: reaskReadError }) }
       const page = await enumerateGoogleHoles({
         clientId, start: stopFacts.inceptionDate, end: missedBoundaryEnd,
         bounds: { allowanceMs: MISSED_ALLOWANCE_MS, maxEntries: MISSED_SURFACES_PER_RUN },
@@ -920,7 +963,8 @@ export async function GET(request: Request) {
     }
   }
   const sel = boundedSelection(candidates, MAX_REQUESTS_PER_RUN)
-  const selMissed = boundedSelection(missed, MISSED_REQUESTS_PER_RUN) // LORAMER_MISSED_DAY_WALK_V1 — its own bound, oldest first
+  const selReask = boundedSelection(reaskCandidates, REASK_REQUESTS_PER_RUN) // LORAMER_IMPLICIT_PRESENCE_REASK_V1 — the queue's half
+  const selMissed = boundedSelection(missed, MISSED_REQUESTS_PER_RUN - selReask.requests) // LORAMER_MISSED_DAY_WALK_V1 — its own bound, oldest first; the holes keep what the queue did not take
   // ⛔ A SEPARATE BOUND, NOT A SHARE OF THE 40 — LORAMER_LOOKBACK_LANE_V1 (was LORAMER_TOP_EDGE_LANE_V1). Folding the
   // boundary strip into the descending bite would let a fragmented descent starve the lookback, or the lookback
   // starve the descent, depending only on scan order. Two lanes, two bounds, ONE meter (the program below sums both).
@@ -1013,6 +1057,7 @@ export async function GET(request: Request) {
   const toSend: Array<{ c: Candidate; lane: 'descend' | 'lookback' | 'missed' }> = [
     ...sel.taken.map((c) => ({ c, lane: 'descend' as const })),
     ...lookbackToSend.map((c) => ({ c, lane: 'lookback' as const })),
+    ...selReask.taken.map((c) => ({ c, lane: 'missed' as const })), // LORAMER_IMPLICIT_PRESENCE_REASK_V1 — the re-ask queue, inside the missed slot
     ...selMissed.taken.map((c) => ({ c, lane: 'missed' as const })), // LORAMER_MISSED_DAY_WALK_V1 — after the two lanes that hold the clock
   ]
   // ⛔ CONCURRENT UNITS, SERIAL PER SURFACE — LORAMER_FIRE_UNITS_CONCURRENT_V1, 2026-09-15.
@@ -1110,8 +1155,18 @@ export async function GET(request: Request) {
           const unitResult = await processMessage({ ...msg, messageKey: idempotencyKey } satisfies UniverseMessageV2, { ...unitOpts, maxSecPerDay: c.maxSecPerDay })
           requestsOpened += unitResult.requestsOpened
           executed.push({ label: c.label, lane, window: `${c.windowStart}..${c.windowEnd}`, ms: Date.now() - unitStartedAt })
+          if (c.reaskId !== undefined && !dryRun) { // LORAMER_IMPLICIT_PRESENCE_REASK_V1 — settle the queue row from the unit's outcome
+            const o = unitResult.outcome
+            if (o === 'ok' || o === 'zero' || o === 'nongrain') { await settleReaskRow(c.reaskId, c.reaskWhole ? { kind: 'done' } : { kind: 'partial' }); if (c.reaskWhole) reaskDone++ }
+            else if (o === 'error') { await settleReaskRow(c.reaskId, { kind: 'error', error: `unit ended error on ${c.windowStart}..${c.windowEnd}` }); reaskErrored++ }
+          }
         } catch (e: any) {
           unitErrors.push({ label: c.label, error: String(e?.message ?? e).slice(0, 300) })
+          if (c.reaskId !== undefined && !dryRun) { // the terminal row is already written (below): settle from the LEDGER, never from the throw
+            const o = await terminalOutcomeFor(idempotencyKey)
+            if (o === 'ok' || o === 'zero' || o === 'nongrain') { await settleReaskRow(c.reaskId, c.reaskWhole ? { kind: 'done' } : { kind: 'partial' }); if (c.reaskWhole) reaskDone++ }
+            else { await settleReaskRow(c.reaskId, { kind: 'error', error: `unit threw: ${String(e?.message ?? e).slice(0, 200)}` }); reaskErrored++ }
+          }
           console.error(`[universe-resume] UNIT THREW ${c.label} ${c.windowStart}..${c.windowEnd}: ${String(e?.message ?? e)} — terminal row already written by processMessage; continuing to the next unit.`)
         }
         maxUnitMs = Math.max(maxUnitMs, Date.now() - unitStartedAt)
@@ -1145,6 +1200,8 @@ export async function GET(request: Request) {
     missedBoundaryEnd, missedCursorFrom: missedFrom, missedCursorNext, missedSweep, missedWrapped, missedCursorWriteError, missedScanned, missedNextEntry,
     missedSurfacesWithHoles, missedOwedDaysSeen, missedCandidates: missed.length, missedSelected: selMissed.taken.length,
     missedRequestsSelected: selMissed.requests, missedDroppedForBound: selMissed.droppedForBound,
+    // LORAMER_IMPLICIT_PRESENCE_REASK_V1 — the re-ask queue's share of this fire
+    reaskQueued, reaskSelected: selReask.taken.length, reaskRequestsSelected: selReask.requests, reaskDone, reaskErrored, reaskSettledByLedger, reaskReadError,
     // LORAMER_QUEUE_REMOVED_INLINE_WALK_V1 — the fire now EXECUTES: these three are the execution half.
     // ⚠ COLUMN-SEMANTICS NOTE for readers of universe_fire_log: `published` now means UNITS SELECTED FOR
     // EXECUTION (the wet ones all execute or error in-fire), and `elapsed_ms` now spans SCAN + CAPTURE
