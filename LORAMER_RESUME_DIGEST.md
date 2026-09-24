@@ -7,19 +7,19 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-09-23T22:37:30.541Z
-- built_from HEAD: 064a5d316aefce5792f79662d6c91b24155c0f87  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-09-24T02:36:58.852Z
+- built_from HEAD: e21967190d030112f3b9b60142a3b7f11d4a8daa  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
   exactly as fresh as the manifest is honest; the wrap-step regenerates manifest + digest together.
   Source-doc content_hash at build time:
-    - LORAMER_MAP.md: c941e8cbd93b288d6fa98d53f098e8a25656520c0e76e5b01a0ebcc24f7d943c
+    - LORAMER_MAP.md: 84a1893be834cbd2dfe8c931e1ae25e99f9d980dc9a5f61e3fbd96c0e9f7e738
     - LORAMER_ESSENCE.md: 50f87d19f248bf956e47a8a2e8cf9a72a872832dca5b673aa30b01d0c5273864
     - LORAMER_HANDOFF.md: c0f9c80aab0cd9a5cba6f18bd85d481cafcd20b19e18188dfc34f096f5f94d66
-    - CONTINUE_HERE.md: ca1fc5ab1bdef2906be568d6b07abff54ac4691395e61d56ee7ddb4ba4bf7203
-    - LORAMER_DECISIONS.md: ef2723ecfbedc4dd8d1135263e220cee91555a5b3fab6f79c8ba641adf3c8d11
-    - LORAMER_QUEUE_OF_RECORD.md: 4bdfd86445720e806849a1859cb26160efce8ba9f715a9b01be43deca6005898
+    - CONTINUE_HERE.md: 2d0cf6389980cd0af5af5a24b5836445967889bfdb08a44cfc08e3ce9f82c5f4
+    - LORAMER_DECISIONS.md: a1ff1b7b7e06007a4c8708330e2c66f16954a0bceefec2eaa0b458a26c9f5282
+    - LORAMER_QUEUE_OF_RECORD.md: 3f308e1d4e6a4dfad387edf6fc92c982478ef0a36455e27b68f8936bd3dc2045
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: 4ecde52128c64648f515e99fdb4c08e20f601f89b55afdcc4ca0a246f45fed22
     - RESUME_INSTRUCTIONS.md: 170f9479d09b3588122cbabc1801de601bb18539c975ef6024bb06d077101b1f
     - docs/LORAMER_ASSET_LAYER_SCOPE_V1.md: 9086aa59c145420e8e89943691f1cc3e152f1dbc7fbc67ddcb309449594ce865
@@ -632,6 +632,13 @@ a JOB — LORAMER_GOOGLE_DELETE_JOB_V1; backup dispatched by the executor, run #
     LORAMER_ENGINE_KEYED_INSTRUMENTS_V1 (this push): one predicate googleAccountKeyFor(engine), capture-landing judges the walk's
     customer row at or above its frontier while running, a guard on the proof's instruments by name. The screen-side readers of the
     same key (readiness, serving routes, coverage.ts, Lora's query layer) are HELD FOR WIRE by Russ's ruling — ★SCREEN-READERS-HELD-FOR-WIRE.
+    ⇒ 2026-09-23/24 (rounds 39–41): the run reached the 37-month line and began holding empties there (Q6). Round 39 MEASURED Google
+    on the wire: daily rows served to inception on every surface with data (0 refusals in 716 asks; Tri-Copy's 2016 rows reproduced);
+    round 40's witness (2,481 month-grain asks) found 0 silent omissions in 12,790 held windows. Russ ruled "If there's data go get
+    it." Round 41 BUILT LORAMER_PAST_LINE_EMPTY_V1 (this push): a past-line empty is recorded empty, any DateRangeError is a stop with
+    its code, and scripts/reclassify-witnessed-empty.mjs --apply (after the push, on Russ's go) attests the ~9,259 witnessed-empty
+    windows. NEXT: the run descends past the line to 2016-04-20 (or is re-pressed if it ended failed at the line — nothing lost);
+    then the reconcile (round 27 §6). Lanes queued: ★REACH-FREQUENCY-LANE, ★COARSE-GRAIN-LANE; ★GOOGLE-ADS-API-VERSION-PIN.
 (5) COLD PROOF — Veterinary Mastermind, a fresh Gmail as a direct user, a NEW client record; hold the existing Veterinary
     Mastermind client's google lane while it runs (DECISIONS LORAMER_COLD_PROOF_RIG_V1 owns the rig).
 (6) FLEET — every other client, one at a time: Delete Google data → reconnect → Backfill → reconcile. Bath Fitter last. The
@@ -1719,6 +1726,8 @@ The 2026-06-29 inventory pre-dates 6 shipped writers and was NOT trusted. | do n
   | LORAMER_FIRE_PLANS_UNTIL_FULL_V1, 2026-09-23 | do not relitigate.
 ## LORAMER_ENGINE_KEYED_INSTRUMENTS_V1 (2026-09-23) — [BUILT round 38, SHIPPED on Russ's go (this push); RUSS APPROVED 2026-09-23] AN INSTRUMENT ASKS THE ENGINE WHICH ROW IS THE ACCOUNT ROW. One predicate, googleAccountKeyFor(engine), in a leaf module with a mirror for the .mjs instruments; check:data's capture-landing judges a walk-marked connection by the walk's customer row — every day at or above the customer surface's frontier while it descends, every day once sealed — and a guard scoped to the proof's instruments by name fails any of them that reads the google account row without the predicate. Nothing on screen changes (Russ's ruling 2026-09-23: the readiness line, the serving routes and the meter UI wait for WIRE).
   | LORAMER_ENGINE_KEYED_INSTRUMENTS_V1, 2026-09-23 | do not relitigate.
+## LORAMER_PAST_LINE_EMPTY_V1 (2026-09-24) — [BUILT round 41, SHIPPED on Russ's go (this push); RUSS APPROVED 2026-09-23] AN EMPTY ANSWER PAST THE 37-MONTH LINE IS RECORDED EMPTY, EXACTLY AS ABOVE IT; ANY DateRangeError IS A STOP WITH ITS CODE; THE HELD WINDOWS THE MONTH-GRAIN WITNESS PROVED EMPTY ARE ATTESTED. Supersedes the past-line half of [[LORAMER_WALL_HOLD_NEVER_RETIRE_V1]] (Q6) under Russ's ruling.
+  | LORAMER_PAST_LINE_EMPTY_V1, 2026-09-24 | do not relitigate.
 
 ## H. OPEN-QUEUE INDEX — still-open items only (DONE appendix excluded)  (source: LORAMER_QUEUE_OF_RECORD.md)
 - ★CHECKDATA-PUSHED-OVER-RED — ⛔ **NEW 2026-08-22. I PUSHED TO MAIN TWICE TONIGHT OVER A RED `check:data`, DISCLOSED BOTH TIMES, AND THAT IS EXACTLY WHY THIS NEEDS A DECISION RATHER THAN A HABIT.** CLAUDE.md requires the gate to be RUN and REPORTED before any push to origin main; it does not say whether a red BLOCKS. So the gate is currently **NEITHER A GATE NOR ADVISORY** — it is whatever the executor argues in the moment, which is the weakest possible state for a check that exists to stop bad data. THE READS: 13 red before the cutover, **9 red after**, and FOUR cleared *because delivery resumed* (`check-consumer-liveness` had been reading "DELIVERY IS DARK", plus check-capture-landing, check-frozen-cursors, check-parent-analyze). ⚠ **THE COUNT ALSO MOVED 11 → 13 BETWEEN TWO RUNS TWENTY MINUTES APART ON IDENTICAL CODE** — proof these track warehouse STATE, not the diff, which is precisely what makes a blanket block wrong AND a blanket pass wrong. **THE WORK IS A DECISION RUSS OWNS:** (a) hard gate with a named baseline of accepted reds, (b) advisory with the verdict quoted in every push report, or (c) split it — the state checks advisory, the correctness checks blocking. Until one is chosen, every push over a red is a judgement call re-litigated from scratch. src: the 2026-08-22 cutover pushes. open [LC]
@@ -2544,8 +2553,8 @@ HOW TO USE: before writing "NEW" on any finding, gap or correction, GREP THIS SE
 LORAMER_*_V* marker you are about to mint. A token collision is DECIDABLE; a topic match is not. This is
 ESSENCE law 7 made mechanical — the law is a rule about behaviour, and on 2026-07-31 four already-decided
 topics were discussed as open while it was in force.
-TOTALS: 1198 tokens indexed · 379 resolve to BOTH a decision and a queue item ·
-146 decision-only · 673 queue-only.
+TOTALS: 1202 tokens indexed · 379 resolve to BOTH a decision and a queue item ·
+147 decision-only · 676 queue-only.
 ⛔ UNINDEXABLE — THIS COUNT IS THE BACKLOG, NOT A DISCLAIMER: 161 DECISIONS entries and
 259 QUEUE items carry NO token at all, so they cannot be found this way. An untokened decision
 is invisible to the enforcer; the fix is to mint a token when banking, not to widen the matcher. Samples —
@@ -2668,6 +2677,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★CLAUDE-MD-LOG-RETENTION-IS-WRONG — OPEN · decisions 0 · queue 1 · last 2026-09-12
 - ★CLIENT-PROFILE-BUSINESS-IDENTITY — OPEN · decisions 0 · queue 2 · last 2026-07-24
 - ★CLIENT-PROFILE-SERVICE-AREA-GRANULAR — OPEN · decisions 0 · queue 2 · last 2026-07-24
+- ★COARSE-GRAIN-LANE — DONE · decisions 0 · queue 1 · last 2026-09-24
 - ★CODE-HYGIENE-SWEEP-KNOWN-HAZARDS — OPEN · decisions 0 · queue 1 · last 2026-08-04
 - ★COGS-SKU-JOIN — OPEN · decisions 0 · queue 1 · last 2026-07-31
 - ★COHORT-PRIVACY-DOCS — OPEN · decisions 0 · queue 1 · last 2026-07-24
@@ -2822,6 +2832,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★GATE-B-2026-07-28 — OPEN · decisions 0 · queue 2 · last 2026-07-28
 - ★GEO-PRESENCE-LABEL-UNSPECIFIED — OPEN · decisions 0 · queue 1 · last 2026-08-25
 - ★GOOGLE-AD-ENTITY-NAMES-MISSING — DONE · decisions 0 · queue 1 · last 2026-08-15
+- ★GOOGLE-ADS-API-VERSION-PIN — DONE · decisions 0 · queue 1 · last 2026-09-24
 - ★GOOGLE-ADS-CAPTURE-UNIVERSE-SECOND-ACCOUNT — OPEN · decisions 0 · queue 1 · last 2026-08-03
 - ★GOOGLE-AUCTION-INSIGHTS-TOKEN-ACCESS — OPEN · decisions 2 · queue 1 · last 2026-08-03
 - ★GOOGLE-BASE-ROWS-DOUBLE-ON-DAY-SUM — OPEN · decisions 0 · queue 3 · last 2026-08-21
@@ -3029,6 +3040,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★QUOTA-OUTAGE-INFLATES-CONNECTION-HEALTH — OPEN · decisions 0 · queue 1 · last 2026-08-01
 - ★RANGELAP-CLAIM-DEFECT — OPEN · decisions 0 · queue 2 · last 2026-09-15
 - ★RANGELAP-RATCHET-SWEEP — OPEN · decisions 0 · queue 4 · last 2026-07-29
+- ★REACH-FREQUENCY-LANE — DONE · decisions 0 · queue 1 · last 2026-09-24
 - ★READER-SCOPE-IS-NINE-FILES — OPEN · decisions 0 · queue 1 · last 2026-09-16
 - ★READINESS-SIGNALS-RPC-TIMEOUT — OPEN · decisions 0 · queue 1 · last 2026-08-13
 - ★RECONCILE-TO-VENDOR-UI-UNRECORDED — OPEN · decisions 0 · queue 2 · last 2026-12-14
@@ -3432,7 +3444,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_HYDRATED_CUSTOM_RANGE_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-16
 - LORAMER_IDLE_REUSE_MONTH_V1 — DONE · decisions 0 · queue 1 · last 2026-09-18
 - LORAMER_IDLE_SKIP_V1 — DECIDED · decisions 1 · queue 0 · last 2026-09-18
-- LORAMER_IMPRESSION_SHARE_FAMILY_V1 — OPEN · decisions 1 · queue 2 · last 2026-09-22
+- LORAMER_IMPRESSION_SHARE_FAMILY_V1 — OPEN · decisions 1 · queue 3 · last 2026-09-24
 - LORAMER_INSIGHT_OPUS_FLOOR_V1 — DONE · decisions 2 · queue 1 · last 2026-07-17
 - LORAMER_INSTRUMENT_CLIENT_LITERAL_GUARD_V1 — DONE · decisions 0 · queue 1 · last 2026-09-15
 - LORAMER_INSTRUMENT_MUST_NAME_ITS_PHASE_V1 — DECIDED · decisions 4 · queue 0 · last 2026-07-31
@@ -3595,6 +3607,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_PARENT_WINDOW_IS_THE_UNIT_V1 — OPEN · decisions 0 · queue 3 · last 2026-09-15
 - LORAMER_PARTITION_METRICS_DAILY_DESIGN_V1 — OPEN · decisions 2 · queue 1 · last 2026-08-18
 - LORAMER_PARTITION_METRICS_DAILY_V1 — OPEN · decisions 1 · queue 1 · last 2026-08-18
+- LORAMER_PAST_LINE_EMPTY_V1 — DECIDED · decisions 1 · queue 0 · last 2026-09-24
 - LORAMER_PERIOD_RESOLUTION_NAMED_V1 — DONE · decisions 0 · queue 1 · last 2026-08-16
 - LORAMER_PINNED_ELEMENT_SWEEP_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-07
 - LORAMER_PINS_ARE_WRITTEN_STALE_V1 — OPEN · decisions 1 · queue 2 · last 2026-07-27

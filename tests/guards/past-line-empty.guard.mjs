@@ -1,16 +1,18 @@
 #!/usr/bin/env node
-// LORAMER_WALL_HOLD_NEVER_RETIRE_V1 — PAST THE WALL, SILENCE IS NOT EVIDENCE: AN EMPTY ANSWER IS HELD, NEVER RETIRED.
+// LORAMER_PAST_LINE_EMPTY_V1 — AN EMPTY ANSWER PAST THE 37-MONTH LINE IS RECORDED EMPTY, EXACTLY AS ABOVE IT.
+// (Was wall-hold-never-retire.guard.mjs — LORAMER_WALL_HOLD_NEVER_RETIRE_V1, Q6 2026-09-18 — superseded for past-line
+// silence by Russ's ruling of 2026-09-23: "If there's data go get it.")
 //
-// Russ's Q6 ruling (2026-09-18): the walk stops when Google says this is the first day of anything (inception) or
-// refuses the range (a vendor DateRangeError wall). A success-empty answer for any day older than the per-surface wall
-// is recorded UNRESOLVED — re-askable by the missed lane, never retired — whatever the retention canary reads. The
-// canary keeps running as the day-enforcement-begins detector; it no longer licenses retirement. This guard proves:
-//   (a) PURE classifyEmptyAnswer: past the wall → 'unresolved' for EVERY canary state, 'served' included;
-//       above the wall → 'zero' as always
-//   (b) PURE idleVerdict: past the wall an empty account answer is 'unknown' (no idle verdict) whatever the canary
-//   (c) the fire no longer REFUSES past-wall windows on the canary (they are asked in their own window — item 3's
-//       clip) and the missed lane no longer drops past-wall holes on the canary
-//   (d) the worker still routes every empty through classifyEmptyAnswer and records the unresolved marker loudly
+// WHY THE FLIP IS MEASURED, NOT ARGUED (rounds 39–40, 2026-09-23): 716 daily asks 39 and 75 months back on two accounts
+// were all SERVED or EMPTY — zero DateRangeErrors; Tri-Copy's 2016 daily rows reproduced (5,420 rows); 2,481 month-grain
+// witness asks over every held window fleet-wide (12,790 windows) found ZERO months with monthly rows where every daily
+// answer was empty. Google's daily silence past the line is emptiness; the only silent omission on the wire is reach and
+// frequency (metric-level, 36 months / 92 days), which the walk does not capture. The line stays as the instrument's
+// label and the canary keeps running as the enforcement detector; neither classifies an answer.
+//   (a) PURE classifyEmptyAnswer: 'zero' for every rangeEnd (above, at, past the line) under every canary state
+//   (b) PURE idleVerdict: an empty account answer past the line reads 'idle' exactly as above it
+//   (c) the fire asks past-line windows (no canary refusal) and the missed lane re-asks past-line holes — unchanged
+//   (d) no worker path emits UNRESOLVED_PAST_WALL any more; a past-line empty is COUNTED (onPastLineEmpty) and retired
 import { readFileSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs'
 import { resolve, join } from 'node:path'
 import { tmpdir } from 'node:os'
@@ -51,7 +53,7 @@ if (W) {
   const wall = '2023-08-18'
   for (const c of ['served', 'unknown', 'refused', 'silent', 'failed']) {
     const v = W.classifyEmptyAnswer({ rangeEnd: '2022-09-16', wallLine: wall, canary: c })
-    check(v === 'unresolved', `(a) ⛔ an empty answer PAST the wall with canary '${c}' classified as '${v}' — Q6: silence past the wall is not evidence; it must be UNRESOLVED even under a SERVED canary.`)
+    check(v === 'zero', `(a) ⛔ an empty answer PAST the line with canary '${c}' classified as '${v}' — LORAMER_PAST_LINE_EMPTY_V1: an empty answer is recorded empty wherever the day sits (measured: 0 omissions in 12,790 witnessed windows).`)
     const above = W.classifyEmptyAnswer({ rangeEnd: '2025-11-10', wallLine: wall, canary: c })
     check(above === 'zero', `(a) an empty answer ABOVE the wall with canary '${c}' classified as '${above}' — above the wall an empty is NO_DATA_OBSERVED, as always.`)
   }
@@ -60,7 +62,7 @@ if (W) {
 if (I) {
   for (const c of ['served', 'unknown']) {
     const v = I.idleVerdict({ windowStart: '2016-05-01', windowEnd: '2016-06-03', wallLine: '2023-08-18', canary: c, answer: { ok: true, activeDays: [] } })
-    check(v.kind === 'unknown', `(b) ⛔ past the wall an empty account answer read '${v.kind}' under canary '${c}' — no idle verdict is issued past the wall, whatever the canary.`)
+    check(v.kind === 'idle', `(b) ⛔ past the line an empty account answer read '${v.kind}' under canary '${c}' — the account's own answer retires the window past the line exactly as above it.`)
   }
   const above = I.idleVerdict({ windowStart: '2025-11-10', windowEnd: '2025-12-13', wallLine: '2023-08-18', canary: 'unknown', answer: { ok: true, activeDays: [] } })
   check(above.kind === 'idle', `(b) above the wall an empty answer still reads 'idle' (got ${above.kind}).`)
@@ -71,12 +73,13 @@ if (I) {
   check(!/missed\.filter\(\(m\) => !isPastWall\(m\.windowEnd, wallLine\)\)/.test(r), `(c) ${ROUTE}: the missed lane must no longer drop past-wall holes on the canary — an UNRESOLVED day is exactly what it re-asks.`)
   check(/retentionCanary: canary\.state/.test(r), `(c) ${ROUTE}: the fire instrument must still carry the canary state (the enforcement detector keeps running).`)
   const w = strip(read(WORKER))
-  check(/classifyEmptyAnswer\(\{ rangeEnd: range\.end, wallLine, canary: canary\.state \}\)/.test(w) && /UNRESOLVED PAST WALL/.test(w), `(d) ${WORKER}: every empty must still route through classifyEmptyAnswer and log UNRESOLVED PAST WALL loudly.`)
+  check(!/UNRESOLVED_PAST_WALL_MARKER/.test(w) && !/UNRESOLVED PAST WALL/.test(w) && !/unresolvedNote/.test(w), `(d) ${WORKER}: a worker path still emits UNRESOLVED_PAST_WALL — under LORAMER_PAST_LINE_EMPTY_V1 an empty past the line is outcome 'zero', never held.`)
+  check(/opts\.onPastLineEmpty\?\.\(\)/.test(w) && /isPastWall\(range\.end, wallLine\)/.test(w), `(d) ${WORKER}: a past-line empty must be COUNTED (onPastLineEmpty on isPastWall) so the instrument stays loud while it retires.`)
 }
 
 if (findings.length) {
-  console.error(`[wall-hold-never-retire] FAIL — ${findings.length} finding(s):`)
+  console.error(`[past-line-empty] FAIL — ${findings.length} finding(s):`)
   for (const f of findings) console.error('  • ' + f)
   process.exit(1)
 }
-console.log('[wall-hold-never-retire] PASS — past the wall an empty answer is UNRESOLVED under every canary state (served included), no idle verdict is issued there, the fire asks past-wall windows and the missed lane re-asks past-wall holes; the walk stops only on inception or a vendor refusal.')
+console.log('[past-line-empty] PASS — an empty answer past the line classifies zero under every canary state, the idle verdict applies past the line, the fire asks past-line windows and the missed lane re-asks holes, and no worker path emits UNRESOLVED_PAST_WALL (a past-line empty is counted and retired).')

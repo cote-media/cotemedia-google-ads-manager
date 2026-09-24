@@ -95,6 +95,12 @@ export const RETENTION_WALL_ERROR_NAMES = [
 export function isRetentionWallRefusal(serializedError: string | null | undefined): boolean {
   if (!serializedError) return false
   const s = String(serializedError)
+  // ⛔ LORAMER_PAST_LINE_EMPTY_V1 (2026-09-23): ANY DateRangeError is the vendor refusing the range — a stop, recorded with
+  // its code. The name list above is the citation of the two documented spellings, not the gate: the doc ties the
+  // spelling to the API version (INVALID_DATE before v24, REQUESTED_DATE_GRANULARITY_NOT_SUPPORTED from v24), and a stop
+  // that hinges on a spelling would be silent the day the spelling changes. Still narrow: the date_range_error KEY must
+  // be present — no other error family can become a wall.
+  if (/date_?range_?error/i.test(s)) return true
   // The serialized shape is `{"date_range_error":"INVALID_DATE"} <message>` (serializeVendorError stringifies
   // the error_code object), so BOTH the enum name and the date_range_error key must be present. Requiring the
   // key is what stops an unrelated error whose free text happens to contain "INVALID_DATE" from sealing a surface.

@@ -70,9 +70,15 @@ export function isPastWall(rangeEnd: string, wallLine: string): boolean {
  * but it no longer decides. An unresolved day stays owed and the missed lane re-asks it.
  */
 export function classifyEmptyAnswer(a: { rangeEnd: string; wallLine: string; canary: CanaryState }): 'zero' | 'unresolved' {
-  if (!isPastWall(a.rangeEnd, a.wallLine)) return 'zero'
-  void a.canary // carried for the record; never a licence (Q6)
-  return 'unresolved'
+  // ⛔ LORAMER_PAST_LINE_EMPTY_V1 (Russ, 2026-09-23: "If there's data go get it"). An empty answer is recorded empty
+  // wherever the day sits. MEASURED before this flip (rounds 39–40): 716 daily asks 39 and 75 months back on two
+  // accounts — all served or empty, zero DateRangeErrors; Tri-Copy's 2016 daily rows reproduced; 2,481 month-grain
+  // witness asks over 12,790 held windows fleet-wide found ZERO months with monthly rows where every daily answer was
+  // empty. Google's daily silence past the line is emptiness. The line stays as the instrument's label and the canary
+  // keeps running as the enforcement detector; neither classifies an answer. 'unresolved' remains in the type for the
+  // ledger's history (12,790 rows carry the marker) and is never returned.
+  void a.rangeEnd; void a.wallLine; void a.canary
+  return 'zero'
 }
 
 /**

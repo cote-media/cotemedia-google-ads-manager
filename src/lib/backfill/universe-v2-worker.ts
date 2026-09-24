@@ -72,7 +72,7 @@ import { planMisSizedSplit, planRetryAsk } from '@/lib/backfill/universe-resumer
 import { checkDiskFloor } from '@/lib/backfill/universe-window-log'
 import { googleAdsStreamFor } from '@/lib/backfill/universe-vendor-stream'
 // LORAMER_RETENTION_WALL_CANARY_V1 — an empty answer past the published wall retires a day only under a green canary.
-import { classifyEmptyAnswer, wallLineFor, readRetentionCanary, UNRESOLVED_PAST_WALL_MARKER, type CanaryReading } from '@/lib/backfill/retention-wall'
+import { wallLineFor, readRetentionCanary, isPastWall, type CanaryReading } from '@/lib/backfill/retention-wall'
 // LORAMER_IDLE_SKIP_V1 — an idle window (Google's own account-level answer) retires across every surface for one request.
 import { ACCOUNT_ACTIVITY_RESOURCE, IDLE_ATTESTED_MARKER, type IdleMemo } from '@/lib/backfill/universe-idle-skip'
 // ⛔ THE TOPIC, THE MESSAGE SHAPE AND THE TWO BOUNDS LIVE IN A CONTRACT MODULE, NOT HERE. Next.js rejects
@@ -163,8 +163,8 @@ export interface DeadlineOpts {
   idle?: IdleMemo
   /** LORAMER_RETENTION_WALL_CANARY_V1 — the fire's canary reading, read once per fire; absent = read here, once per message. */
   canary?: CanaryReading
-  /** LORAMER_RETENTION_WALL_CANARY_V1 — called once per empty answer past the wall that could not be resolved. */
-  onUnresolvedPastWall?: () => void
+  /** LORAMER_PAST_LINE_EMPTY_V1 — called once per empty answer past the 37-month line; the answer is retired as 'zero' like any empty, and counted so the fire's instrument stays loud. */
+  onPastLineEmpty?: () => void
   /** LORAMER_UNIT_RESERVE_PER_SURFACE_V1 — this surface's worst observed seconds-per-day (null = unmeasured); range admission reserves per range from it. */
   maxSecPerDay?: number | null
 }
@@ -572,24 +572,20 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance, opts
         : res.apiRows === 0 ? 'zero'
         : res.nonGrainOnly ? 'nongrain'
         : 'ok'
-      // ⛔ LORAMER_RETENTION_WALL_CANARY_V1 — A SUCCESS-EMPTY PAST THE WALL IS NOT A ZERO UNLESS THE CANARY SAYS THE
-      // VENDOR STILL SERVES THAT GROUND. Without that answer it cannot be told from expiry: it is recorded under
-      // 'error' with the marker (the CHECK constraint holds the eight outcomes; 'error' is the one that retires
-      // nothing and is re-asked by the missed lane once the canary is green again), and it is counted loudly.
-      let unresolvedNote: string | null = null
-      if (outcome === 'zero') {
-        if (!canary) canary = await readRetentionCanary()
-        if (classifyEmptyAnswer({ rangeEnd: range.end, wallLine, canary: canary.state }) === 'unresolved') {
-          outcome = 'error'
-          unresolvedNote = `${UNRESOLVED_PAST_WALL_MARKER} — empty answer for ${range.start}..${range.end}, past the retention wall ${wallLine}, canary ${canary.state} (${canary.detail}); NOT retired — expiry and idle are indistinguishable here without the canary's proof`
-          opts.onUnresolvedPastWall?.()
-          console.error(`[universe-v2] UNRESOLVED PAST WALL ${clientId} ${label}: ${unresolvedNote}`)
-        }
+      // ⛔ LORAMER_PAST_LINE_EMPTY_V1 (Russ, 2026-09-23: "If there's data go get it") — A SUCCESS-EMPTY PAST THE 37-MONTH
+      // LINE IS A ZERO, exactly as above it. Until this build it was recorded under 'error' with UNRESOLVED_PAST_WALL and
+      // held for the missed lane (LORAMER_WALL_HOLD_NEVER_RETIRE_V1, Q6). MEASURED before the flip (rounds 39–40): Google
+      // serves daily rows to inception on this token (0 refusals in 716 asks, Tri-Copy's 2016 rows reproduced) and a
+      // month-grain witness over all 12,790 held windows found zero months with rows where every daily answer was empty.
+      // A past-line empty is still COUNTED (pastLineEmpty in the fire's instrument) so the line stays visible.
+      if (outcome === 'zero' && isPastWall(range.end, wallLine)) {
+        opts.onPastLineEmpty?.()
+        console.log(`[universe-v2] PAST-LINE EMPTY ${clientId} ${label}: empty answer for ${range.start}..${range.end}, past ${wallLine} — retired as zero (LORAMER_PAST_LINE_EMPTY_V1)`)
       }
       await appendAttemptFinished(rangeKey, opened.attemptNo, outcome, {
         rowsWritten: res.rowsWritten, requestsSpent: 1, diskFreeBytes: floor.freeBytes,
         streamMs: res.streamMs, upsertMs: res.upsertMs, durationMs: Date.now() - rangeStartedAt, // LORAMER_ATTEMPT_TIMING_V1
-        error: unresolvedNote ?? res.error ?? (res.orderViolation ? 'ORDER VIOLATION: the vendor returned a row for an already-committed day, so this attempt\'s day commits do not prove closure' : res.skipped ? res.skipped.requirement : null),
+        error: res.error ?? (res.orderViolation ? 'ORDER VIOLATION: the vendor returned a row for an already-committed day, so this attempt\'s day commits do not prove closure' : res.skipped ? res.skipped.requirement : null),
       }, prov)
       maxRangeMs = Math.max(maxRangeMs, Date.now() - rangeStartedAt)
     } catch (e: any) {
@@ -705,7 +701,7 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance, opts
 // extra named export here is a build risk in a step whose whole contract is "nothing changes". The poll
 // lane will need it, and the correct home is then a lib module — that relocation belongs to step 2,
 // not to this one.
-export async function processMessage(msg: UniverseMessageV2, opts: DeadlineOpts = {}): Promise<{ requestsOpened: number; unresolvedPastWall: number }> {
+export async function processMessage(msg: UniverseMessageV2, opts: DeadlineOpts = {}): Promise<{ requestsOpened: number; pastLineEmpty: number }> {
   // ⛔ THE PROVENANCE IS MINTED BEFORE ANYTHING CAN FAIL. `messageKey` is the PUBLISHER's idempotency key,
   // riding on the message — the fact we already had and threw away. `invocationId` is THIS DELIVERY's, and it
   // is a second fact rather than a duplicate: a redelivery carries the SAME message key, so nothing keyed on
@@ -731,8 +727,8 @@ export async function processMessage(msg: UniverseMessageV2, opts: DeadlineOpts 
   let ended = 'returned'
   // LORAMER_FIRE_LOG_WITNESSES_OPENED_V1 — the count the fire's heartbeat sums; 0 until the body says otherwise.
   let requestsOpened = 0
-  let unresolvedPastWall = 0
-  const counted: DeadlineOpts = { ...opts, onUnresolvedPastWall: () => { unresolvedPastWall++; opts.onUnresolvedPastWall?.() } }
+  let pastLineEmpty = 0
+  const counted: DeadlineOpts = { ...opts, onPastLineEmpty: () => { pastLineEmpty++; opts.onPastLineEmpty?.() } }
   try {
     requestsOpened = await runOneMessage(msg, prov, counted)
   } catch (e: any) {
@@ -753,7 +749,7 @@ export async function processMessage(msg: UniverseMessageV2, opts: DeadlineOpts 
         `observer — it did not fail, it became unreadable. NOT rethrown: a throw from finally would replace the real error.`)
     }
   }
-  return { requestsOpened, unresolvedPastWall }
+  return { requestsOpened, pastLineEmpty }
 }
 
 /**

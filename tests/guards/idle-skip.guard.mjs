@@ -62,7 +62,7 @@ if (M) {
   // (a) past the wall without a served canary → unknown, even on an empty answer
   for (const c of ['unknown', 'served']) {
     const past = M.idleVerdict({ windowStart: '2016-05-01', windowEnd: '2016-06-03', wallLine: '2023-08-18', canary: c, answer: { ok: true, activeDays: [] } })
-    check(past.kind === 'unknown', `(a) ⛔ past the wall with canary '${c}' an empty account answer read '${past.kind}' — silence past the wall is not evidence (Q6); no idle verdict.`)
+    check(past.kind === 'idle', `(a) ⛔ past the line with canary '${c}' an empty account answer read '${past.kind}' — LORAMER_PAST_LINE_EMPTY_V1 (Russ 2026-09-23): the account's own answer retires the window past the line exactly as above it.`)
   }
   const above = M.idleVerdict({ windowStart: '2025-11-10', windowEnd: '2025-12-13', wallLine: '2023-08-18', canary: 'unknown', answer: { ok: true, activeDays: [] } })
   check(above.kind === 'idle', `(a) above the wall the canary is irrelevant: an empty answer must read 'idle' (got ${above.kind}).`)

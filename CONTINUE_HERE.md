@@ -64,6 +64,13 @@ a JOB — LORAMER_GOOGLE_DELETE_JOB_V1; backup dispatched by the executor, run #
     LORAMER_ENGINE_KEYED_INSTRUMENTS_V1 (this push): one predicate googleAccountKeyFor(engine), capture-landing judges the walk's
     customer row at or above its frontier while running, a guard on the proof's instruments by name. The screen-side readers of the
     same key (readiness, serving routes, coverage.ts, Lora's query layer) are HELD FOR WIRE by Russ's ruling — ★SCREEN-READERS-HELD-FOR-WIRE.
+    ⇒ 2026-09-23/24 (rounds 39–41): the run reached the 37-month line and began holding empties there (Q6). Round 39 MEASURED Google
+    on the wire: daily rows served to inception on every surface with data (0 refusals in 716 asks; Tri-Copy's 2016 rows reproduced);
+    round 40's witness (2,481 month-grain asks) found 0 silent omissions in 12,790 held windows. Russ ruled "If there's data go get
+    it." Round 41 BUILT LORAMER_PAST_LINE_EMPTY_V1 (this push): a past-line empty is recorded empty, any DateRangeError is a stop with
+    its code, and scripts/reclassify-witnessed-empty.mjs --apply (after the push, on Russ's go) attests the ~9,259 witnessed-empty
+    windows. NEXT: the run descends past the line to 2016-04-20 (or is re-pressed if it ended failed at the line — nothing lost);
+    then the reconcile (round 27 §6). Lanes queued: ★REACH-FREQUENCY-LANE, ★COARSE-GRAIN-LANE; ★GOOGLE-ADS-API-VERSION-PIN.
 (5) COLD PROOF — Veterinary Mastermind, a fresh Gmail as a direct user, a NEW client record; hold the existing Veterinary
     Mastermind client's google lane while it runs (DECISIONS LORAMER_COLD_PROOF_RIG_V1 owns the rig).
 (6) FLEET — every other client, one at a time: Delete Google data → reconnect → Backfill → reconcile. Bath Fitter last. The

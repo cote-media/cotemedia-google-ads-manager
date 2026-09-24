@@ -53,11 +53,10 @@ export type IdleVerdict =
  */
 export function idleVerdict(a: { windowStart: string; windowEnd: string; wallLine: string; canary: CanaryState; answer: ActivityAnswer }): IdleVerdict {
   if (!a.answer.ok) return { kind: 'unknown', reason: `account activity unanswered — ${a.answer.error}; the window walks surface by surface` }
-  // LORAMER_WALL_HOLD_NEVER_RETIRE_V1 (Q6, 2026-09-18): past the wall NO idle verdict is issued, whatever the canary —
-  // silence there is not evidence. The window walks surface by surface and its empties are held unresolved.
-  if (isPastWall(a.windowEnd, a.wallLine)) {
-    return { kind: 'unknown', reason: `window ${a.windowStart}..${a.windowEnd} is past the retention wall ${a.wallLine} (canary ${a.canary}) — an empty account answer there is not evidence; no idle verdict (Q6)` }
-  }
+  // LORAMER_PAST_LINE_EMPTY_V1 (Russ, 2026-09-23): the account's own answer retires an idle window past the line exactly
+  // as above it — Google answers the daily question there (measured, rounds 39–40). `wallLine` and `canary` stay in the
+  // signature for the instrument's report; they no longer gate the verdict.
+  void a.wallLine; void a.canary
   const inWindow = [...new Set(a.answer.activeDays)].filter((d) => d >= a.windowStart && d <= a.windowEnd).sort()
   if (inWindow.length === 0) {
     return { kind: 'idle', reason: `Google answered and named no active day in ${a.windowStart}..${a.windowEnd} (${ACTIVITY_METRICS.length} metrics, customer level)` }

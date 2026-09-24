@@ -21,7 +21,7 @@ const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 if (!SB || !KEY) { console.error('✗ retention-canary: no Supabase credentials (needs .env.local)'); process.exit(1) }
 
 const RETENTION_CANARY_MARKER = 'retention_canary'      // retention-wall.ts owns the name; copied here so this leg needs no TS import
-const UNRESOLVED_MARKER = 'UNRESOLVED_PAST_WALL'         // retention-wall.ts UNRESOLVED_PAST_WALL_MARKER
+const UNRESOLVED_MARKER = 'UNRESOLVED_PAST_WALL'         // HISTORY: no writer emits it since LORAMER_PAST_LINE_EMPTY_V1 (2026-09-23); rows before that carry it
 const FRESH_MS = 30 * 60 * 60 * 1000
 
 const rest = (path) => restAll(path)
@@ -43,13 +43,13 @@ if (!row) {
   if (state !== 'served') findings.push(`the canary reads ${state.toUpperCase()} at ${row.ran_at}: ${detail?.summary ?? row.detail ?? '(no detail)'}. ⛔ If REFUSED, Google has begun enforcing the 37-month wall (the documented shape). If SILENT, it has begun WITHOUT an error — nothing past the wall retires on silence until this clears. If FAILED, the canary could not ask.`)
 }
 const since = new Date(Date.now() - 7 * 86400000).toISOString()
-const unresolved = await rest(`universe_attempt_log?select=client_id,resource,segment,window_start,window_end,recorded_at&phase=eq.attempt_finished&outcome=eq.error&error=like.${encodeURIComponent(UNRESOLVED_MARKER + '%')}&recorded_at=gte.${since}&order=recorded_at.desc&limit=50`)
+const unresolved = await rest(`universe_attempt_log?select=client_id,resource,segment,window_start,window_end,recorded_at&phase=eq.attempt_finished&outcome=eq.error&error=like.${encodeURIComponent(UNRESOLVED_MARKER + '%')}&recorded_at=gte.${since}&order=recorded_at.desc`) // LORAMER_PAST_LINE_EMPTY_V1: no limit= — restAll pages by Range and a client limit= makes page 2 a 416 the moment >50 held rows exist (measured 2026-09-23: 14,580 in 7 days)
 // LORAMER_WALL_HOLD_NEVER_RETIRE_V1 (Q6, 2026-09-18): an UNRESOLVED empty past the wall is now the EXPECTED outcome
 // (silence past the wall is not evidence; the missed lane re-asks it). It is reported, never a finding. This leg stays
 // red only when the canary itself is not SERVED — the day Google begins enforcing the wall.
 if (unresolved.length) {
   const clients = new Set(unresolved.map((u) => u.client_id)).size
-  console.log(`${unresolved.length}${unresolved.length === 50 ? '+' : ''} empty answer(s) past the wall left UNRESOLVED in the last 7 days across ${clients} client(s) — oldest window ${unresolved.reduce((m, u) => (m === null || u.window_start < m ? u.window_start : m), null)}, newest record ${unresolved[0].recorded_at}. These days retired nothing; the missed lane re-asks them once the canary is green.`)
+  console.log(`${unresolved.length} empty answer(s) past the wall left UNRESOLVED in the last 7 days across ${clients} client(s) — oldest window ${unresolved.reduce((m, u) => (m === null || u.window_start < m ? u.window_start : m), null)}, newest record ${unresolved[0].recorded_at}. These days retired nothing; the missed lane re-asks them once the canary is green.`)
 }
 
 if (findings.length) {

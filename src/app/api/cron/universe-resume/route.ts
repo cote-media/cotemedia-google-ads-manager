@@ -365,7 +365,7 @@ export async function GET(request: Request) {
   const canary = await readRetentionCanary()
   let pastWallHeld = 0        // descend windows past the wall refused this fire because the canary is not 'served'
   let missedPastWallHeld = 0  // missed-lane windows past the wall dropped for the same reason
-  let unresolvedPastWall = 0  // empty answers past the wall the worker could not resolve this fire
+  let pastLineEmpty = 0       // LORAMER_PAST_LINE_EMPTY_V1 — empty answers past the 37-month line this fire, retired as zero and counted
   // LORAMER_IDLE_SKIP_V1 — one memo per fire; the worker asks the account through it, once per window.
   // LORAMER_IDLE_REUSE_MONTH_V1 — seeded from the ledger's prior __account_activity answers (one read per fire), so a
   // month already answered active/idle is never asked again in the run. An unreadable ledger seeds nothing (asks as before).
@@ -997,7 +997,7 @@ export async function GET(request: Request) {
   // 300,000 ms kill. Counting from `startedAt` makes any scan overrun come out of capture automatically.
   // `captureStartedAt` survives for REPORTING only (capture-phase elapsed in the instrument) and MUST
   // NOT be used for admission — `fire-deadline-from-fire-start.guard.mjs` fails the build if it is.
-  const unitOpts: DeadlineOpts = { deadlineAt: fireDeadlineAt(startedAt), idle: idleMemo, canary, onUnresolvedPastWall: () => { unresolvedPastWall++ } }
+  const unitOpts: DeadlineOpts = { deadlineAt: fireDeadlineAt(startedAt), idle: idleMemo, canary, onPastLineEmpty: () => { pastLineEmpty++ } }
   // ── ⛔ THE LOOKBACK SLOT — LORAMER_LOOKBACK_LANE_V1, OBSERVE-ONLY UNTIL STOP-AND-CONFIRM 2 ─────────────────
   // Every derived window is logged with the boundary it was derived against and where that boundary came from, so
   // a real tick can be read against the docs before anything is sent. The instrument below carries the tallies.
@@ -1154,8 +1154,8 @@ export async function GET(request: Request) {
     // LORAMER_WALK_FLOOR_SEAL_V1 — sealedHeld = sealed surfaces skipped WITHOUT a slot; sealedThisFire =
     // seals WRITTEN (once-only evidence pairs). sealReadFailed non-null = exclusion failed open to scanning.
     sealedHeld, sealedThisFire, sealReadFailed,
-    // LORAMER_RETENTION_WALL_CANARY_V1 — the wall line, what the canary saw, and what was held or left unresolved because of it.
-    retentionWallLine: wallLine, retentionCanary: canary.state, retentionCanaryAt: canary.at, pastWallHeld, missedPastWallHeld, unresolvedPastWall,
+    // LORAMER_PAST_LINE_EMPTY_V1 — the line, what the canary saw, and how many past-line empties were retired as zero (pastWallHeld/missedPastWallHeld stay at 0 so older fires read the same shape).
+    retentionWallLine: wallLine, retentionCanary: canary.state, retentionCanaryAt: canary.at, pastWallHeld, missedPastWallHeld, pastLineEmpty,
     // LORAMER_IDLE_SKIP_V1 — account-level checks this fire: windows asked (one request each), verdicts, and what they retired.
     idleWindowsAsked: idleMemo.stats.windowsAsked, idleRequestsSpent: idleMemo.stats.requestsSpent,
     idleWindowsIdle: idleMemo.stats.idle, idleWindowsActive: idleMemo.stats.active, idleWindowsUnknown: idleMemo.stats.unknown,

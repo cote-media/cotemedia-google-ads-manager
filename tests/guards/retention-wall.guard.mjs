@@ -65,10 +65,10 @@ if (M) {
   // (a) past the wall: NOTHING lets an empty retire (Q6, 2026-09-18) — every canary state reads unresolved
   for (const c of ['unknown', 'refused', 'silent', 'failed']) {
     const v = M.classifyEmptyAnswer({ rangeEnd: '2022-09-16', wallLine: wall, canary: c })
-    check(v === 'unresolved', `(a) ⛔ an empty answer PAST the wall with canary '${c}' classified as '${v}' — it must be UNRESOLVED; retiring it would seal expired history as empty.`)
+    check(v === 'zero', `(a) ⛔ an empty answer PAST the line with canary '${c}' classified as '${v}' — it must be 'zero': measured 0 omissions in 12,790 witnessed windows (round 40, LORAMER_PAST_LINE_EMPTY_V1).`)
   }
   // LORAMER_WALL_HOLD_NEVER_RETIRE_V1 (Q6, 2026-09-18): a SERVED canary no longer licenses retirement past the wall.
-  check(M.classifyEmptyAnswer({ rangeEnd: '2022-09-16', wallLine: wall, canary: 'served' }) === 'unresolved', `(a) an empty past the wall under a SERVED canary must stay UNRESOLVED — Q6: silence past the wall is not evidence.`)
+  check(M.classifyEmptyAnswer({ rangeEnd: '2022-09-16', wallLine: wall, canary: 'served' }) === 'zero', `(a) an empty past the line under a SERVED canary must be 'zero' — the canary detects enforcement; it never classifies an answer (LORAMER_PAST_LINE_EMPTY_V1).`)
   // above the wall: always zero, whatever the canary (the vendor serves that ground by policy)
   for (const c of ['unknown', 'refused', 'silent', 'failed', 'served']) {
     const v = M.classifyEmptyAnswer({ rangeEnd: '2025-11-10', wallLine: wall, canary: c })
@@ -96,17 +96,17 @@ if (M) {
 {
   const w = strip(read(WORKER))
   const iOutcome = w.indexOf("res.apiRows === 0 ? 'zero'")
-  const iClassify = w.indexOf('classifyEmptyAnswer({ rangeEnd: range.end, wallLine, canary: canary.state })')
+  const iCount = w.indexOf('opts.onPastLineEmpty?.()')
   const iWrite = w.indexOf('await appendAttemptFinished(rangeKey, opened.attemptNo, outcome, {')
-  check(iOutcome > 0 && iClassify > iOutcome && iWrite > iClassify, `(d) ${WORKER}: the empty path must derive the outcome, then consult classifyEmptyAnswer, then write — found outcome@${iOutcome} classify@${iClassify} write@${iWrite}. A 'zero' written before the classifier is a day retired on silence past the wall.`)
-  check(/outcome = 'error'\s*\n\s*unresolvedNote = `\$\{UNRESOLVED_PAST_WALL_MARKER\}/.test(w), `(d) ${WORKER}: an unresolved empty must be written under outcome 'error' with the UNRESOLVED_PAST_WALL marker — 'error' is the outcome that retires nothing (universe-coverage attests 'zero'|'nongrain' only).`)
+  check(iOutcome > 0 && iCount > iOutcome && iWrite > iCount, `(d) ${WORKER}: the empty path must derive the outcome, COUNT a past-line empty (onPastLineEmpty), then write it as 'zero' — found outcome@${iOutcome} count@${iCount} write@${iWrite}.`)
+  check(!/UNRESOLVED_PAST_WALL_MARKER/.test(w), `(d) ${WORKER}: no worker path may emit UNRESOLVED_PAST_WALL (LORAMER_PAST_LINE_EMPTY_V1) — an empty past the line is 'zero'.`)
   check(/noteWall\(range\.start, res\.error\)/.test(w) && /isRetentionWallRefusal\(err\)/.test(w), `(d) ${WORKER}: a vendor refusal must still record a wall (noteWall on isRetentionWallRefusal) — unchanged.`)
-  check(/opts\.onUnresolvedPastWall\?\.\(\)/.test(w) && /console\.error\(`\[universe-v2\] UNRESOLVED PAST WALL/.test(w), `(d) ${WORKER}: an unresolved empty must be counted (onUnresolvedPastWall) and logged as an error — surfaced loudly, not folded into the zeros.`)
+  check(/onPastLineEmpty\?: \(\) => void/.test(w), `(d) ${WORKER}: DeadlineOpts must carry onPastLineEmpty so the fire's instrument counts past-line empties.`)
   const r = strip(read(ROUTE))
   // LORAMER_WALL_HOLD_NEVER_RETIRE_V1 (Q6, 2026-09-18): past-wall windows are ASKED (their empties held); the canary gates nothing.
   check(!/verdict: 'past-wall-unverified'/.test(r), `(d) ${ROUTE}: a descend window past the wall must NOT be refused on the canary (Q6) — wall-hold-never-retire.guard.mjs owns the ruling.`)
   check(!/missed\.filter\(\(m\) => !isPastWall\(m\.windowEnd, wallLine\)\)/.test(r), `(d) ${ROUTE}: the missed lane must NOT drop past-wall holes on the canary (Q6).`)
-  check(/retentionCanary: canary\.state/.test(r) && /unresolvedPastWall/.test(r), `(d) ${ROUTE}: the fire instrument must carry the canary state and the unresolved count.`)
+  check(/retentionCanary: canary\.state/.test(r) && /pastLineEmpty/.test(r) && !/unresolvedPastWall/.test(r), `(d) ${ROUTE}: the fire instrument must carry the canary state and pastLineEmpty (empties past the line, attested), never an unresolved count.`)
   check(!/googleAdsStreamFor|queryStream|customer\.query/.test(r), `(d) ${ROUTE} reaches the vendor — the scheduler must not fetch (universe-resumer.guard.mjs). The canary and the idle check run elsewhere.`)
 }
 // (e) the canary cron

@@ -65,6 +65,11 @@ const RUN_GATE_A = process.argv.includes('--gate-a')
 //                  bounded window, not a blanket client+platform mute (must make --guard fail). No DB writes.
 const GUARD = process.argv.includes('--guard')
 const PROVE_EXACT = process.argv.includes('--prove-exact')
+// LORAMER_PAST_LINE_EMPTY_V1 amendment (2026-09-24): a METRIC-FAMILY row is a ratio, not a partition of any total
+// (LORAMER_IMPRESSION_SHARE_FAMILY_V1: spend 0, impressions 0, the share alone). A day whose only rows are ratios is not
+// a day the account was active, so it is not a day that must carry the account row. Measured on Tri-Copy 2026-09-24: the
+// 18 residual "violations" were all impression_share-only days. The partitioning-family law (header) is untouched. Declared here, above the module's top-level run, never below it.
+const RATIO_FAMILY_BREAKDOWNS = ['impression_share']
 
 for (const line of (read('.env.local') || '').split('\n')) {
   const m = line.match(/^([A-Z0-9_]+)=(.*)$/)
@@ -319,7 +324,7 @@ function fmtDate(d) {
 // triple predicate rides the partial idx_metrics_daily_account_canonical). No ceiling-raise — honours the 8s law.
 // Formatting is done in JS so the index sort order is preserved.
 async function datesFor(q, clientId, platform, keySql) {
-  const filt = keySql || `` // LORAMER_ENGINE_KEYED_INSTRUMENTS_V1 — the caller passes the ENGINE's account-row filter, or nothing for "any row"
+  const filt = keySql || `and m.breakdown_type not in (${RATIO_FAMILY_BREAKDOWNS.map((b) => `'${b}'`).join(', ')})` // LORAMER_ENGINE_KEYED_INSTRUMENTS_V1 — the caller passes the ENGINE's account-row filter, or "any row" minus the ratio families
   const rows = await q(
     `with recursive dd as (
         select (select m.date from metrics_daily m
@@ -357,22 +362,29 @@ async function runAccountRowInvariant(conns, q, { gateA, guard, proveExact }) {
       // ground no lane has claimed for the account row yet — the descend lays one layer across 358 surfaces per ~6 fires, so
       // breakdown rows routinely land before the customer row for the same day. Judging them would be red on every healthy run;
       // skipping them silently would be blind. They are COUNTED and printed, and the hole-map proof (interior) owns them.
+      // LORAMER_PAST_LINE_EMPTY_V1 amendment (2026-09-24): the "frontier" is NOT min(window_start) — the missed lane asks
+      // oldest-first and punches isolated windows far below the descend (Tri-Copy: a 2016 customer window while the descend
+      // stood at 2022), which made every unasked day in between read as a violation (962 false findings). A day is judged
+      // only when the customer surface has ANSWERED a window holding it (outcome ok or zero, any lane but lookback); a held
+      // window (outcome error) is asked-not-answered and is not judged. Sealed → every day.
       const [cust] = await q(
-        `select min(window_start)::text as frontier,
-                count(*) filter (where outcome = 'floor_stop')::int as sealed,
+        `select count(*) filter (where outcome = 'floor_stop')::int as sealed,
+                coalesce(json_agg(json_build_array(window_start::text, window_end::text)) filter (where outcome in ('ok', 'zero', 'nongrain')), '[]'::json) as answered_windows,
                 coalesce(json_agg(json_build_array(window_start::text, window_end::text)) filter (where outcome = 'zero'), '[]'::json) as zero_windows
            from universe_attempt_log
           where client_id = $1 and vendor = 'google' and phase = 'attempt_finished'
             and resource = 'customer' and coalesce(segment, '') = '' and lane <> 'lookback'`,
         [c.client_id])
-      const frontier = cust?.frontier ?? null
       const sealed = (cust?.sealed ?? 0) > 0
+      const answered = Array.isArray(cust?.answered_windows) ? cust.answered_windows : []
       const zeroWindows = Array.isArray(cust?.zero_windows) ? cust.zero_windows : []
+      const isAnswered = (d) => answered.some(([a, b]) => d >= a && d <= b)
       if (!sealed) {
-        judged = frontier ? allDates.filter((d) => d >= frontier) : []
+        judged = allDates.filter(isAnswered)
         const below = allDates.length - judged.length
         notJudged += below
-        console.log(`  walk ${c.name} (${String(c.client_id).slice(0, 8)}): customer frontier ${frontier ?? '(never asked)'} · unsealed · ${judged.length} day(s) judged at or above it · ${below} day(s) not yet asked — not judged`)
+        const oldest = answered.reduce((m, [a]) => (m === null || a < m ? a : m), null)
+        console.log(`  walk ${c.name} (${String(c.client_id).slice(0, 8)}): customer surface unsealed · ${answered.length} answered window(s), oldest ${oldest ?? '(none)'} · ${judged.length} day(s) judged inside them · ${below} day(s) not yet answered on the customer surface — not judged`)
       } else {
         console.log(`  walk ${c.name} (${String(c.client_id).slice(0, 8)}): customer surface SEALED — every day judged (${allDates.length})`)
       }
