@@ -182,6 +182,9 @@ export interface UniverseMessageV2 {
    * beside AttemptLane, so the two spellings cannot drift.
    */
   lane?: 'descend' | 'top-edge' | 'lookback' | 'missed' // LORAMER_MISSED_DAY_WALK_V1 — the fourth value, registered against migrations/090 beside AttemptLane
+  /** LORAMER_IMPLICIT_PRESENCE_REASK_V1 — a re-ask queue unit asks its WHOLE window, never the uncovered remainder: the days it
+   *  re-asks read covered (the true side's rows exist), which is exactly why the queue exists. Undefined = derive as always. */
+  askWhole?: boolean
   /**
    * ⛔ THE PRODUCER-ASSIGNED MESSAGE IDENTIFIER — LORAMER_COMPLETION_SIGNAL_V1, and it is REQUIRED prior art
    * rather than a convenience. Enterprise Integration Patterns: *"Use a producer-assigned message identifier

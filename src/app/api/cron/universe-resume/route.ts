@@ -1116,6 +1116,7 @@ export async function GET(request: Request) {
       const msg: UniverseMessageV2 = {
         clientId, userEmail, customerId, entry: c.entry,
         startDate: c.windowStart, endDate: c.windowEnd,
+        askWhole: c.reaskId !== undefined, // LORAMER_IMPLICIT_PRESENCE_REASK_V1 — a queue unit asks its whole window (its days read covered)
         fireInvocationId, // LORAMER_OWN_INVOCATION_METER_V1 — the unit's ledger rows are prefixed with this fire's id
         // ⛔ THE LANE RIDES THE MESSAGE — LORAMER_TOP_EDGE_LANE_V1. It decides the lane stamped on
         // `attempt_started` (which the rotation filters on, so a strip cannot drag the descending anchor to

@@ -33,5 +33,10 @@ check(/reaskQueued/.test(route) && /reaskSelected/.test(route) && /reaskDone/.te
 check(/outcome: lastOutcome/.test(worker) && /Promise<\{ requestsOpened: number; pastLineEmpty: number; outcome:/.test(worker), `(d) ${W}: processMessage must return the unit's outcome so the fire can settle a queue row from it`)
 check(/settleReaskRow\(/.test(route), `(d) ${R}: the fire must settle a queue row after its unit`)
 check(/terminalOutcomeFor\(/.test(queue) && /terminalOutcomeFor\(/.test(route), `(d) ${R}: on a throw the row must be settled from the ledger's terminal (terminalOutcomeFor), never from the throw — the terminal is already written (route.ts UNIT THREW)`)
+// (e) a queue unit asks its WHOLE window — the route sets askWhole on every reask candidate and the worker overrides the derived
+// remainder with the message window. Found live 2026-09-24 19:56Z: without it the first consumed row asked one day of 185.
+check(/askWhole: c\.reaskId !== undefined/.test(route), `(e) ${R}: every reask candidate's message must carry askWhole — its days read covered, and a derived remainder asks almost nothing`)
+check(/if \(msg\.askWhole\) \{\s*owed\.ranges = \[\{ start: startDate, end: endDate \}\]/.test(worker), `(e) ${W}: an askWhole message must override the derived owed ranges with its whole window`)
+check(/askWhole\?: boolean/.test(read('src/lib/backfill/universe-v2-contract.ts')), `(e) universe-v2-contract.ts: UniverseMessageV2 must carry askWhole`)
 if (findings.length) { console.error(`[reask-queue-shape] FAIL — ${findings.length} finding(s):`); for (const f of findings) console.error(`  - ${f}`); process.exit(1) }
 console.log('[reask-queue-shape] PASS — the queue is read inside the missed slot before the hole scan, bounded to REASK_REQUESTS_PER_RUN with holes keeping the rest; lookback stays ahead; rows settle from the unit outcome or the ledger terminal, tried at most REASK_MAX_TRIES.')

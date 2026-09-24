@@ -294,6 +294,13 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance, opts
   console.log(`[universe-v2] ${clientId} ${label} ${startDate}..${endDate}: ` +
     `${owed.coverage.covered.length} covered · ${owed.coverage.attestedEmpty.length} attested-empty · ` +
     `${owed.coverage.uncovered.length} owed in ${owed.ranges.length} range(s) · ${owed.coverage.probes} probes / ${owed.coverage.ms}ms`)
+  // LORAMER_IMPLICIT_PRESENCE_REASK_V1 — a re-ask queue unit asks its WHOLE window. Found on the first consumed row (Veterinary
+  // Mastermind, 2026-09-24 19:56Z): the days to re-ask read COVERED (the true side's rows exist), so the derived remainder was one day
+  // and the row settled done with 2 false rows landed of ~390. The queue's whole point is to ask covered ground again.
+  if (msg.askWhole) {
+    owed.ranges = [{ start: startDate, end: endDate }]
+    console.log(`[universe-v2] ASK-WHOLE ${clientId} ${label}: re-ask queue unit — asking ${startDate}..${endDate} in full despite ${owed.coverage.covered.length} covered day(s)`)
+  }
 
   if (owed.ranges.length === 0) {
     // ⛔ NOTHING OWED MEANS ADVANCE, NEVER STOP. v1's first version of this branch was a bare `return` and it
