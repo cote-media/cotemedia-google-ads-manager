@@ -59,10 +59,10 @@ if (M) {
   // (a) empty answer with an empty day list: idle only from ok:true
   const emptyOk = M.idleVerdict({ ...W, canary: 'served', answer: { ok: true, activeDays: [] } })
   check(emptyOk.kind === 'idle', `(a) a successful answer naming no day must read 'idle' (got ${emptyOk.kind}).`)
-  // (a) past the wall without a served canary → unknown, even on an empty answer
+  // (a) past the line → unknown on an empty answer, whatever the canary (the account probe is silent there where the surfaces are not)
   for (const c of ['unknown', 'served']) {
     const past = M.idleVerdict({ windowStart: '2016-05-01', windowEnd: '2016-06-03', wallLine: '2023-08-18', canary: c, answer: { ok: true, activeDays: [] } })
-    check(past.kind === 'idle', `(a) ⛔ past the line with canary '${c}' an empty account answer read '${past.kind}' — LORAMER_PAST_LINE_EMPTY_V1 (Russ 2026-09-23): the account's own answer retires the window past the line exactly as above it.`)
+    check(past.kind === 'unknown', `(a) ⛔ past the line with canary '${c}' an empty account answer read '${past.kind}' — LORAMER_IDLE_PROBE_HELD_PAST_LINE_V1 (measured 2026-09-24): the account probe is silent past the line where the surfaces are not; no idle verdict there, whatever the canary.`)
   }
   const above = M.idleVerdict({ windowStart: '2025-11-10', windowEnd: '2025-12-13', wallLine: '2023-08-18', canary: 'unknown', answer: { ok: true, activeDays: [] } })
   check(above.kind === 'idle', `(a) above the wall the canary is irrelevant: an empty answer must read 'idle' (got ${above.kind}).`)

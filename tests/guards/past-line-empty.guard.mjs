@@ -10,7 +10,7 @@
 // frequency (metric-level, 36 months / 92 days), which the walk does not capture. The line stays as the instrument's
 // label and the canary keeps running as the enforcement detector; neither classifies an answer.
 //   (a) PURE classifyEmptyAnswer: 'zero' for every rangeEnd (above, at, past the line) under every canary state
-//   (b) PURE idleVerdict: an empty account answer past the line reads 'idle' exactly as above it
+//   (b) PURE idleVerdict: an empty account answer past the line reads 'unknown' — no idle verdict there (LORAMER_IDLE_PROBE_HELD_PAST_LINE_V1); above the line 'idle'
 //   (c) the fire asks past-line windows (no canary refusal) and the missed lane re-asks past-line holes — unchanged
 //   (d) no worker path emits UNRESOLVED_PAST_WALL any more; a past-line empty is COUNTED (onPastLineEmpty) and retired
 import { readFileSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs'
@@ -62,7 +62,7 @@ if (W) {
 if (I) {
   for (const c of ['served', 'unknown']) {
     const v = I.idleVerdict({ windowStart: '2016-05-01', windowEnd: '2016-06-03', wallLine: '2023-08-18', canary: c, answer: { ok: true, activeDays: [] } })
-    check(v.kind === 'idle', `(b) ⛔ past the line an empty account answer read '${v.kind}' under canary '${c}' — the account's own answer retires the window past the line exactly as above it.`)
+    check(v.kind === 'unknown', `(b) ⛔ past the line an empty account answer read '${v.kind}' under canary '${c}' — LORAMER_IDLE_PROBE_HELD_PAST_LINE_V1: the account probe is silent past the line where the surfaces are not; the window walks surface by surface and each surface's own empty is 'zero'.`)
   }
   const above = I.idleVerdict({ windowStart: '2025-11-10', windowEnd: '2025-12-13', wallLine: '2023-08-18', canary: 'unknown', answer: { ok: true, activeDays: [] } })
   check(above.kind === 'idle', `(b) above the wall an empty answer still reads 'idle' (got ${above.kind}).`)
@@ -82,4 +82,4 @@ if (findings.length) {
   for (const f of findings) console.error('  • ' + f)
   process.exit(1)
 }
-console.log('[past-line-empty] PASS — an empty answer past the line classifies zero under every canary state, the idle verdict applies past the line, the fire asks past-line windows and the missed lane re-asks holes, and no worker path emits UNRESOLVED_PAST_WALL (a past-line empty is counted and retired).')
+console.log('[past-line-empty] PASS — an empty answer past the line classifies zero under every canary state, the idle verdict is HELD past the line (the surfaces answer for themselves), the fire asks past-line windows and the missed lane re-asks holes, and no worker path emits UNRESOLVED_PAST_WALL (a past-line empty is counted and retired).')

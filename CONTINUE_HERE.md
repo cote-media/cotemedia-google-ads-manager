@@ -1,4 +1,64 @@
-╔═══ SESSION CLOSE 2026-09-18 (EVENING) — TWO FLIGHTS SHIPPED, THE WIPE PREPARED, AND THE LAW THAT CAUGHT ITS OWN WRONG BUILD IS NOW CODE ═══╗
+╔═══ SESSION CLOSE 2026-09-24 (NIGHT) — THE RUN CROSSED THE 37-MONTH LINE AND KEPT GOING: FOUR BUILDS, 7,045 WINDOWS ATTESTED, AND TWO RULINGS BANKED IN RUSS'S WORDS ═══╗
+
+⛔ READ LORAMER_MAP.md FIRST (the resume command prints it). This block is the session narrative; the MAP is the picture.
+
+── WHAT SHIPPED, newest-first (all READY, polled to terminal) ──
+· THIS PUSH — LORAMER_IDLE_PROBE_HELD_PAST_LINE_V1 (round 42, found by the wrap's own check:data: capture-landing 210 NEW Tri-Copy days with
+  rows and no account row). Past the line the ACCOUNT idle probe answered "no active day" where the walk's own campaign rows carry 2,030,171
+  impressions; 559 surface-windows / 192,252 surface-days on 5 clients were retired idle in three hours. The idle verdict is HELD past the line
+  again (surfaces answer for themselves; the surface half of round 41 stands). ⛔ THE FALSE ROWS ARE STILL IN THE LEDGER — head step (1).
+· `4944019` LORAMER_PAST_LINE_EMPTY_V1 (round 41) — an empty answer past the 37-month line is recorded empty exactly as above it; any
+  DateRangeError is a stop with its code; scripts/reclassify-witnessed-empty.mjs --apply appended 7,045 attested-empty rows (10 clients,
+  windows 2016-04-20..2023-08-22) after the deploy; the first fires on the build carried pastLineEmpty 8 (BusyBee) and 30 (Tri-Copy's step).
+  Behind it: round 39 MEASURED Google on the wire (daily served to inception on every surface with data, 0 refusals in 716 asks); round 40's
+  witness (2,481 month-grain asks) found 0 silent omissions in 12,790 held windows; Russ ruled "If there's data go get it."
+· `e219671` LORAMER_ENGINE_KEYED_INSTRUMENTS_V1 (round 38) — an instrument asks the engine which row is the account row; check:data's
+  capture-landing judges a walk connection by its customer row (round 41 narrowed that to ANSWERED customer windows and exempted the
+  impression-share ratio family: Tri-Copy 1,405 judged · 584 not yet answered · 0 NEW).
+· `064a5d3` LORAMER_FIRE_PLANS_UNTIL_FULL_V1 (round 34; migration 103 live) — one coverage RPC per candidate, the scan plans only what the
+  fire can execute, deferred units never count as asking, one chain per run. Tri-Copy's re-pressed run has stepped since 21:04Z.
+· `4eaebee` LORAMER_DESCEND_WINDOW_360_V1 (round 26) — 360-day descend and missed windows under a time cap; an unnamed refusal holds its lane.
+· Tri-Copy reconnected WALK 2026-09-23 15:35Z (round 28). Run row at close (03:17Z): running · steps 124 · days_committed 419,506 ·
+  requests_opened 8,072 · 0 steps without progress; deepest past-line window seen 2021-09-02..2022-08-27.
+
+── ▶▶ NEXT STEP, IN ORDER — first one first (Russ, round 42, 2026-09-24; step 1 inserted by the same night's finding) ──
+(1) REPAIR THE FALSE IDLES — ★FALSE-IDLE-PAST-LINE-REPAIR: read the count at the fix's deploy, decide reader-side rule vs ledger
+    exception in its own round, then re-ask the days they retired. Tri-Copy's proof cannot be scored on top of them. With it, the
+    MORNING READ, read-only: Tri-Copy's run (status, steps, sealed of 358, deepest window per layer) and the 10:15Z canary reading
+    Tri-Copy's LIVE row (the 09-23 canary FAILED only because the row did not exist at 10:15Z — created 15:35Z; DECISIONS:2871's case).
+    ★IDLE-PROBE-PAST-LINE-WITNESS is a Google read on Russ's word.
+(2) FIX no-owed-day-left-behind — a PROOF INSTRUMENT that CANNOT RUN (statement timeout, 801 s; QUEUE ★NO-OWED-DAY-CHECK-CRASHES,
+    amended round 42). The proof cannot score without it. Its own round decides the shape (server-side per-day probe like migration 103,
+    or a per-client LATERAL).
+(3) TRI-COPY PROOF: the run done at its floor, 358 sealed, the hole-map proof scored; then Russ reconciles August 2026 against the
+    Google Ads app (round 27 §6 query — the walk's customer row).
+(4) THE NON-DERIVABLE METRICS ROUND under ruling (a) — DECISIONS LORAMER_SESSION_2026_09_23_RULINGS_V1: enumerate every metric that
+    cannot be computed from captured rows, with proof, before any build; then ★COARSE-GRAIN-LANE and ★REACH-FREQUENCY-LANE — BEFORE the
+    cold proof, so the stranger's run proves them.
+(5) COLD PROOF on russ@loramer.com once Russ's invite is accepted — QUEUE ★COLD-PROOF-STRANGER-RUSS-LORAMER owns the steps (invite on
+    Veterinary Mastermind 3110968443 with Standard access → accept → Code writes the allowlist row, holds f5fbe7e5's google lane,
+    creates the new client record through the real entry path).
+(6) BATH FITTER STRESS TEST — the heaviest account (3.07 s/day on its worst surface, round 25) through the same press.
+(7) FLEET: delete → reconnect → Backfill each client while API v23 still serves pre-line daily data (★GOOGLE-ADS-API-VERSION-PIN).
+    The delete job's first real run is the first client here (★GOOGLE-DELETE-JOB-FIRST-REAL-RUN).
+(8) WIRE: the screen readers (★SCREEN-READERS-HELD-FOR-WIRE), Lora's readers, the impression-share reader
+    (★IMPRESSION-SHARE-READER-REACH), the UI rulings (★NEXT-RECONNECT-HIDDEN-WHILE-AUTHORIZED, ★PLATFORM-ROW-PROGRESS-BAR-AND-STATUS-PILL,
+    ★PER-PLATFORM-DELETE-AND-DELETE-ALL).
+(9) DELETE THE OLD GOOGLE PATH (★LEGACY-RETIREMENT; DECISIONS LORAMER_SESSION_2026_09_21_RULINGS_V1 (e)).
+RUSS'S OPEN ACTION: the russ@loramer.com invite on Veterinary Mastermind and its acceptance.
+Then Russ's plan to 9/30 as he stated it — DECISIONS LORAMER_SESSION_2026_09_21_RULINGS_V1 (c). Clock: 6 days to 9/30 (counted 2026-09-24).
+
+── STANDING ──
+· ⛔ LEGACY IS FROZEN for the other four platforms; Google's old writers stay until (9).
+· One-block output with the round-id footer · deploy-poll-until-terminal · the CITED gate · pushes gated · check:data before a push — all bind.
+· check:data at close (round 42 wrap, docs tree): 30 green · 8 red — capture-landing 210 NEW (the false idles, step 1) and no-owed-day RAN this time (831 s, FAIL 14,462 owed days above the frontier across 128 surfaces — it timed out the run before; step 2 makes it reliable) on top of the standing — completion-claims · drain-alias-coverage (±1) · coverage-density ·
+  fleet-meter-visibility (−575) · anchor (C) · top-edge-is-held · retention-canary (harness budget kill; standalone: FAILED at 10:15Z on
+  the missing row, clears at today's 10:15Z) · rotation-buffers passed inside the run this time. Guards 223/223.
+· Google READS outside the walk are allowed only when a paste says so; a read-only round writes nothing, takes no lane, presses nothing.
+
+╚═══════════════════════════════════════════════════════════════════════════════════════════════════════════════╝
+
+╔═══ ⛔ SUPERSEDED 2026-09-24 (NIGHT) · HISTORY · DO NOT ACT ON ITS HEAD — SESSION CLOSE 2026-09-18 (EVENING) — TWO FLIGHTS SHIPPED, THE WIPE PREPARED, AND THE LAW THAT CAUGHT ITS OWN WRONG BUILD IS NOW CODE ═══╗
 
 ⛔ READ LORAMER_MAP.md FIRST (the resume command prints it). This block is the session narrative; the MAP is the picture.
 

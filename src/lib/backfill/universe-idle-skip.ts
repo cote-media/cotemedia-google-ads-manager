@@ -10,7 +10,7 @@
 // developers.google.com/google-ads/api/docs/reporting/zero-metrics). A successful answer therefore NAMES the active
 // days. A day named active is never idle. A failed, refused or missing answer yields NO verdict, and the window walks
 // surface by surface exactly as before — the skip can only ever remove requests, never facts.
-// ⛔ PAST THE RETENTION WALL no idle verdict is issued at all (LORAMER_WALL_HOLD_NEVER_RETIRE_V1, Q6): silence there is
+// ⛔ PAST THE RETENTION WALL no idle verdict is issued at all (LORAMER_IDLE_PROBE_HELD_PAST_LINE_V1, measured; Q6 before it): silence there is
 // not evidence, whatever the canary reads.
 // ⛔ A MIXED WINDOW IS NEVER SKIPPED. Splitting the surfaces' request to the active range would save no operation
 // (one request per surface either way) and would double the ledger, so a mixed window walks whole; the verdict still
@@ -53,10 +53,18 @@ export type IdleVerdict =
  */
 export function idleVerdict(a: { windowStart: string; windowEnd: string; wallLine: string; canary: CanaryState; answer: ActivityAnswer }): IdleVerdict {
   if (!a.answer.ok) return { kind: 'unknown', reason: `account activity unanswered — ${a.answer.error}; the window walks surface by surface` }
-  // LORAMER_PAST_LINE_EMPTY_V1 (Russ, 2026-09-23): the account's own answer retires an idle window past the line exactly
-  // as above it — Google answers the daily question there (measured, rounds 39–40). `wallLine` and `canary` stay in the
-  // signature for the instrument's report; they no longer gate the verdict.
-  void a.wallLine; void a.canary
+  // ⛔ LORAMER_IDLE_PROBE_HELD_PAST_LINE_V1 (2026-09-24, round 42 — MEASURED ON THE LEDGER, 02:51–05:41Z): past the line the
+  // ACCOUNT-LEVEL answer is silent where the SURFACES are not. LORAMER_PAST_LINE_EMPTY_V1 let this verdict apply past the
+  // line on the strength of rounds 39–40, which measured SURFACE answers (daily served to inception) — never this probe.
+  // On the first fires after that push the customer probe named no active day in Tri-Copy's 2020-09-08..2021-09-02 while
+  // the walk's own campaign-level rows in that window carry 2,030,171 impressions on 129 days; 542 windows / 192,252
+  // surface-days on five clients were retired idle in three hours. So past the line NO idle verdict is issued — the window
+  // walks surface by surface and each surface's own empty is 'zero' (that half of PAST_LINE_EMPTY stands: the witness
+  // proved SURFACE empties, and the surfaces are the ones Google answers). The canary does not enter: the hold is
+  // unconditional past the line until a witness proves the account probe there (QUEUE ★IDLE-PROBE-PAST-LINE-WITNESS).
+  if (isPastWall(a.windowEnd, a.wallLine)) {
+    return { kind: 'unknown', reason: `window ${a.windowStart}..${a.windowEnd} is past the retention line ${a.wallLine} (canary ${a.canary}) — the account probe is silent there where the surfaces are not (LORAMER_IDLE_PROBE_HELD_PAST_LINE_V1); no idle verdict, the surfaces answer for themselves` }
+  }
   const inWindow = [...new Set(a.answer.activeDays)].filter((d) => d >= a.windowStart && d <= a.windowEnd).sort()
   if (inWindow.length === 0) {
     return { kind: 'idle', reason: `Google answered and named no active day in ${a.windowStart}..${a.windowEnd} (${ACTIVITY_METRICS.length} metrics, customer level)` }
