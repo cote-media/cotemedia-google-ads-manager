@@ -530,6 +530,7 @@ const GUARDS = [
   'tests/guards/quiet-wait-derives-from-the-constants.guard.mjs', // LORAMER_FIRE_CEILING_600_V1 — the delete job's quiet-wait derives from the ceiling, never copies it
   'tests/guards/fire-log-witness-is-durable.guard.mjs', // LORAMER_FIRE_CEILING_600_V1 — the re-ask counters and deferrals get a durable row instead of a response body
   'tests/guards/unit-reserve-fraction.guard.mjs', // LORAMER_FIRE_CEILING_600_V1 — no single unit reserves more than half the fire
+  'tests/guards/google-delete-second-request.guard.mjs', // LORAMER_GOOGLE_DELETE_SECOND_REQUEST_V1 — a later erasure request opens a new job; processing/partial still reuse; the client lock precedes the read
   'tests/guards/run-end-kind.guard.mjs', // LORAMER_RUN_END_KIND_V1 — every way a run ends has a named kind (floor / stopped / failed); the two 'done' reasons are constants
   'tests/guards/status-run-fields.guard.mjs', // LORAMER_STATUS_RUN_FIELDS_V1 — the readout carries run/progress/stalled additively; finished_at wins over a stale claim; a dead pump reads stalled (10 min)
   'tests/guards/one-click-start-once.guard.mjs', // LORAMER_ONE_CLICK_RUN_V1 — the press starts the run once (DB-conditional; a live row returns unchanged; floor-done + complete is the meter); preflight keys the token on the connection's email

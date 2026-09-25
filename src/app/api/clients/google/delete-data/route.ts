@@ -71,8 +71,20 @@ export async function POST(request: Request) {
   // OPEN THE ROW — the lock. One live job per client; a complete row answers with its original code.
   const { data: opened, error } = await supabaseAdmin.rpc('google_delete_open', { p_client: o.id, p_email: o.email })
   if (error || !opened) return NextResponse.json({ error: `could not open the deletion log: ${error?.message ?? 'no row'}` }, { status: 500 })
+  // ⛔ LORAMER_GOOGLE_DELETE_SECOND_REQUEST_V1 — ANSWER FOR THE REQUEST THIS PRESS OPENED, NEVER FOR WHATEVER
+  // ROW HAPPENS TO BE NEWEST. This threw `opened` away and narrated `statusOf`'s newest row, which is how a
+  // 2026-09-21 confirmation code reached a 2026-09-25 press on a client that had reconnected two days earlier
+  // and captured again: HTTP 200, an old receipt, nothing deleted. Google's API Services User Data Policy —
+  // "Do not misrepresent what data is collected or what you do with Google user data" — makes that answer a
+  // policy violation, not only a bug.
+  const openedCode = (opened as any)?.confirmation_code as string | undefined
   const row = await statusOf(o.id)
-  if (row?.status === 'complete') return NextResponse.json({ status: 'complete', job: shape(row), note: 'already complete — original confirmation code returned' })
+  if (!openedCode || row?.confirmation_code !== openedCode) {
+    return NextResponse.json({ error: 'the deletion log moved under this request — nothing was started. Press again.' }, { status: 409 })
+  }
+  // The ONLY way this is still complete is the double-press window inside google_delete_open: the same press,
+  // twice. A later press opens a new row with a new code, so this can no longer mean "you asked months ago".
+  if (row?.status === 'complete') return NextResponse.json({ status: 'complete', job: shape(row), note: 'this request was already answered moments ago — same confirmation code' })
   if (row?.live) return NextResponse.json({ status: 'in_progress', job: shape(row), note: 'a deletion is already running for this client; this press only reads its progress' }, { status: 202 })
 
   // HAND OFF AND RETURN. The runner claims the row itself; if another holder won the race it returns without a step.
