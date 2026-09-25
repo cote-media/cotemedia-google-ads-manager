@@ -524,6 +524,7 @@ const GUARDS = [
   'tests/guards/implicit-presence-defaults.guard.mjs', // LORAMER_IMPLICIT_PRESENCE_REASK_V1 — an absent implicit-presence bool lands as its default; the proto scan
   'tests/guards/reask-queue-shape.guard.mjs', // LORAMER_IMPLICIT_PRESENCE_REASK_V1 — the fire consumes the re-ask queue inside the missed slot, half the bound
   'tests/guards/rest-stable-order.guard.mjs', // LORAMER_STABLE_PAGE_ORDER_V1 — every Range page carries the table's unique key; an unknown table refuses to page
+  'tests/guards/reask-admission-fits-the-fire.guard.mjs', // LORAMER_REASK_ADMISSION_FITS_V1 — a re-ask unit is sized against the fire's REMAINING budget and an unfittable head is skipped, not offered
   'tests/guards/run-end-kind.guard.mjs', // LORAMER_RUN_END_KIND_V1 — every way a run ends has a named kind (floor / stopped / failed); the two 'done' reasons are constants
   'tests/guards/status-run-fields.guard.mjs', // LORAMER_STATUS_RUN_FIELDS_V1 — the readout carries run/progress/stalled additively; finished_at wins over a stale claim; a dead pump reads stalled (10 min)
   'tests/guards/one-click-start-once.guard.mjs', // LORAMER_ONE_CLICK_RUN_V1 — the press starts the run once (DB-conditional; a live row returns unchanged; floor-done + complete is the meter); preflight keys the token on the connection's email

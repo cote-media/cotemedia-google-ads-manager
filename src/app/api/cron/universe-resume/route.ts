@@ -859,6 +859,8 @@ export async function GET(request: Request) {
   // missed lane itself may run (same boundary and inception facts); settled per unit below.
   const reaskCandidates: Candidate[] = []
   let reaskQueued = 0, reaskSettledByLedger = 0, reaskDone = 0, reaskErrored = 0, reaskReadError: string | null = null
+  // LORAMER_REASK_ADMISSION_FITS_V1 — rows passed over because their smallest chunk could not be admitted THIS fire.
+  let reaskSkipped = 0
   let missedFrom = 0, missedSweep = 0, missedCursorNext: number | null = null, missedWrapped = false
   let missedCursorWriteError: string | null = null
   let missedScanned = 0, missedNextEntry: number | null = null, missedOwedDaysSeen = 0, missedSurfacesWithHoles = 0
@@ -889,9 +891,23 @@ export async function GET(request: Request) {
             reaskSpd.set(spdKey, sz.maxSecPerDay ?? null)
           }
           const spd = reaskSpd.get(spdKey) ?? null
-          const days = timeCappedDays({ maxSecPerDay: spd, days: MISSED_WINDOW_DAYS, minDays: adapter.sizing.minDays, consumerMaxS: CONSUMER_MAX_DURATION_S }).days
+          // ⛔ LORAMER_REASK_ADMISSION_FITS_V1 — SIZE AGAINST WHAT IS LEFT OF THE FIRE, NOT THE WHOLE CEILING.
+          // This read `consumerMaxS: CONSUMER_MAX_DURATION_S` while admission below (:1108) tests
+          // `FIRE_WORK_BUDGET_MS − elapsed`. Two clocks for one unit: the 300 s cap only bites above 0.529 s/day,
+          // every blocked row measured 0.030–0.346, so each derived a full 360-day chunk reserving up to
+          // 202,429 ms against a fire whose remaining budget never exceeded 171,239 ms on 303 of 303 fires —
+          // derived every fire, deferred every fire, and the four rows at the head of `order(window_start asc)`
+          // spent the whole allowance doing it while 220 rows behind them were never reached.
+          const reaskRemainingS = Math.max(0, (FIRE_WORK_BUDGET_MS - (Date.now() - startedAt)) / 1000)
+          const days = timeCappedDays({ maxSecPerDay: spd, days: MISSED_WINDOW_DAYS, minDays: adapter.sizing.minDays, consumerMaxS: reaskRemainingS }).days
           const chunks = chunksStillOwed(chunkSpanOldestFirst(row.window_start, row.window_end, days), await answeredSince(row))
           if (chunks.length === 0) { if (!dryRun) await settleReaskRow(row.id, { kind: 'done' }); reaskSettledByLedger++; continue }
+          // ⛔ AND SLICING ALONE IS NOT THE FIX — A HEAD THAT STILL CANNOT FIT MUST BE PASSED, NOT JUST SHRUNK.
+          // At the minDays floor a surface can still reserve more than the fire has left; offering it spends one
+          // of the four requests on a unit :1108 will refuse, which is the head-of-line block this exists for.
+          // Bounded by the rows this fire already read — no new constant, and the row is untouched (no tries,
+          // no claim), so it is simply re-derived next fire, exactly as a deferred unit is.
+          if (!shouldStartAnotherLap(Date.now() - startedAt, 0, FIRE_WORK_BUDGET_MS, unitReserveMs({ maxSecPerDay: spd, days: chunks[0].days }))) { reaskSkipped++; continue }
           const label = `${row.resource}${row.segment ? ' / ' + row.segment : ''}`
           for (const w of chunks) {
             if (reaskRequests >= REASK_REQUESTS_PER_RUN) break
@@ -1202,7 +1218,7 @@ export async function GET(request: Request) {
     missedSurfacesWithHoles, missedOwedDaysSeen, missedCandidates: missed.length, missedSelected: selMissed.taken.length,
     missedRequestsSelected: selMissed.requests, missedDroppedForBound: selMissed.droppedForBound,
     // LORAMER_IMPLICIT_PRESENCE_REASK_V1 — the re-ask queue's share of this fire
-    reaskQueued, reaskSelected: selReask.taken.length, reaskRequestsSelected: selReask.requests, reaskDone, reaskErrored, reaskSettledByLedger, reaskReadError,
+    reaskQueued, reaskSelected: selReask.taken.length, reaskRequestsSelected: selReask.requests, reaskDone, reaskErrored, reaskSettledByLedger, reaskSkipped, reaskReadError,
     // LORAMER_QUEUE_REMOVED_INLINE_WALK_V1 — the fire now EXECUTES: these three are the execution half.
     // ⚠ COLUMN-SEMANTICS NOTE for readers of universe_fire_log: `published` now means UNITS SELECTED FOR
     // EXECUTION (the wet ones all execute or error in-fire), and `elapsed_ms` now spans SCAN + CAPTURE
