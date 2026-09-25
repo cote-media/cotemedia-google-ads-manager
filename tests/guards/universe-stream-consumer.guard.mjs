@@ -189,7 +189,12 @@ if (route) {
   // to derive the reserve it keeps before starting a step (a step awaits the fire, whose ceiling that is). It cannot
   // publish: the clause below pins the import to that one symbol and refuses any queue reference. Naming is not publishing.
   const PUMP = 'src/app/api/cron/universe-run-pump/route.ts'
-  const ALLOWED = new Set([ROUTE, CONTRACT, RESUMER, DRIVE, POLL_LANE, SPELLING, PUMP])
+// LORAMER_FIRE_CEILING_600_V1 — the delete job joins this set on the PUMP's precedent and for the same kind of
+// reason: its quiet-wait must know how long a fire holder can live, and a COPY of those windows is what went
+// stale (bare 330_000 / 320_000 from a 300 s ceiling). It is pinned to ONE import of two duration constants and
+// is proven below to reference no publish, queue or TOPIC — it cannot send anything.
+const DELETE_JOB = 'src/lib/google-delete/job.ts'
+  const ALLOWED = new Set([ROUTE, CONTRACT, RESUMER, DRIVE, POLL_LANE, SPELLING, PUMP, DELETE_JOB])
   // ⛔ QUOTATION IS NOT ASSERTION — banked THREE times now (canonical-client-identity, ga-dim, and here on
   // 2026-08-11). This leg matched the topic literal ANYWHERE in a file, so `capture-adapter.ts` became a
   // "candidate publisher" by NAMING the v2 route in a doc comment explaining why its own charge model exists.
@@ -212,6 +217,14 @@ if (route) {
       findings.push(`(e) ${PUMP} is named in this set for ONE import — \`import { CONSUMER_MAX_DURATION_S } from '@/lib/backfill/universe-v2-contract'\` — and its contract import now reads ${JSON.stringify(imports)}.`)
     }
     if (/publish|@vercel\/queue|TOPIC/i.test(pu)) findings.push(`(e) ${PUMP} references publish/queue/TOPIC. The pump must not be able to send anything to the topic.`)
+  }
+  {
+    const dj = nocomment(readFileSync(resolve(ROOT, DELETE_JOB), 'utf8'))
+    const imports = dj.match(/^import[^\n]*universe-v2-contract[^\n]*$/gm) || []
+    if (imports.length !== 1 || !/^import \{ LEASE_TTL_S, CONSUMER_MAX_DURATION_S \} from '@\/lib\/backfill\/universe-v2-contract'$/.test(imports[0].trim())) {
+      findings.push(`(e) ${DELETE_JOB} is named in this set for ONE import — \`import { LEASE_TTL_S, CONSUMER_MAX_DURATION_S } from '@/lib/backfill/universe-v2-contract'\` — so its quiet-wait derives the walk's own windows instead of copying them. Any other import from the contract widens its reach and must be argued, not added.`)
+    }
+    if (/publish|@vercel\/queue|TOPIC/i.test(dj)) findings.push(`(e) ${DELETE_JOB} references publish/queue/TOPIC. The delete job must not be able to send anything to the topic.`)
   }
   const suspects = []
   for (const f of walk('src')) {

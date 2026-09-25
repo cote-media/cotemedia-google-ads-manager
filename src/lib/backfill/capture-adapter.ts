@@ -404,6 +404,24 @@ export function timeCappedDays(a: { maxSecPerDay: number | null; days: number; m
   return capDays < a.days ? { days: capDays, capped: true, capDays } : { days: a.days, capped: false, capDays }
 }
 
+/**
+ * ⛔ LORAMER_FIRE_CEILING_600_V1 — THE SHARE CAP BESIDE THE TIME CAP. `timeCappedDays` sizes a unit to the
+ * consumer's CEILING; this sizes it to the SHARE of one fire a single unit may hold.
+ * WHY IT APPEARS WITH THE 600 s CEILING: timeCappedDays only bites above (consumerMaxS − 18) ÷ (1.48 × 360)
+ * s/day — 0.529 at 300 s, 1.092 at 600 — so raising the ceiling UNCAPS every surface in that band. The measured
+ * fleet worst, 0.63 s/day, goes from a 302-day unit to a 360-day one reserving 353,664 ms: 61% of a 582,000 ms
+ * budget in ONE unit, unretryable inside its own fire and wholly discarded by a FUNCTION_INVOCATION_TIMEOUT.
+ * PURE, and it only ever NARROWS: halves the window until the reserve fits, never below minDays, never widening
+ * what timeCappedDays already narrowed.
+ */
+export function fractionCappedDays(a: { maxSecPerDay: number | null; days: number; minDays: number; budgetMs: number; fraction: number }): number {
+  const cap = Math.floor(a.budgetMs * a.fraction)
+  const floorDays = Math.max(1, Math.floor(a.minDays))
+  let d = Math.max(floorDays, Math.floor(a.days))
+  while (d > floorDays && unitReserveMs({ maxSecPerDay: a.maxSecPerDay, days: d }) > cap) d = Math.max(floorDays, Math.floor(d / 2))
+  return d
+}
+
 /** ≥ this share of prior windows returning ZERO makes a series intermittent; its median is zero by construction. */
 export const INTERMITTENT_ZERO_SHARE = 0.4
 

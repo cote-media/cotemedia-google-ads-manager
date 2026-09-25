@@ -26,7 +26,7 @@ export const dynamic = 'force-dynamic'
 export const fetchCache = 'force-no-store' // the in-process fire reads google_tokens; a cached read of a credential is the 2026-07-30 class
 
 // ⛔ DERIVED, NOT CHOSEN. This route AWAITS a step, and a step is the fire, whose own ceiling is
-// CONSUMER_MAX_DURATION_S = 300 s. The orchestrator must outlive the thing it waits on or it would be killed
+// CONSUMER_MAX_DURATION_S (600 s since LORAMER_FIRE_CEILING_600_V1). The orchestrator must outlive the thing it waits on or it would be killed
 // holding a finished step's result and the chain would break at exactly the moment it did the most work.
 // 800 s is the GENERALLY AVAILABLE Pro maximum (Vercel's duration table: Pro default 300, maximum 800,
 // extended 1800 in beta) — deliberately NOT the 1800 beta, because the chain needs headroom over 300, not a

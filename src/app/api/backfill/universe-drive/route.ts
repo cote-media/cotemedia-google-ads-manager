@@ -37,13 +37,14 @@ import { rangesStillOwed } from '@/lib/backfill/universe-coverage'
 import { randomUUID } from 'node:crypto'
 import { appendAttemptStarted, appendAttemptFinished, type AttemptKey, type WriteProvenance } from '@/lib/backfill/universe-attempt-log'
 import { sizeNextWindow } from '@/lib/backfill/universe-sizing'
-import { LEASE_TTL_S, CONSUMER_MAX_DURATION_S, type UniverseMessageV2 } from '@/lib/backfill/universe-v2-contract'
+import { LEASE_TTL_S, CONSUMER_MAX_DURATION_S, MAX_CONCURRENT_FIRES, type UniverseMessageV2 } from '@/lib/backfill/universe-v2-contract'
 // ⛔ LORAMER_QUEUE_REMOVED_INLINE_WALK_V1 — the drive EXECUTES its one unit through the same function
 // every queue delivery ran. It CASes the SAME (client, vendor) lease as the scheduled fire: a drive
 // overlapping a fire is exactly the overlap the lease exists to exclude, and 'lease-held' is a normal,
 // retryable answer to the operator, never an error.
 import { processMessage } from '@/lib/backfill/universe-v2-worker'
 import { acquireFireLease, releaseFireLease } from '@/lib/backfill/universe-fire-lease'
+import { acquireFireSlot, releaseFireSlot } from '@/lib/backfill/universe-fire-slot' // LORAMER_FIRE_CEILING_600_V1 — the fleet's concurrent-fire bound
 import { readGoogleQuotaPause, holdGoogleWork } from '@/lib/backfill/google-quota-store'
 import { deriveAnchorEnd, deriveWindow, WINDOWS_PER_PUBLISHED_MESSAGE } from '@/lib/backfill/universe-resumer'
 import { wallLineFor } from '@/lib/backfill/retention-wall' // LORAMER_DESCEND_WINDOW_90_V1 — the drive's window never straddles the retention line either
@@ -205,12 +206,25 @@ export async function GET(request: Request) {
         window: `${windowStart}..${windowEnd}`,
       })
     }
+    // ⛔ LORAMER_FIRE_CEILING_600_V1 — THE FLEET'S BOUND APPLIES TO THE DRIVE TOO. The lease says this LANE is
+    // free; the slot says the FLEET is not already at MAX_CONCURRENT_FIRES. An operator drive is a NAMED fire,
+    // so it may take any free slot (leaveFree 0) — it is exactly the kind of work the reserved slot exists for.
+    const slot = await acquireFireSlot('google_ads', prov.invocationId as string, LEASE_TTL_S, 0)
+    if (!slot.granted) {
+      await releaseFireLease(clientId, 'google_ads', prov.invocationId as string, LEASE_TTL_S)
+      return NextResponse.json({
+        ok: true, published: 0, slotHeld: true,
+        held: `FIRE SLOT HELD — the fleet is at its concurrent-fire bound (${slot.freeBefore ?? 0} of ${MAX_CONCURRENT_FIRES} free${slot.unreadable ? `; slot table unreadable: ${slot.unreadable}` : ''}). Nothing spent; retry when a fire releases.`,
+        window: `${windowStart}..${windowEnd}`,
+      })
+    }
     try {
       // No fire deadline on the drive's single unit: the worker's own WALK_BUDGET_MS bounds it, as it
-      // always has for one message under the 300s ceiling.
+      // always has for one message under the consumer ceiling.
       await processMessage({ ...msg, messageKey: idempotencyKey } satisfies UniverseMessageV2)
     } finally {
       await releaseFireLease(clientId, 'google_ads', prov.invocationId as string, LEASE_TTL_S)
+      await releaseFireSlot('google_ads', prov.invocationId as string)
     }
   }
 

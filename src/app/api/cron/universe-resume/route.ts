@@ -60,10 +60,11 @@ import { rangesStillOwed } from '@/lib/backfill/universe-coverage'
 import { randomUUID } from 'node:crypto'
 import { appendAttemptStarted, appendAttemptFinished, readAttemptsAtSpan, type AttemptKey, type WriteProvenance } from '@/lib/backfill/universe-attempt-log'
 import { sizeNextWindow, dayDiff } from '@/lib/backfill/universe-sizing'
-import { unitReserveMs, timeCappedDays, shouldDeriveNext, PLAN_STOP_RESERVE_MS } from '@/lib/backfill/capture-adapter' // LORAMER_UNIT_RESERVE_PER_SURFACE_V1 · LORAMER_FIRE_PLANS_UNTIL_FULL_V1
+import { unitReserveMs, timeCappedDays, fractionCappedDays, shouldDeriveNext, PLAN_STOP_RESERVE_MS } from '@/lib/backfill/capture-adapter' // LORAMER_UNIT_RESERVE_PER_SURFACE_V1 · LORAMER_FIRE_PLANS_UNTIL_FULL_V1
 import {
   MAX_ATTEMPTS_AT_MIN_SPAN, LEASE_TTL_S, CONSUMER_MAX_DURATION_S,
   FIRE_WORK_BUDGET_MS, fireDeadlineAt, UNIT_RESERVATION_FLOOR_MS, UNIT_CONCURRENCY,
+  MAX_CONCURRENT_FIRES, ROTATION_SLOT_CEILING, UNIT_RESERVE_MAX_FRACTION, // LORAMER_FIRE_CEILING_600_V1
   VENDOR as LEDGER_VENDOR, // LORAMER_WALK_QUOTA_SCOPE_V1 — the lane hold is keyed by the ledger's vendor spelling
   type UniverseMessageV2,
 } from '@/lib/backfill/universe-v2-contract'
@@ -74,6 +75,7 @@ import {
 // ban continues to pin.
 import { processMessage, type DeadlineOpts } from '@/lib/backfill/universe-v2-worker'
 import { acquireFireLease, releaseFireLease } from '@/lib/backfill/universe-fire-lease'
+import { acquireFireSlot, releaseFireSlot } from '@/lib/backfill/universe-fire-slot' // LORAMER_FIRE_CEILING_600_V1 — the fleet's concurrent-fire bound
 // fan-out: bounded UNIT_CONCURRENCY
 import { mapBounded } from '@/lib/concurrency' // LORAMER_FIRE_UNITS_CONCURRENT_V1 — the one home (src/lib/concurrency.ts)
 import { shouldStartAnotherLap } from '@/lib/backfill/lap-budget'
@@ -124,6 +126,13 @@ const LOOKBACK_SLOT_MODE = 'publish' as 'observe' | 'publish' // ruling: DECISIO
 const addDays = (iso: string, n: number) => {
   const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10)
 }
+
+
+// LORAMER_FIRE_CEILING_600_V1 — the share cap lives beside timeCappedDays in capture-adapter.ts so every
+// caller (this route, the drive, the worker) narrows a unit the same way; here it is bound to this
+// fire's budget and the contract's fraction.
+const capUnitDays = (spd: number | null, days: number, minDays: number): number =>
+  fractionCappedDays({ maxSecPerDay: spd, days, minDays, budgetMs: FIRE_WORK_BUDGET_MS, fraction: UNIT_RESERVE_MAX_FRACTION })
 
 export async function GET(request: Request) {
 // ⛔ LORAMER_PROVENANCE_ON_EVERY_APPEND_V1 — PRODUCER-SIDE ROWS CARRY AN INVOCATION, NOT A MESSAGE KEY.
@@ -202,11 +211,22 @@ export async function GET(request: Request) {
     // absent/null on the pre-lane exits (lease-held, quota-hold, rotation-error) and on a refused/errored lane → three
     // NULL columns, which is how a reader tells "did not run" from "started at entry 0".
     missed?: { cursorFrom: number | null; nextEntry: number | null; wrapped: boolean | null } | null
+    // LORAMER_FIRE_CEILING_600_V1 — the durable witness. Rounds 3-5 of 2026-09-25 cost four rounds because the
+    // re-ask counters lived only in the HTTP body and `deferredUnits` was a console line Vercel expires in an
+    // hour. NULL means this exit never reached that stage — never 0 (the migrations/092 convention).
+    slotNo?: number | null
+    slotOutcome?: 'acquired' | 'refused' | null
+    deferredUnits?: number | null
+    reask?: { queued: number; selected: number; done: number; errored: number; settledByLedger: number; skipped: number } | null
   }): Promise<string | null> => {
     try {
       const histogram: Record<string, number> = {}
       for (const r of h.refusals ?? []) histogram[r.verdict] = (histogram[r.verdict] ?? 0) + 1
       const { error } = await supabaseAdmin.from('universe_fire_log').insert({
+        slot_no: h.slotNo ?? null, slot_outcome: h.slotOutcome ?? null, deferred_units: h.deferredUnits ?? null,
+        reask_queued: h.reask?.queued ?? null, reask_selected: h.reask?.selected ?? null,
+        reask_done: h.reask?.done ?? null, reask_errored: h.reask?.errored ?? null,
+        reask_settled_by_ledger: h.reask?.settledByLedger ?? null, reask_skipped: h.reask?.skipped ?? null,
         client_id: clientId, dry_run: dryRun, fire_outcome: h.fireOutcome,
         scanned: h.scanned ?? 0, scan_completed: h.scanCompleted ?? false, catalog_size: h.catalogSize ?? 0,
         candidates: h.candidates ?? 0, published: h.published ?? 0, requests_selected: h.requestsSelected ?? 0,
@@ -243,6 +263,34 @@ export async function GET(request: Request) {
       })
     }
     leaseWon = true
+  }
+  // ⛔ LORAMER_FIRE_CEILING_600_V1 — THE FLEET'S BOUND, TAKEN AFTER THIS CLIENT'S LEASE AND BEFORE ANY WORK.
+  // The lease answers "is this CLIENT firing?"; the slot answers "is the FLEET at MAX_CONCURRENT_FIRES?". At a
+  // 600 s ceiling the five-minute rotation starts a second and third fire before the first ends, and it picks a
+  // different client each time, so the lease cannot bound the total.
+  // ⛔ ROTATION LEAVES ONE SLOT FREE. A NAMED fire (?clientId= — the pump, the run route, the button's kickoff)
+  // may take any slot; routine rotation may not take the last, so a pressed Backfill always finds one.
+  // ⛔ THE REFUSAL RIDES THE `held` CHANNEL, exactly as the lease refusal does, so continuous-run.ts:187 chains
+  // the step without counting it against the no-progress stop.
+  let slotNo: number | null = null
+  let slotOutcome: 'acquired' | 'refused' | null = null
+  if (!dryRun) {
+    const leaveFree = requestedClientId ? 0 : MAX_CONCURRENT_FIRES - ROTATION_SLOT_CEILING
+    const slot = await acquireFireSlot('google_ads', fireInvocationId, LEASE_TTL_S, leaveFree)
+    if (!slot.granted) {
+      slotOutcome = 'refused'
+      const why = slot.unreadable
+        ? `the slot table could not be read (${slot.unreadable}) — an unreadable bound HOLDS, it never admits`
+        : `${slot.freeBefore ?? 0} of ${MAX_CONCURRENT_FIRES} slot(s) free and this ${requestedClientId ? 'named' : 'rotation'} fire may not leave fewer than ${leaveFree}`
+      const hbErr = await fireHeartbeat({ fireOutcome: 'lease-held', held: `fire slot held — ${why}`, slotOutcome, slotNo: null })
+      return NextResponse.json({
+        ok: true, published: 0, executed: 0, scanned: 0, heartbeatError: hbErr,
+        held: `FIRE SLOT HELD — the fleet is at its concurrent-fire bound: ${why}. Nothing scanned, nothing spent; owed-ness is derived and the next fire recomputes the same answer.`,
+        refusals: [],
+      })
+    }
+    slotNo = slot.slotNo
+    slotOutcome = 'acquired'
   }
   // ⛔ FLAT-INDENT try/finally, DELIBERATE: the shell below wraps ~400 existing lines so the lease is
   // released on EVERY return path; re-indenting the whole body would bury this cutover's real diff in
@@ -899,7 +947,7 @@ export async function GET(request: Request) {
           // derived every fire, deferred every fire, and the four rows at the head of `order(window_start asc)`
           // spent the whole allowance doing it while 220 rows behind them were never reached.
           const reaskRemainingS = Math.max(0, (FIRE_WORK_BUDGET_MS - (Date.now() - startedAt)) / 1000)
-          const days = timeCappedDays({ maxSecPerDay: spd, days: MISSED_WINDOW_DAYS, minDays: adapter.sizing.minDays, consumerMaxS: reaskRemainingS }).days
+          const days = capUnitDays(spd, timeCappedDays({ maxSecPerDay: spd, days: MISSED_WINDOW_DAYS, minDays: adapter.sizing.minDays, consumerMaxS: reaskRemainingS }).days, adapter.sizing.minDays)
           const chunks = chunksStillOwed(chunkSpanOldestFirst(row.window_start, row.window_end, days), await answeredSince(row))
           if (chunks.length === 0) { if (!dryRun) await settleReaskRow(row.id, { kind: 'done' }); reaskSettledByLedger++; continue }
           // ⛔ AND SLICING ALONE IS NOT THE FIX — A HEAD THAT STILL CANNOT FIT MUST BE PASSED, NOT JUST SHRUNK.
@@ -957,7 +1005,7 @@ export async function GET(request: Request) {
           // LORAMER_DESCEND_WINDOW_90_V1 — a hole crossing the retention line is split at it first, so no request straddles it.
           // LORAMER_FIRE_PLANS_UNTIL_FULL_V1 — chunked under the descend's own time cap: a row-bearing surface's 360-day
           // missed ask ran 65–70 s (Tri-Copy 2016 ad_group segments); the cap sizes it to its worst s/day, cold surfaces keep 360.
-          const missedDays = timeCappedDays({ maxSecPerDay: spd, days: MISSED_WINDOW_DAYS, minDays: adapter.sizing.minDays, consumerMaxS: CONSUMER_MAX_DURATION_S }).days
+          const missedDays = capUnitDays(spd, timeCappedDays({ maxSecPerDay: spd, days: MISSED_WINDOW_DAYS, minDays: adapter.sizing.minDays, consumerMaxS: CONSUMER_MAX_DURATION_S }).days, adapter.sizing.minDays)
           for (const part of splitAtWall(h.start, h.end, wallLine))
           for (const w of chunkSpanOldestFirst(part.start, part.end, missedDays)) {
             missed.push({
@@ -978,6 +1026,8 @@ export async function GET(request: Request) {
       refusals.push({ label: '(missed lane)', verdict: 'missed-enumeration-error', reason: String(e?.message ?? e) })
     }
   }
+  // LORAMER_FIRE_CEILING_600_V1 — declared before the meter gate so a meter-held fire can witness it too.
+  let deferredUnits = 0
   const sel = boundedSelection(candidates, MAX_REQUESTS_PER_RUN)
   const selReask = boundedSelection(reaskCandidates, REASK_REQUESTS_PER_RUN) // LORAMER_IMPLICIT_PRESENCE_REASK_V1 — the queue's half
   const selMissed = boundedSelection(missed, MISSED_REQUESTS_PER_RUN - selReask.requests) // LORAMER_MISSED_DAY_WALK_V1 — its own bound, oldest first; the holes keep what the queue did not take
@@ -1016,7 +1066,10 @@ export async function GET(request: Request) {
   const gate = await mayFetchProgram(adapter, [...sel.taken, ...lookbackToSend, ...selMissed.taken].flatMap((c) => c.rangeSpans))
   if (!gate.ok) {
     const hbErr = await fireHeartbeat({
-      fireOutcome: 'meter-held', scanned, scanCompleted: scanned >= MAX_ENTRIES_SCANNED_PER_RUN || scanned === entries.length,
+      fireOutcome: 'meter-held', scanned,
+      slotNo, slotOutcome, deferredUnits,
+      reask: { queued: reaskQueued, selected: selReask.taken.length, done: reaskDone, errored: reaskErrored, settledByLedger: reaskSettledByLedger, skipped: reaskSkipped },
+ scanCompleted: scanned >= MAX_ENTRIES_SCANNED_PER_RUN || scanned === entries.length,
       catalogSize: entries.length, candidates: candidates.length, advanced: advancedCovered, refusals,
       elapsedMs: Date.now() - startedAt, held: gate.reason,
       // LORAMER_MISSED_FIRE_DURABILITY_V1 — the enumeration and the 091 cursor write happened above the meter gate, so a
@@ -1039,7 +1092,6 @@ export async function GET(request: Request) {
   const published: any[] = []
   const executed: Array<{ label: string; lane: string; window: string; ms: number }> = []
   const unitErrors: Array<{ label: string; error: string }> = []
-  let deferredUnits = 0
   // LORAMER_FIRE_LOG_WITNESSES_OPENED_V1 — the requests this fire actually OPENED (one per appendAttemptStarted(…, 1, …)
   // inside the worker, continuations included), summed from processMessage's return. This is what the completion
   // heartbeat witnesses as requests_selected: the meter's own unit, counted where the work happens. A unit deferred at
@@ -1250,7 +1302,10 @@ export async function GET(request: Request) {
   // LORAMER_WALK_UNWEDGE_AND_HEARTBEAT_V1 — the durable copy of the line above. rows_written stays derivable
   // from the attempt log; the heartbeat records the FIRE's decisions, not the consumer's results.
   const hbErr = await fireHeartbeat({
-    fireOutcome: 'completed', scanned, scanCompleted: instrument.scanCompleted, catalogSize: entries.length,
+    fireOutcome: 'completed', scanned,
+    slotNo, slotOutcome, deferredUnits,
+    reask: { queued: reaskQueued, selected: selReask.taken.length, done: reaskDone, errored: reaskErrored, settledByLedger: reaskSettledByLedger, skipped: reaskSkipped },
+ scanCompleted: instrument.scanCompleted, catalogSize: entries.length,
     // LORAMER_FIRE_LOG_WITNESS_BOTH_SLOTS_V1 — ONE integer, ONE meaning: units / requests this fire selected to SEND,
     // across BOTH slots (descent + lookback). The per-lane split stays in the response body above. A witness that
     // carries one slot while the meter counts both is the 2026-09-09 −190 drift, and would return on the first
@@ -1291,6 +1346,9 @@ export async function GET(request: Request) {
     // TTL-expired loser can never release a newer winner. A failed release logs inside the module and the
     // TTL recovers the lane; nothing here may throw over the fire's real result.
     if (leaseWon) await releaseFireLease(clientId, 'google_ads', fireInvocationId, LEASE_TTL_S)
+    // LORAMER_FIRE_CEILING_600_V1 — the fleet slot goes back in the same finally. A leaked slot shrinks the
+    // bound silently until its TTL, which is the quietest way to lose a third of the fleet's throughput.
+    if (slotOutcome === 'acquired') await releaseFireSlot('google_ads', fireInvocationId)
   }
 }
 

@@ -119,7 +119,7 @@ export type ResumeVerdict =
 //
 // THE DERIVATION — REWRITTEN 2026-09-16 BY LORAMER_FIRE_DEADLINE_FROM_FIRE_START_V1, AND THE REWRITE IS THE
 // POINT: THE BITE NO LONGER CHARGES THE SCAN AT ALL, BECAUSE THE CLOCK NOW SEES IT.
-//   · the platform kills at CONSUMER_MAX_DURATION_S = 300,000 ms. The admission rule's clock now starts at
+//   · the platform kills at CONSUMER_MAX_DURATION_S (600,000 ms since LORAMER_FIRE_CEILING_600_V1). The admission rule's clock now starts at
 //     the FIRE's start (`fireDeadlineAt(startedAt)`), not after the scan, so every millisecond the scan
 //     spends is already subtracted from what capture may use. No scan figure enters this derivation.
 //   · FIRE_WORK_BUDGET_MS = 300,000 − UNIT_RESERVATION_FLOOR_MS 10,000 = 290,000 ms, measured from fire start.

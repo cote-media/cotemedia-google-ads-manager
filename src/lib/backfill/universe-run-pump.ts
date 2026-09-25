@@ -16,7 +16,7 @@
 // The step gap inside an invocation is the fire's own duration; the gap between invocations is at most the cron
 // minute (Pro: "Minimum interval: once per minute · Scheduling precision: per-minute").
 //
-// ⛔ THE RESERVE IS DERIVED, NOT CHOSEN: a step awaits a fire whose own ceiling is CONSUMER_MAX_DURATION_S (300 s), so
+// ⛔ THE RESERVE IS DERIVED, NOT CHOSEN: a step awaits a fire whose own ceiling is CONSUMER_MAX_DURATION_S (600 s), so
 // the pump must not start a step it cannot finish before its deadline. Reserve = that ceiling + a margin; the route
 // passes it. With maxDuration 800 that leaves ~480 s of stepping per invocation — measured fires run 40–100 s, so
 // 5–12 steps per invocation, then a ≤60 s gap. That gap is the cost of not requesting our own deployment.

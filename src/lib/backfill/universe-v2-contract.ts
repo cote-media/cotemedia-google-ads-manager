@@ -61,7 +61,18 @@ export const EMPTY_STRETCH_REPORT_AFTER = 400
  * becomes silently wrong the day it moves. `drive-ceiling-pin.guard.mjs` pins the route's export and the
  * drive's ceiling to THIS constant for exactly that reason.
  */
-export const CONSUMER_MAX_DURATION_S = 300
+// ⛔ LORAMER_FIRE_CEILING_600_V1 (2026-09-25) — 300 → 600, AND 600 RATHER THAN 800 FOR A MEASURED REASON.
+// Measured on three post-deploy fires: a fire spends 112,470 / 129,282 / 117,010 ms planning of a 130,012 ms
+// p50 — ~86% of the budget goes to the scan before the first vendor request, leaving 13–22 s of execution.
+// That squeeze is what made the re-ask head rows unadmittable (rounds 10 and 12).
+// ⛔ WHY NOT 800, the Pro GA maximum: `cron/universe-run-pump` HOSTS the fire IN-PROCESS inside its own 800 s
+// invocation (universe-run-fire.ts), so a fire that ran to an 800 s ceiling would die WITH the pump at
+// FUNCTION_INVOCATION_TIMEOUT, mid-work. The pump cannot be raised above 800 either — the builder refuses it
+// ("Serverless Functions must have a maxDuration between 1 and 800 for plan pro"; the 1800 s extended maximum
+// is beta and not self-serve). So the ceiling must sit strictly BELOW its host's: 800 − 200 s of margin for the
+// step's claim, CAS and bookkeeping. `pump-reserve-fits-the-pump.guard.mjs` fails the build on any ceiling that
+// would starve the pump.
+export const CONSUMER_MAX_DURATION_S = 600
 
 /**
  * ⛔ THE FIRE-LEASE TTL — LORAMER_INLINE_FIRE_LEASE_V1, and it lives HERE, beside the ceiling it is
@@ -151,6 +162,42 @@ export function fireDeadlineAt(fireStartedAtMs: number): number {
  * in the 08–11Z cron band against 691/692/691 ms in the quiet evening. p90 tracks ROW VOLUME, not the band.
  */
 export const UNIT_CONCURRENCY = 12
+
+/**
+ * ⛔ HOW MANY FIRES THE FLEET RUNS AT ONCE — LORAMER_FIRE_CEILING_600_V1, 2026-09-25. MEASURED, NOT CHOSEN.
+ * At a 600 s ceiling the five-minute rotation starts a second and third fire before the first ends. The
+ * per-(client, vendor) lease (migrations/085) already makes two fires on ONE client impossible; nothing bounded
+ * how many DIFFERENT clients fire at once, and the rotation picks a different client every time.
+ * MEASURED 2026-09-25 over 24 h / 844 wet fires: concurrent FIRES max 9 · median 2 · p95 3. Over 6 h / 6,197
+ * finished units (median unit 815 ms): concurrent UNITS median 9 · p95 15 · max 73. 3 is that p95, and
+ * 3 × UNIT_CONCURRENCY = 36 units sits well inside a peak of 73 the database has already carried at
+ * 25 of 160 connections and 98.98% cache hit.
+ * ⛔ A COUNT, NOT A MUTEX, AND THE DIFFERENCE IS THE SAFETY ARGUMENT. A TTL lease guarantees exclusion only
+ * while the holder finishes inside the validity window, and without fencing tokens a paused holder can overrun
+ * it (Kleppmann, 2016-02-08). An over-count admits ONE EXTRA FIRE; it cannot corrupt a row, because per-client
+ * safety is still the 085 lease's. Advisory locks were rejected on a measured fact: we reach Postgres through
+ * PostgREST, which multiplexes its own pool, so a session-scoped advisory lock is not addressable across it.
+ */
+export const MAX_CONCURRENT_FIRES = 3
+
+/**
+ * ⛔ ROTATION MAY NOT TAKE THE LAST SLOT. A pressed Backfill is a NAMED fire — the pump, the run route and the
+ * button's kickoff all carry `?clientId=` (universe-run-fire.ts), and the five-minute rotation does not. Routine
+ * rotation therefore acquires with one slot left free, so a customer's press always finds one.
+ * DERIVED as a subtraction from the bound, never a second number that could drift from it.
+ */
+export const ROTATION_SLOT_CEILING = MAX_CONCURRENT_FIRES - 1
+
+/**
+ * ⛔ NO SINGLE UNIT MAY RESERVE MORE THAN HALF THE FIRE — LORAMER_FIRE_CEILING_600_V1.
+ * `timeCappedDays` only caps a window above (consumerMaxS − 18) ÷ (1.48 × 360) s/day: 0.529 at 300 s, 1.092 at
+ * 600. Raising the ceiling UNCAPS every surface in that band — the measured fleet worst, 0.63 s/day, goes from a
+ * 302-day unit to a 360-day one reserving 353,664 ms, i.e. 61% of the budget in ONE unit.
+ * HALF is derived, not chosen: the plan phase already costs up to 22% of the budget (112,470–129,282 ms
+ * measured), so a unit over half cannot be retried inside its own fire and cannot share the fire with a second
+ * surface — and a timeout discards all of its work (FUNCTION_INVOCATION_TIMEOUT).
+ */
+export const UNIT_RESERVE_MAX_FRACTION = 0.5
 
 
 export interface UniverseMessageV2 {

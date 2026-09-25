@@ -45,7 +45,7 @@ const LAP = 'src/lib/backfill/lap-budget.ts'
 const CONTRACT = 'src/lib/backfill/universe-v2-contract.ts'
 
 // ── MEASURED INPUTS, 2026-09-25 round 5 — live rows, not chosen ──────────────────────────────────────────
-const FIRE_BUDGET_MS = 282_000          // universe-v2-contract.ts FIRE_WORK_BUDGET_MS
+const FIRE_BUDGET_MS = 582_000          // universe-v2-contract.ts FIRE_WORK_BUDGET_MS at the 600 s ceiling (LORAMER_FIRE_CEILING_600_V1)
 const MEDIAN_HEADROOM_MS = 149_331      // median (FIRE_WORK_BUDGET_MS − elapsed_ms) over 303 wet Tri-Copy fires
 const MAX_HEADROOM_MS = 171_239         // the largest headroom any of those 303 fires ever had
 const HEAD_SPD = 0.346                  // user_location_view/segments.ad_network_type, worst s/day over 12 attempts
@@ -53,7 +53,7 @@ const CHEAP_SPD = 0.030                 // detail_placement_view/segments.device
 const MISSED_WINDOW_DAYS = 360          // universe-resumer.ts
 const MIN_DAYS = 1                      // google adapter sizing.minDays
 const ALLOWANCE = 4                     // REASK_REQUESTS_PER_RUN
-const CONSUMER_MAX_S = 300              // universe-v2-contract.ts CONSUMER_MAX_DURATION_S
+const CONSUMER_MAX_S = 600              // universe-v2-contract.ts CONSUMER_MAX_DURATION_S
 
 const out = mkdtempSync(join(tmpdir(), 'reask-admission-'))
 try {

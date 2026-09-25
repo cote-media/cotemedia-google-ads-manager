@@ -10,6 +10,10 @@
 // and this caller must not run a step. A holder that stops (time budget) releases the claim so the pump can take it
 // at once; a holder that dies leaves a claim that expires after CLAIM_RESERVE_S.
 import { supabaseAdmin } from '@/lib/supabase'
+// ⛔ LORAMER_FIRE_CEILING_600_V1 — the quiet-wait's windows are DERIVED from the walk's own contract, never
+// copied. They were bare literals (330_000 / 320_000) taken from a 300 s ceiling; at any other ceiling
+// waitForQuiet would declare the walk quiet while a fire was still writing and the wipe would start under it.
+import { LEASE_TTL_S, CONSUMER_MAX_DURATION_S } from '@/lib/backfill/universe-v2-contract'
 import { GOOGLE_DELETE_MAX_ROWS_PER_CALL, GOOGLE_DELETE_PLATFORM, GOOGLE_DELETE_TABLES } from '@/lib/google-delete/tables'
 import { decideRevoke, revokeGoogleRefreshToken } from '@/lib/google-delete/revoke'
 
@@ -18,8 +22,8 @@ import { decideRevoke, revokeGoogleRefreshToken } from '@/lib/google-delete/revo
 export const PUMP_MAX_DURATION_S = 800
 export const CLAIM_RESERVE_S = PUMP_MAX_DURATION_S + 20
 export const RUN_VENDOR = 'google_ads'
-const LEASE_TTL_MS = 330_000
-const RUN_RESERVE_MS = 320_000
+const LEASE_TTL_MS = LEASE_TTL_S * 1000
+const RUN_RESERVE_MS = (CONSUMER_MAX_DURATION_S + 20) * 1000 // the pump's own STEP_RESERVE form — the same window, measured the same way
 const QUIET_POLL_MS = 5_000
 
 export type JobRow = {

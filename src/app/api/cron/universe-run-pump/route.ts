@@ -25,7 +25,7 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const fetchCache = 'force-no-store' // the in-process fire reads google_tokens; a cached read of a credential is the 2026-07-30 class
 
-// ⛔ DERIVED, NOT CHOSEN. A step awaits a fire whose own ceiling is CONSUMER_MAX_DURATION_S (300 s); 800 s is the
+// ⛔ DERIVED, NOT CHOSEN. A step awaits a fire whose own ceiling is CONSUMER_MAX_DURATION_S (600 s since LORAMER_FIRE_CEILING_600_V1); 800 s is the
 // generally available Pro maximum, the same headroom the run route used (~3.8× the worst observed step).
 export const maxDuration = 800
 /** No step starts unless this much of the invocation remains: the fire's ceiling plus the step's own bookkeeping. */
