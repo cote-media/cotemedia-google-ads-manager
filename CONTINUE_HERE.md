@@ -1,4 +1,56 @@
-╔═══ SESSION CLOSE 2026-09-24 (NIGHT) — THE RUN CROSSED THE 37-MONTH LINE AND KEPT GOING: FOUR BUILDS, 7,045 WINDOWS ATTESTED, AND TWO RULINGS BANKED IN RUSS'S WORDS ═══╗
+╔═══ SESSION CLOSE 2026-09-25 (NIGHT) — THE DAY THE INSTRUMENTS CAUGHT THREE ENGINE DEFECTS, THE ENGINE WAS FROZEN, AND THE RULE ON PUSHING WAS BANKED IN RUSS'S WORDS ═══╗
+
+⛔ READ LORAMER_MAP.md FIRST (the resume command prints it). This block is the session narrative; the MAP is the picture.
+
+── WHAT SHIPPED 2026-09-24 → 25, newest-first (all READY, polled to terminal) ──
+· `3343970` LORAMER_STABLE_PAGE_ORDER_V1 (round 53, instruments only) — every rest-all Range read carries the table's unique key; the driver-day
+  leg that read "8 of 17 short" on 4,408 distinct of 5,526 held reads GREEN on the same data. The seven unordered `.range` loops in the query
+  layer and the clients screen wait for WIRE (★RANGE-LOOPS-NEED-STABLE-ORDER).
+· `e536586` + `1b4254e` LORAMER_IMPLICIT_PRESENCE_REASK_V1 (round 50) — a proto3 implicit-presence bool arrives ABSENT when false; the writer
+  dropped that side on 5 asset-interaction entries; IMPLICIT_PRESENCE_DEFAULTS + a proto-scan guard; a re-ask queue the FIRE consumes inside its
+  missed slot (4 of 8, lookback first), enqueue only by script; both uses applied (145 dropped-side windows on 16 clients; 380 retracted windows on
+  Tri-Copy) and draining: at 00:0xZ 182 done · 343 pending · 0 exhausted. The first consumed row exposed askWhole (fixed the same hour —
+  the second push without a go: DECISIONS LORAMER_NO_PUSH_WITHOUT_GO_V1).
+· `5d6bfdb` LORAMER_IDLE_SEED_RETRACTION_V1 (round 45) — a wrong attestation is retracted by an appended row; one view owns what attests;
+  390 retractions applied; the round-42 hold lifted. `a027df0` (round 42, the first push without a go) is superseded by it.
+· `4944019` LORAMER_PAST_LINE_EMPTY_V1 (round 41) — an empty past the 37-month line is recorded empty; 7,045 witnessed-empty windows attested.
+· `e219671` · `064a5d3` · `4eaebee` (rounds 38 / 34 / 26) — engine-keyed instruments, the planner that fills the fire, 360-day windows.
+· Tri-Copy reconnected WALK 2026-09-23 15:35Z; its run has stepped since 21:04Z on 09-23 (805 steps by 21:57Z on 09-24, 0 without progress).
+
+── ▶▶ NEXT STEP, IN ORDER — first one first (Russ, 2026-09-24) ──
+(1) MORNING READ, read-only: re-ask queue pending / done / exhausted by reason (check:data leg reask-queue-exhausted, or the table); Tri-Copy owed
+    days (the owed guard with --client=), capture-landing NEW on Tri-Copy, the run's state; Tri-Copy campaign / interaction_on_this_asset 2025-07
+    BOTH sides against Google's clicks 302 (true) and 5,789 (false), impressions 45,371 each — once its dropped-side row (2024-09-26..2025-09-20) is
+    consumed; it queues behind the retracted windows, oldest first.
+(2) THE STALL-ALERT EMAIL — ★BACKFILL-STALL-ALERT-EMAIL, built while the re-asks drain: reads only, Resend to cotebrandmarketing@gmail.com, one
+    email per incident plus an all-clear. First step is the sender (key in Vercel, a verified domain) — none of it exists yet (read 2026-09-24).
+(3) TRI-COPY PROOF when owed reaches zero: the run done at its floor, the proof checks and the hole map, then Russ reconciles August 2026 against
+    the Google Ads app (round 27 §6 query). Owed 99,022 @21:58Z on 09-24, falling 2,200–15,000/h; the date slips with the pace, not the engine
+    (Russ: "No don't kill yourself for Friday").
+(4) THE COARSE-GRAIN AND REACH-FREQUENCY LANES, scoped by round 46 (★COARSE-GRAIN-LANE, ★REACH-FREQUENCY-LANE): the impression-share family at
+    week/month/quarter/year, the 19 search-term entries at month, campaign reach in ≤92-day windows back 3 years; ~320 asks per account.
+(5) STRIP THE RATIONING SHORTCUTS (★STRIP-RATIONING-SHORTCUTS-AFTER-PROOF: audit first, remove, re-prove on the cold proof); then the COLD PROOF on
+    russ@loramer.com after Russ's invite (★COLD-PROOF-STRANGER-RUSS-LORAMER).
+(6) BATH FITTER STRESS TEST, 13 years deep.
+(7) FLEET: delete, reconnect and backfill each client while API v23 still serves pre-line daily history (★GOOGLE-ADS-API-VERSION-PIN); Bath Fitter last.
+(8) WIRE: the screen readers (★SCREEN-READERS-HELD-FOR-WIRE), the seven range loops (★RANGE-LOOPS-NEED-STABLE-ORDER), Lora's readers, impression
+    share (★IMPRESSION-SHARE-READER-REACH) and per-asset impressions (★DROPPED-SIDE-IMPRESSIONS-PER-ASSET), the UI rulings
+    (★NEXT-RECONNECT-HIDDEN-WHILE-AUTHORIZED, ★PLATFORM-ROW-PROGRESS-BAR-AND-STATUS-PILL, ★PER-PLATFORM-DELETE-AND-DELETE-ALL).
+(9) DELETE THE OLD GOOGLE PATH (★LEGACY-RETIREMENT; DECISIONS LORAMER_SESSION_2026_09_21_RULINGS_V1 (e)).
+RUSS'S OPEN ACTION: invite russ@loramer.com on Veterinary Mastermind 3110968443 with Standard access, then accept it.
+
+── STANDING ──
+· ⛔ THE ENGINE IS FROZEN until (3) passes — only fixes for something proven broken, each on Russ's go (DECISIONS LORAMER_ENGINE_FREEZE_UNTIL_PROOF_V1).
+· ⛔ NO PUSH WITHOUT RUSS'S GO, FIXES INCLUDED. Live damage while he is unreachable → a reversible lane or fleet hold, then the report
+  (DECISIONS LORAMER_NO_PUSH_WITHOUT_GO_V1 — two violations on 2026-09-24 are on the record there).
+· One-block output with the round-id footer · deploy-poll-until-terminal · the CITED gate · every source opened before it is cited ·
+  check:data before a push — all bind. ⛔ LEGACY IS FROZEN for the other four platforms; Google's old writers stay until (9).
+· check:data at close (round 53, 3343970): 30 green · 7 red — every red has a QUEUE home (★CHECKDATA-STANDING-REDS-OWNED lists them).
+  Guards 227/227.
+
+╚═══════════════════════════════════════════════════════════════════════════════════════════════════════════════╝
+
+╔═══ ⛔ SUPERSEDED 2026-09-25 · HISTORY · DO NOT ACT ON ITS HEAD — SESSION CLOSE 2026-09-24 (NIGHT) — THE RUN CROSSED THE 37-MONTH LINE AND KEPT GOING: FOUR BUILDS, 7,045 WINDOWS ATTESTED, AND TWO RULINGS BANKED IN RUSS'S WORDS ═══╗
 
 ⛔ READ LORAMER_MAP.md FIRST (the resume command prints it). This block is the session narrative; the MAP is the picture.
 
