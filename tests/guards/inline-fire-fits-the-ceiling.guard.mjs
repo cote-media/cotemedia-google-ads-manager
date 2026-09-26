@@ -93,11 +93,19 @@ if (contract) {
 }
 
 // (c) both execution hosts pin their ceiling to the contract
+// ⛔ LORAMER_PLAN_PHASE_REGION_INDEX_V1 — THE PIN IS NOW A LITERAL EQUAL TO THE CONTRACT, NOT A REFERENCE TO IT. The
+// reference form (`maxDuration = CONSUMER_MAX_DURATION_S`) is not evaluated by the build: the manifest carried `{}` and
+// Vercel ran both hosts at its 300 s default while the contract said 600 (measured live 2026-09-26, round 353). The
+// property this leg holds is unchanged — the route's kill IS the contract's ceiling — and max-duration-literal.guard.mjs
+// proves the build artifact carries it.
 for (const host of [RESUME, DRIVE]) {
   const src = read(host)
   if (!src) continue
-  if (!/export const maxDuration = CONSUMER_MAX_DURATION_S/.test(src)) {
-    findings.push(`(c) ${host} does not export maxDuration = CONSUMER_MAX_DURATION_S — the platform kill this route dies at is not the ceiling its budgets are derived against.`)
+  const lit = src.match(/^export const maxDuration = (\d+)\s*(\/\/.*)?$/m)
+  const cm = read(CONTRACT).match(/export const CONSUMER_MAX_DURATION_S = ([0-9_]+)/)
+  const ceilingS = cm ? Number(cm[1].replace(/_/g, '')) : null
+  if (!lit || ceilingS === null || Number(lit[1]) !== ceilingS) {
+    findings.push(`(c) ${host} does not export maxDuration = ${ceilingS ?? 'CONSUMER_MAX_DURATION_S'} as a literal — the platform kill this route dies at is not the ceiling its budgets are derived against.`)
   }
 }
 

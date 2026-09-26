@@ -1,0 +1,16 @@
+-- 110_attempt_log_started_message_key_idx.sql — LORAMER_PLAN_PHASE_REGION_INDEX_V1
+--
+-- ⛔ THE LANE-PROVENANCE READ GETS AN INDEX; ITS QUERY TEXT DOES NOT MOVE. universe-coverage.ts reads
+-- `phase = 'attempt_started' AND message_key IN (…)` three times (attestedEmptyDays, daysNoLongerOwedSince,
+-- askingWithoutProgressSince). No index covered message_key, so each call walked every started row in the fleet:
+-- 582.6 ms mean over 232,806 calls (pg_stat_statements, 2026-09-26), the largest single term in a fire's plan phase.
+-- Scoping the read by resource instead was MEASURED NON-EQUIVALENT (round 353: the idle probe's '__account_activity'
+-- starts share the message_key), so the predicate here is the read's own filter and the rows returned are identical
+-- by construction.
+--
+-- ⛔ CONCURRENTLY, AND THEREFORE NOT IN A TRANSACTION: the walk writes universe_attempt_log continuously; a plain
+-- CREATE INDEX would block those inserts for the build. Run this file on its own, outside BEGIN/COMMIT. If a build
+-- fails it leaves an INVALID index — drop it and re-run (pg_index.indisvalid is checked after apply).
+--
+-- REVERT: DROP INDEX CONCURRENTLY IF EXISTS public.universe_attempt_log_started_message_key_idx;
+create index concurrently if not exists universe_attempt_log_started_message_key_idx on public.universe_attempt_log (message_key) where phase = 'attempt_started';

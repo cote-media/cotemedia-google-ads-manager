@@ -114,8 +114,12 @@ import { readMissedCursor, writeMissedCursor } from '@/lib/backfill/universe-mis
 export const dynamic = 'force-dynamic'
 export const fetchCache = 'force-no-store'
 // ⛔ THE CEILING IS THE CONTRACT'S — these routes are now the walk's EXECUTION HOSTS, so their ceiling is
-// the one the budget reservation and the lease TTL are derived against. Never a literal (drive-ceiling-pin).
-export const maxDuration = CONSUMER_MAX_DURATION_S
+// the one the budget reservation and the lease TTL are derived against.
+// ⛔ LORAMER_PLAN_PHASE_REGION_INDEX_V1 — WRITTEN AS THE LITERAL, BECAUSE THE BUILD ONLY READS LITERALS. The reference
+// `= CONSUMER_MAX_DURATION_S` compiled to `{}` in functions-config-manifest.json and Vercel ran this route at its
+// 300 s default while the contract said 600 (live, 2026-09-26). The number must equal CONSUMER_MAX_DURATION_S;
+// max-duration-literal.guard.mjs holds that in source and again in the built manifest.
+export const maxDuration = 600
 
 // ⛔ LORAMER_LOOKBACK_LANE_V1 — THE SECOND SLOT'S MODE. 'observe': derive the boundary windows, LOG them, send NOTHING,
 // charge nothing. 'publish': execute them under lane 'lookback' — the first attesting terminal lands. The flip is
@@ -218,6 +222,9 @@ export async function GET(request: Request) {
     slotOutcome?: 'acquired' | 'refused' | null
     deferredUnits?: number | null
     reask?: { queued: number; selected: number; done: number; errored: number; settledByLedger: number; skipped: number } | null
+    // LORAMER_PLAN_PHASE_REGION_INDEX_V1 (migration 109) — fire start → end of planning, the instrument's scanMs. NULL on
+    // the exits that never planned (lease-held, quota-hold, rotation-error).
+    planMs?: number | null
   }): Promise<string | null> => {
     try {
       const histogram: Record<string, number> = {}
@@ -233,6 +240,9 @@ export async function GET(request: Request) {
         advanced: h.advanced ?? 0, refusals: histogram, elapsed_ms: h.elapsedMs ?? 0, held: h.held ?? null,
         // LORAMER_MISSED_FIRE_DURABILITY_V1 — NULL means the lane did not run on this fire; never 0 / false.
         missed_cursor_from: h.missed?.cursorFrom ?? null, missed_next_entry: h.missed?.nextEntry ?? null, missed_wrapped: h.missed?.wrapped ?? null,
+        // LORAMER_PLAN_PHASE_REGION_INDEX_V1 (migration 109) — where this fire RAN (the runtime's own answer, on every exit:
+        // the pressed Backfill ran in iad1 against a us-west-2 database and nothing durable said so) and how long it planned.
+        region: process.env.VERCEL_REGION ?? null, plan_ms: h.planMs ?? null,
       })
       if (error) { console.error('[universe-resume] HEARTBEAT WRITE FAILED (fire unaffected):', error.message); return error.message }
       return null
@@ -1072,6 +1082,7 @@ export async function GET(request: Request) {
  scanCompleted: scanned >= MAX_ENTRIES_SCANNED_PER_RUN || scanned === entries.length,
       catalogSize: entries.length, candidates: candidates.length, advanced: advancedCovered, refusals,
       elapsedMs: Date.now() - startedAt, held: gate.reason,
+      planMs: Date.now() - startedAt, // LORAMER_PLAN_PHASE_REGION_INDEX_V1 — planning finished here; nothing executed after it
       // LORAMER_MISSED_FIRE_DURABILITY_V1 — the enumeration and the 091 cursor write happened above the meter gate, so a
       // held fire still moved the cursor and the row says where to.
       missed: missedFireColumns({ enumerated: missedCursorNext !== null, cursorFrom: missedFrom, nextEntry: missedNextEntry, wrapped: missedWrapped }),
@@ -1322,6 +1333,7 @@ export async function GET(request: Request) {
     // `bound.requestsSelected` in the JSON body below; the durable row witnesses ACTION.
     candidates: candidates.length, published: published.length, requestsSelected: requestsOpened,
     advanced: advancedCovered, refusals, elapsedMs,
+    planMs: captureStartedAt - startedAt, // LORAMER_PLAN_PHASE_REGION_INDEX_V1 — the instrument's scanMs, now durable
     // LORAMER_MISSED_FIRE_DURABILITY_V1 — the same three values the FIRE line prints (missedCursorFrom / missedNextEntry /
     // missedWrapped), durable on the row; null when the lane did not enumerate (refused or errored).
     missed: missedFireColumns({ enumerated: missedCursorNext !== null, cursorFrom: missedFrom, nextEntry: missedNextEntry, wrapped: missedWrapped }),

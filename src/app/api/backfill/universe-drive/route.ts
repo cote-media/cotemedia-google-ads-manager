@@ -52,8 +52,11 @@ import { wallLineFor } from '@/lib/backfill/retention-wall' // LORAMER_DESCEND_W
 export const dynamic = 'force-dynamic'
 export const fetchCache = 'force-no-store'
 // ⛔ THE CEILING IS THE CONTRACT'S — these routes are now the walk's EXECUTION HOSTS, so their ceiling is
-// the one the budget reservation and the lease TTL are derived against. Never a literal (drive-ceiling-pin).
-export const maxDuration = CONSUMER_MAX_DURATION_S
+// the one the budget reservation and the lease TTL are derived against.
+// ⛔ LORAMER_PLAN_PHASE_REGION_INDEX_V1 — WRITTEN AS THE LITERAL, BECAUSE THE BUILD ONLY READS LITERALS. The reference
+// `= CONSUMER_MAX_DURATION_S` compiled to `{}` and Vercel ran this route at its 300 s default while the contract said
+// 600 (live, 2026-09-26). The number must equal CONSUMER_MAX_DURATION_S; max-duration-literal.guard.mjs holds it.
+export const maxDuration = 600
 
 const addDays = (iso: string, n: number) => {
   const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10)

@@ -537,6 +537,10 @@ const GUARDS = [
   'tests/guards/one-click-start-once.guard.mjs', // LORAMER_ONE_CLICK_RUN_V1 — the press starts the run once (DB-conditional; a live row returns unchanged; floor-done + complete is the meter); preflight keys the token on the connection's email
   'tests/guards/own-invocation-meter.guard.mjs', // LORAMER_OWN_INVOCATION_METER_V1 — the fire id rides the body and the message, the unit id is prefixed with it, the run's step counts only its own fire's days
   'tests/guards/backfill-button-states.guard.mjs', // LORAMER_ONE_CLICK_RUN_V1 — one button per platform; six Google states from the server run row; disabled while live; poll keyed on liveness
+  'tests/guards/max-duration-literal.guard.mjs', // LORAMER_PLAN_PHASE_REGION_INDEX_V1 — every maxDuration is a literal the build reads; resume/drive = CONSUMER_MAX_DURATION_S (the manifest leg runs as postbuild)
+  'tests/guards/in-process-fire-region-pin.guard.mjs', // LORAMER_PLAN_PHASE_REGION_INDEX_V1 — any route importing the in-process fire, the resume handler or the delete job is pinned to pdx1
+  'tests/guards/provenance-read-unscoped-by-resource.guard.mjs', // LORAMER_PLAN_PHASE_REGION_INDEX_V1 — the three lane-provenance reads keep their text (resource scope measured non-equivalent); migration 110 indexes them
+  'tests/guards/fire-log-plan-region-witness.guard.mjs', // LORAMER_PLAN_PHASE_REGION_INDEX_V1 — the fire row records the runtime region and the plan time
   'tests/guards/resume-digest-freshness.guard.mjs',
 ]
 

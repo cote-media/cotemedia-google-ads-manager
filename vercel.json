@@ -110,6 +110,26 @@
       "regions": [
         "pdx1"
       ]
+    },
+    "src/app/api/cron/universe-run-pump/route.ts": {
+      "regions": [
+        "pdx1"
+      ]
+    },
+    "src/app/api/backfill/universe-run/route.ts": {
+      "regions": [
+        "pdx1"
+      ]
+    },
+    "src/app/api/cron/google-delete-pump/route.ts": {
+      "regions": [
+        "pdx1"
+      ]
+    },
+    "src/app/api/clients/google/delete-data/route.ts": {
+      "regions": [
+        "pdx1"
+      ]
     }
   }
 }
