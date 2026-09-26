@@ -6,7 +6,7 @@
     "dev": "next dev",
     "guard": "node scripts/run-guards.mjs",
     "build": "npm run guard && next build",
-    "postbuild": "node tests/guards/max-duration-literal.guard.mjs --manifest",
+    "postbuild": "node tests/guards/max-duration-literal.guard.mjs --manifest && node tests/guards/in-process-fire-region-pin.guard.mjs --traces",
     "start": "next start",
     "lint": "next lint",
     "mcp": "node mcp-server.js",

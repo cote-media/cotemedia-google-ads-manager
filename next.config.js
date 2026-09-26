@@ -30,6 +30,20 @@ const nextConfig = {
       //   ENOENT: no such file or directory, open '/var/task/docs/google-ads-capture-universe.json'
       // driver-caller-is-cron-only.guard leg (e) now pins this entry.
       '/api/cron/forward-driver': ['./docs/google-ads-capture-universe.json'],
+      // LORAMER_IN_PROCESS_FIRE_BUNDLES_CATALOG_V1 — the pump and the Backfill press run the resume handler IN-PROCESS
+      // (universe-run-fire.ts), so they call loadUniverse() too. They never had an entry: they worked only because Vercel
+      // bundled them into ONE function with /api/cron/forward-driver (same region, same 800 s), and that function carried
+      // forward-driver's traced file. Pinning them to pdx1 (LORAMER_PLAN_PHASE_REGION_INDEX_V1, 1281bf5) split the group
+      // and the file left with forward-driver. MEASURED IN PRODUCTION 2026-09-26 03:55:35Z, Tri-Copy's run:
+      //   step threw: ENOENT: no such file or directory, open '/var/task/docs/google-ads-capture-universe.json'
+      // in-process-fire-region-pin.guard leg (b4) now pins these entries on the import, not on the route list.
+      '/api/cron/universe-run-pump': ['./docs/google-ads-capture-universe.json'],
+      '/api/backfill/universe-run': ['./docs/google-ads-capture-universe.json'],
+      // The delete job reaches the module that defines loadUniverse() only through universe-v2-contract (types and
+      // constants) and never calls it (round 356: 0 call sites in its closure). Traced anyway, so these two routes no
+      // longer depend on which function Vercel happens to group them into.
+      '/api/cron/google-delete-pump': ['./docs/google-ads-capture-universe.json'],
+      '/api/clients/google/delete-data': ['./docs/google-ads-capture-universe.json'],
       // LORAMER_ONE_CLICK_WALK_V1 (2/2 A): the '/api/clients/backfill' entry added in 1/2 is GONE — the button no longer
       // imports universe-start-publish.ts (it kicks the resumer, which carries its own entry above).
     },
