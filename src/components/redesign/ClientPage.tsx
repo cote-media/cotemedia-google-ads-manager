@@ -917,7 +917,12 @@ export default function ClientPage({ clientId, clientName, connections, hasGoogl
         <div onClick={() => { if (!gdelBusy) setGdelOpen(false) }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 50 }}>
           <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', width: '100%', maxWidth: 440, borderRadius: 16, padding: 24, boxShadow: '0 10px 40px rgba(0,0,0,0.2)' }}>
             <h3 style={{ fontSize: 18, fontWeight: 600, color: '#0f172a', marginBottom: 6 }}>Delete all Google Ads data for {clientName}?</h3>
-            {!(gdelJob && (gdelJob.status === 'processing' || gdelJob.status === 'partial' || gdelJob.status === 'complete')) && (<>
+            {/* ⛔ LORAMER_GOOGLE_DELETE_DIALOG_GATE_V1 — A FINISHED DELETION IS HISTORY, NOT A GATE. 'complete'
+                used to sit in this condition, so a client that had ever deleted could never reach the name box
+                again: the dialog opened straight onto the 2026-09-21 receipt, deleteGoogleData() could not fire,
+                and no POST left the browser (measured 23:58Z — platform_compliance_log still held one row). The
+                form is hidden only while a deletion is actually RUNNING. */}
+            {!(gdelJob && (gdelJob.status === 'processing' || gdelJob.status === 'partial')) && (<>
               <p style={{ fontSize: 13, color: '#64748b', marginBottom: 12 }}>This removes the Google Ads connection and every captured Google row for this client — history, the import ledgers, the daily capture and the cached intelligence. It cannot be undone; a reconnect starts a fresh import from Google. Your Google sign-in is revoked only if this was your last Google client. To confirm, type the client name.</p>
               {gdelError && <div style={{ fontSize: 13, color: '#b91c1c', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '6px 10px', marginBottom: 10 }} role="alert">{gdelError}</div>}
               <input type="text" data-testid="delete-google-confirm" value={gdelConfirm} onChange={e => setGdelConfirm(e.target.value)} placeholder={clientName}
@@ -930,8 +935,9 @@ export default function ClientPage({ clientId, clientName, connections, hasGoogl
                 </button>
               </div>
             </>)}
-            {gdelJob && (gdelJob.status === 'processing' || gdelJob.status === 'partial' || gdelJob.status === 'complete') && (<div data-testid="delete-google-result">
-              <p style={{ fontSize: 13, color: '#0f172a', marginBottom: 8 }}>{gdelJob.status === 'complete' ? 'Google data deleted.' : (gdelJob.live ? 'Deletion running on the server — you can close this page.' : 'Deletion recorded — the server continues within a minute.')} Confirmation code <code>{gdelJob.confirmation_code}</code>.</p>
+            {/* Live progress only — a finished job is shown on the page above, dated, where it blocks nothing. */}
+            {gdelJob && (gdelJob.status === 'processing' || gdelJob.status === 'partial') && (<div data-testid="delete-google-result">
+              <p style={{ fontSize: 13, color: '#0f172a', marginBottom: 8 }}>{gdelJob.live ? 'Deletion running on the server — you can close this page.' : 'Deletion recorded — the server continues within a minute.'} Confirmation code <code>{gdelJob.confirmation_code}</code>.</p>
               {gdelNote && <p style={{ fontSize: 12, color: '#64748b', marginBottom: 8 }}>{gdelNote}</p>}
               <p style={{ fontSize: 12, color: '#475569', marginBottom: 6 }}>{gdelJob.steps.length} of 10 steps · {gdelJob.months_done} months cleared</p>
               <ul style={{ fontSize: 12, color: '#475569', margin: '0 0 12px 16px', padding: 0 }}>{Object.entries(gdelJob.counts || {}).filter(([t]) => !t.includes('.')).map(([t, n]) => <li key={t}>{t}: {Number(n).toLocaleString()}</li>)}</ul>
