@@ -7,19 +7,19 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-09-25T00:25:46.070Z
-- built_from HEAD: 3343970bbdcd40aeae41c7e41a86587f7cc2bb92  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-09-26T05:10:33.599Z
+- built_from HEAD: 74a29d7867779510352c1697f8ba0ec3aa2d669c  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
   exactly as fresh as the manifest is honest; the wrap-step regenerates manifest + digest together.
   Source-doc content_hash at build time:
-    - LORAMER_MAP.md: d3025c0ba165c12325ad6c86fea53603d840edab5b49eb86bddaca8837459554
+    - LORAMER_MAP.md: ee3f197ffd95a5189d4b71ebe0692cfd70441d1c3b406641fe761bb28b3d4a02
     - LORAMER_ESSENCE.md: 50f87d19f248bf956e47a8a2e8cf9a72a872832dca5b673aa30b01d0c5273864
     - LORAMER_HANDOFF.md: c0f9c80aab0cd9a5cba6f18bd85d481cafcd20b19e18188dfc34f096f5f94d66
-    - CONTINUE_HERE.md: d553be4e8d4ce5ccb103ca9463a8ae7f6ec9180559dd56b9d0165e92ca289480
-    - LORAMER_DECISIONS.md: 8b62fee6b2dcd1ee266f7555c51e2c9603c90964ca8101fc6e1de10601dfea8b
-    - LORAMER_QUEUE_OF_RECORD.md: 12bf79229d4c1a596a2dd9ba2c2cf5738ae5206fa4438071a2fb401607b693ef
+    - CONTINUE_HERE.md: de1cda2f185cae1b206c4e4cbf314de56a7095fda16629094a66986639e35d3b
+    - LORAMER_DECISIONS.md: c032e974cdf09a23070b9efefad52f3e7d2adf2d24ee8b24ad706398b7082a46
+    - LORAMER_QUEUE_OF_RECORD.md: 935f465b7e101156a6bda44f3679f114bcf47de0a8898ffe47dfa7af02424678
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: 4ecde52128c64648f515e99fdb4c08e20f601f89b55afdcc4ca0a246f45fed22
     - RESUME_INSTRUCTIONS.md: 170f9479d09b3588122cbabc1801de601bb18539c975ef6024bb06d077101b1f
     - docs/LORAMER_ASSET_LAYER_SCOPE_V1.md: 9086aa59c145420e8e89943691f1cc3e152f1dbc7fbc67ddcb309449594ce865
@@ -566,55 +566,57 @@ ACTIVE WORKSTREAM = **DATA COMPLETENESS PROGRAM** (governing plan: docs/LORAMER_
 ⛔ CORROBORATION ONLY: the resume flow reads this block FROM CONTINUE_HERE.md directly. If what follows differs
 from the top of that file, CONTINUE_HERE WINS and this digest is stale — stop and say so.
 
-╔═══ SESSION CLOSE 2026-09-25 (NIGHT) — THE DAY THE INSTRUMENTS CAUGHT THREE ENGINE DEFECTS, THE ENGINE WAS FROZEN, AND THE RULE ON PUSHING WAS BANKED IN RUSS'S WORDS ═══╗
+╔═══ SESSION CLOSE 2026-09-25 (NIGHT, closed 2026-09-26 ~01:45 ET) — THE 600-SECOND DAY: THE CEILING THAT NEVER DEPLOYED, THE FIRE MOVED BESIDE THE DATABASE, AND FIVE RULINGS IN RUSS'S WORDS ═══╗
 
 ⛔ READ LORAMER_MAP.md FIRST (the resume command prints it). This block is the session narrative; the MAP is the picture.
+Times: Eastern first (Russ's ruling (e), 2026-09-25), UTC beside it.
 
-── WHAT SHIPPED 2026-09-24 → 25, newest-first (all READY, polled to terminal) ──
-· `3343970` LORAMER_STABLE_PAGE_ORDER_V1 (round 53, instruments only) — every rest-all Range read carries the table's unique key; the driver-day
-  leg that read "8 of 17 short" on 4,408 distinct of 5,526 held reads GREEN on the same data. The seven unordered `.range` loops in the query
-  layer and the clients screen wait for WIRE (★RANGE-LOOPS-NEED-STABLE-ORDER).
-· `e536586` + `1b4254e` LORAMER_IMPLICIT_PRESENCE_REASK_V1 (round 50) — a proto3 implicit-presence bool arrives ABSENT when false; the writer
-  dropped that side on 5 asset-interaction entries; IMPLICIT_PRESENCE_DEFAULTS + a proto-scan guard; a re-ask queue the FIRE consumes inside its
-  missed slot (4 of 8, lookback first), enqueue only by script; both uses applied (145 dropped-side windows on 16 clients; 380 retracted windows on
-  Tri-Copy) and draining: at 00:0xZ 182 done · 343 pending · 0 exhausted. The first consumed row exposed askWhole (fixed the same hour —
-  the second push without a go: DECISIONS LORAMER_NO_PUSH_WITHOUT_GO_V1).
-· `5d6bfdb` LORAMER_IDLE_SEED_RETRACTION_V1 (round 45) — a wrong attestation is retracted by an appended row; one view owns what attests;
-  390 retractions applied; the round-42 hold lifted. `a027df0` (round 42, the first push without a go) is superseded by it.
-· `4944019` LORAMER_PAST_LINE_EMPTY_V1 (round 41) — an empty past the 37-month line is recorded empty; 7,045 witnessed-empty windows attested.
-· `e219671` · `064a5d3` · `4eaebee` (rounds 38 / 34 / 26) — engine-keyed instruments, the planner that fills the fire, 360-day windows.
-· Tri-Copy reconnected WALK 2026-09-23 15:35Z; its run has stepped since 21:04Z on 09-23 (805 steps by 21:57Z on 09-24, 0 without progress).
+── WHAT SHIPPED 2026-09-25 → 26, oldest-first, each with what it proved (all READY, polled to terminal) ──
+· `291bd23` LORAMER_REASK_ADMISSION_FITS_V1 — a re-ask unit is sized against what is LEFT of the fire. Proved (rounds 350–351): Bath Fitter's
+  6 queued rows settled after the hold lapsed — 4 asked whole, 2 settled by the ledger from 180-day chunks; the counters reconcile (8 selected = 4 + 4).
+· `dc08428` LORAMER_FIRE_CEILING_600_V1 — a 600 s fire, ≤ 3 concurrent fires with one free for a press, no unit over half a fire, and a durable
+  re-ask/deferral witness. Proved: the witness columns write on every fire. ⛔ NOT proved: the 600 s ceiling never deployed — the imported constant
+  compiled to `{}` and the live lambdas ran at 300 s until 1281bf5.
+· `62a3223` LORAMER_GOOGLE_DELETE_SECOND_REQUEST_V1 and `7ccb01c` LORAMER_GOOGLE_DELETE_DIALOG_GATE_V1 — a later delete opens a new job and code;
+  a finished deletion is dated history, not a gate. Proved: Tri-Copy's second delete (a4aab7f9) completed at 21:37 ET (01:37:41Z) with every
+  table re-counted 0, the 09-21 row untouched, the connection gone.
+· `1281bf5` LORAMER_PLAN_PHASE_REGION_INDEX_V1 (migrations 109, 110 live) — the four in-process fire and delete hosts pinned to pdx1; resume and
+  drive at maxDuration 600 as literals; the provenance read indexed with its text unchanged; fire rows carry region and plan_ms. Proved: all six
+  hosts pdx1 and 600 s live; provenance query 0.54 ms (was 582.6); rotation fires planning 60 surfaces at 543–732 ms/surface (was ~1,190).
+  ⛔ It BROKE the pressed Backfill — the pump lost the catalog file it had borrowed from forward-driver's function; Tri-Copy's run failed at
+  23:55 ET (03:55:35Z).
+· `74a29d7` LORAMER_IN_PROCESS_FIRE_BUNDLES_CATALOG_V1 — every fire host traces the catalog; postbuild fails when a fire host's built trace lacks a
+  file the fire reads. Proved at build (RED on 1281bf5's build, GREEN on this); live READY 01:04 ET (05:04:56Z). The pressed path itself is
+  UNPROVEN in production: no run was live after it, and a run starts only from Russ's signed-in Backfill press.
+· THIS PUSH — LORAMER_WRAP_2026_09_25_V1, docs only: the five rulings, the two ship entries, fourteen queue items.
 
-── ▶▶ NEXT STEP, IN ORDER — first one first (Russ, 2026-09-24) ──
-(1) MORNING READ, read-only: re-ask queue pending / done / exhausted by reason (check:data leg reask-queue-exhausted, or the table); Tri-Copy owed
-    days (the owed guard with --client=), capture-landing NEW on Tri-Copy, the run's state; Tri-Copy campaign / interaction_on_this_asset 2025-07
-    BOTH sides against Google's clicks 302 (true) and 5,789 (false), impressions 45,371 each — once its dropped-side row (2024-09-26..2025-09-20) is
-    consumed; it queues behind the retracted windows, oldest first.
-(2) THE STALL-ALERT EMAIL — ★BACKFILL-STALL-ALERT-EMAIL, built while the re-asks drain: reads only, Resend to cotebrandmarketing@gmail.com, one
-    email per incident plus an all-clear. First step is the sender (key in Vercel, a verified domain) — none of it exists yet (read 2026-09-24).
-(3) TRI-COPY PROOF when owed reaches zero: the run done at its floor, the proof checks and the hole map, then Russ reconciles August 2026 against
-    the Google Ads app (round 27 §6 query). Owed 99,022 @21:58Z on 09-24, falling 2,200–15,000/h; the date slips with the pace, not the engine
-    (Russ: "No don't kill yourself for Friday").
-(4) THE COARSE-GRAIN AND REACH-FREQUENCY LANES, scoped by round 46 (★COARSE-GRAIN-LANE, ★REACH-FREQUENCY-LANE): the impression-share family at
-    week/month/quarter/year, the 19 search-term entries at month, campaign reach in ≤92-day windows back 3 years; ~320 asks per account.
-(5) STRIP THE RATIONING SHORTCUTS (★STRIP-RATIONING-SHORTCUTS-AFTER-PROOF: audit first, remove, re-prove on the cold proof); then the COLD PROOF on
-    russ@loramer.com after Russ's invite (★COLD-PROOF-STRANGER-RUSS-LORAMER).
-(6) BATH FITTER STRESS TEST, 13 years deep.
-(7) FLEET: delete, reconnect and backfill each client while API v23 still serves pre-line daily history (★GOOGLE-ADS-API-VERSION-PIN); Bath Fitter last.
-(8) WIRE: the screen readers (★SCREEN-READERS-HELD-FOR-WIRE), the seven range loops (★RANGE-LOOPS-NEED-STABLE-ORDER), Lora's readers, impression
-    share (★IMPRESSION-SHARE-READER-REACH) and per-asset impressions (★DROPPED-SIDE-IMPRESSIONS-PER-ASSET), the UI rulings
-    (★NEXT-RECONNECT-HIDDEN-WHILE-AUTHORIZED, ★PLATFORM-ROW-PROGRESS-BAR-AND-STATUS-PILL, ★PER-PLATFORM-DELETE-AND-DELETE-ALL).
-(9) DELETE THE OLD GOOGLE PATH (★LEGACY-RETIREMENT; DECISIONS LORAMER_SESSION_2026_09_21_RULINGS_V1 (e)).
-RUSS'S OPEN ACTION: invite russ@loramer.com on Veterinary Mastermind 3110968443 with Standard access, then accept it.
+── ▶▶ NEXT STEP, IN ORDER — first one first ──
+(1) RUSS: press Backfill on Tri-Copy (its run is 'failed' since 23:55 ET; nothing else restarts it). Then the MORNING READ, read-only, 10 fires or
+    45 minutes: region pdx1 on every fire · plan ms/surface p50 ≤ 849 (plan_ms ÷ scanned on universe_fire_log; iad1 baseline 1,397 with the index,
+    1,697 before) · 0 fires ≥ 582,000 · 0 step errors (universe_run.stop_reason, fire rows) · provenance mean · units/hour against 1,636 ·
+    "progress/asking clock unreadable" timeouts (★ATTESTING-TERMINALS-STATEMENT-TIMEOUT).
+(2) THE CONCURRENCY CAP DESIGN — ★FLEET-CONCURRENCY-CAP-AND-RAMP (ruling (c)): the shared cap's home, the ramp, the two stop signals. Then
+    ★RESCAN-CAP-FROM-PLAN-SPEED from (1)'s p50.
+(3) THE STALL AND STEP-ERROR ALERTS by Resend — ★BACKFILL-STALL-ALERT-EMAIL with ★PUMP-STEP-ERROR-ALERT (a failed run answers 200 today).
+(4) TRI-COPY PROOF when its owed days reach zero on the fixed engine (it was wiped and restarted from zero on 2026-09-25, ruling (a)).
+(5) Then the prior order, unchanged: the coarse-grain and reach-frequency lanes · strip the rationing shortcuts (with ★LOOKBACK-BASIC-ACCESS-DEAD-BRANCH
+    and ★REASK-REQUESTS-PER-RUN-GUARDS-NOTHING) · the cold proof on russ@loramer.com · Bath Fitter stress test · fleet delete-reconnect-backfill ·
+    WIRE (with ★IAD1-UI-ROUTES-NEAR-DB) · delete the old Google path.
+RUSS'S OPEN ACTIONS: press Backfill on Tri-Copy; invite russ@loramer.com on Veterinary Mastermind 3110968443 with Standard access, then accept it;
+machine parity on the iMac (★MACHINE-PARITY-OPEN).
 
 ── STANDING ──
-· ⛔ THE ENGINE IS FROZEN until (3) passes — only fixes for something proven broken, each on Russ's go (DECISIONS LORAMER_ENGINE_FREEZE_UNTIL_PROOF_V1).
-· ⛔ NO PUSH WITHOUT RUSS'S GO, FIXES INCLUDED. Live damage while he is unreachable → a reversible lane or fleet hold, then the report
-  (DECISIONS LORAMER_NO_PUSH_WITHOUT_GO_V1 — two violations on 2026-09-24 are on the record there).
+· ⛔ THE ENGINE IS FROZEN until Tri-Copy's proof passes — only fixes for something proven broken, each on Russ's go (LORAMER_ENGINE_FREEZE_UNTIL_PROOF_V1).
+· ⛔ NO PUSH WITHOUT RUSS'S GO, FIXES INCLUDED (LORAMER_NO_PUSH_WITHOUT_GO_V1). Round 354 held its fix-forward for a go; round 356 carried the go.
+· ⛔ A FUNCTION'S TRACED FILES ARE A SEAM: a region or config change regroups functions; Gate-A walks the built traces, and the postbuild legs enforce it.
+· Rulings of 2026-09-25 (DECISIONS LORAMER_SESSION_2026_09_25_RULINGS_V1): fix limits at the source · machine parity every morning · throttle as wide as
+  correctness allows · compliance cites Google's API Services User Data Policy and the CCPA · times in Eastern.
 · One-block output with the round-id footer · deploy-poll-until-terminal · the CITED gate · every source opened before it is cited ·
-  check:data before a push — all bind. ⛔ LEGACY IS FROZEN for the other four platforms; Google's old writers stay until (9).
-· check:data at close (round 53, 3343970): 30 green · 7 red — every red has a QUEUE home (★CHECKDATA-STANDING-REDS-OWNED lists them).
-  Guards 227/227.
+  check:data before a push — all bind. ⛔ LEGACY IS FROZEN for the other four platforms; Google's old writers stay until the old path is deleted.
+· check:data at close (74a29d7's run): 28 green · 8 red · 4 crashed — completion-claims, drain-alias-coverage, coverage-density, fleet-meter-visibility,
+  anchor (C), top-edge-is-held (standing); Tri-Copy's conversion-action and driver-day legs (red by design until its first forward fire after the
+  wipe); retention-canary and rotation-buffers crashed on single-digit-ms budget overruns; impression-share-parity crashed (vendor unauthorized_client);
+  no-owed-day exit 2. Guards 239/239.
 
 ╚═══════════════════════════════════════════════════════════════════════════════════════════════════════════════╝
 
@@ -1701,6 +1703,10 @@ The 2026-06-29 inventory pre-dates 6 shipped writers and was NOT trusted. | do n
   | LORAMER_ENGINE_FREEZE_UNTIL_PROOF_V1, 2026-09-24 | do not relitigate.
 ## LORAMER_SESSION_2026_09_24_RULINGS_V1 (2026-09-24; banked round 54) — [DESTINATION — RUSS, HIS WORDS; DOCS ONLY] TWO STANDING ANSWERS FROM THE PAGE-ORDER DAY: ALERTS GO BY EMAIL THROUGH RESEND, AND THE PROOF DATE IS NOT A REASON TO CHANGE THE ENGINE.
   | LORAMER_SESSION_2026_09_24_RULINGS_V1, 2026-09-24 | do not relitigate.
+## LORAMER_PLAN_PHASE_REGION_INDEX_V1 (2026-09-26) — [SHIPPED 1281bf5 + 74a29d7 on Russ's go (rounds 354 and 356); MIGRATIONS 109 AND 110 APPLIED LIVE BEFORE THE GATE] THE FIRE AND THE DELETE JOB RUN BESIDE THE DATABASE, THE 600 s CEILING IS A LITERAL THE BUILD READS, THE LANE-PROVENANCE READ IS INDEXED WITH ITS QUERY UNCHANGED, AND EVERY FIRE HOST TRACES THE CATALOG IT READS.
+  | LORAMER_PLAN_PHASE_REGION_INDEX_V1, 2026-09-26 | do not relitigate.
+## LORAMER_SESSION_2026_09_25_RULINGS_V1 (2026-09-25; banked round 356, 2026-09-26 ~01:30 ET) — [DESTINATION — RUSS, HIS WORDS; DOCS ONLY] FIVE STANDING RULINGS FROM THE 600-SECOND DAY: FIX LIMITS AT THE SOURCE, MACHINE PARITY EVERY MORNING, THROTTLE AS WIDE AS CORRECTNESS ALLOWS, US-LAW COMPLIANCE CITATIONS, EASTERN TIME.
+  | LORAMER_SESSION_2026_09_25_RULINGS_V1, 2026-09-25 | do not relitigate.
 
 ## H. OPEN-QUEUE INDEX — still-open items only (DONE appendix excluded)  (source: LORAMER_QUEUE_OF_RECORD.md)
 - ★CHECKDATA-PUSHED-OVER-RED — ⛔ **NEW 2026-08-22. I PUSHED TO MAIN TWICE TONIGHT OVER A RED `check:data`, DISCLOSED BOTH TIMES, AND THAT IS EXACTLY WHY THIS NEEDS A DECISION RATHER THAN A HABIT.** CLAUDE.md requires the gate to be RUN and REPORTED before any push to origin main; it does not say whether a red BLOCKS. So the gate is currently **NEITHER A GATE NOR ADVISORY** — it is whatever the executor argues in the moment, which is the weakest possible state for a check that exists to stop bad data. THE READS: 13 red before the cutover, **9 red after**, and FOUR cleared *because delivery resumed* (`check-consumer-liveness` had been reading "DELIVERY IS DARK", plus check-capture-landing, check-frozen-cursors, check-parent-analyze). ⚠ **THE COUNT ALSO MOVED 11 → 13 BETWEEN TWO RUNS TWENTY MINUTES APART ON IDENTICAL CODE** — proof these track warehouse STATE, not the diff, which is precisely what makes a blanket block wrong AND a blanket pass wrong. **THE WORK IS A DECISION RUSS OWNS:** (a) hard gate with a named baseline of accepted reds, (b) advisory with the verdict quoted in every push report, or (c) split it — the state checks advisory, the correctness checks blocking. Until one is chosen, every push over a red is a judgement call re-litigated from scratch. src: the 2026-08-22 cutover pushes. open [LC]
@@ -2526,8 +2532,8 @@ HOW TO USE: before writing "NEW" on any finding, gap or correction, GREP THIS SE
 LORAMER_*_V* marker you are about to mint. A token collision is DECIDABLE; a topic match is not. This is
 ESSENCE law 7 made mechanical — the law is a rule about behaviour, and on 2026-07-31 four already-decided
 topics were discussed as open while it was in force.
-TOTALS: 1224 tokens indexed · 386 resolve to BOTH a decision and a queue item ·
-147 decision-only · 691 queue-only.
+TOTALS: 1243 tokens indexed · 388 resolve to BOTH a decision and a queue item ·
+147 decision-only · 708 queue-only.
 ⛔ UNINDEXABLE — THIS COUNT IS THE BACKLOG, NOT A DISCLAIMER: 161 DECISIONS entries and
 259 QUEUE items carry NO token at all, so they cannot be found this way. An untokened decision
 is invisible to the enforcer; the fix is to mint a token when banking, not to widen the matcher. Samples —
@@ -2570,12 +2576,13 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★ASKUSERQUESTION-HOOK — OPEN · decisions 0 · queue 1 · last 2026-08-20
 - ★ASSET-LAYER — OPEN · decisions 0 · queue 1 · last 2026-08-15
 - ★ATTESTED-EMPTY-UNREACHABLE-FROM-LORA — OPEN · decisions 0 · queue 1 · last 2026-08-15
+- ★ATTESTING-TERMINALS-STATEMENT-TIMEOUT — DONE · decisions 0 · queue 1 · last 2026-09-26
 - ★ATTRIBUTION-WINDOW-MECHANISM — OPEN · decisions 1 · queue 1 · last 2026-07-29
 - ★BACKFILL-DONE-DONE-ACCOUNT-WIDE — OPEN · decisions 0 · queue 4 · last 2026-12-14
 - ★BACKFILL-LANE-ALLOCATION-IS-10500-AND-UNCALLED — OPEN · decisions 0 · queue 1 · last 2026-08-09
 - ★BACKFILL-PROGRESS-METER — DONE · decisions 0 · queue 2 · last 2026-09-24
 - ★BACKFILL-RESERVE-IS-SOFT-ORDERING — DONE · decisions 0 · queue 1 · last 2026-08-04
-- ★BACKFILL-STALL-ALERT-EMAIL — OPEN · decisions 0 · queue 2 · last 2026-09-24
+- ★BACKFILL-STALL-ALERT-EMAIL — OPEN · decisions 0 · queue 3 · last 2026-09-26
 - ★BACKFILL-STATUS-READS-DRY-FIRES — DONE · decisions 0 · queue 1 · last 2026-09-14
 - ★BATH-FITTER-AGE-GENDER-WEAK-EVIDENCE — OPEN · decisions 0 · queue 2 · last 2026-08-03
 - ★BATH-FITTER-GA-DIMENSIONAL-STOP — OPEN · decisions 1 · queue 4 · last 2026-07-30
@@ -2690,6 +2697,8 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★DEFINITIONAL-FOOTNOTE — OPEN · decisions 0 · queue 1 · last 2026-08-15
 - ★DEGRADED-CHANNEL-PARITY — OPEN · decisions 1 · queue 1 · last 2026-07-25
 - ★DEGRADED-RENDER-LIVE-GATE-A — OPEN · decisions 1 · queue 2 · last 2026-07-26
+- ★DELETE-BOUNDS-QUERY-TIMEOUT — DONE · decisions 0 · queue 1 · last 2026-09-26
+- ★DELETE-TALLY-1-MONTHS-COPY — DONE · decisions 0 · queue 1 · last 2026-09-26
 - ★DELIVERY-DECAY-CAUSE-UNKNOWN — DONE · decisions 0 · queue 2 · last 2026-08-22
 - ★DEMO-FIXTURE-META-REAUTH — OPEN · decisions 1 · queue 1 · last 2026-07-31
 - ★DENOMINATOR-SWEEP — OPEN · decisions 0 · queue 1 · last 2026-07-31
@@ -2757,10 +2766,11 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★FIRE-LOG-FIRED-AT-IS-THE-END — OPEN · decisions 0 · queue 1 · last 2026-09-16
 - ★FIRE-LOG-PUBLISHED-DOUBLE-COUNTS-LOOKBACK — OPEN · decisions 0 · queue 2 · last 2026-11-17
 - ★FIRE-LOG-WITNESSES-DEFERRED — DONE · decisions 0 · queue 2 · last 2026-09-14
-- ★FIRE-SCAN-FIXED-COST — DONE · decisions 0 · queue 2 · last 2026-09-23
+- ★FIRE-SCAN-FIXED-COST — DONE · decisions 0 · queue 3 · last 2026-09-26
 - ★FIRST-FAILURE-AT-UNDERREPORTS — OPEN · decisions 0 · queue 2 · last 2026-07-31
 - ★FIVE-MEASURED-FIELDS-NO-CONSUMER — DONE · decisions 0 · queue 1 · last 2026-08-25
 - ★FLEET-47562-DARK-INTERIOR-DAYS — DONE · decisions 0 · queue 1 · last 2026-08-26
+- ★FLEET-CONCURRENCY-CAP-AND-RAMP — DONE · decisions 0 · queue 1 · last 2026-09-26
 - ★FLEET-METER-BLIND-TO-SEALED-STRIP-ASKS — DONE · decisions 0 · queue 1 · last 2026-08-26
 - ★FLEET-METER-DRIFT-FLICKERS — DONE · decisions 0 · queue 2 · last 2026-09-14
 - ★FLEET-METER-FIRE-LOG-500-CAP — OPEN · decisions 0 · queue 2 · last 2026-09-24
@@ -2854,6 +2864,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★GUARD-SUITE-SWEEP-FOR-FALSE-GREENS — OPEN · decisions 2 · queue 1 · last 2026-09-15
 - ★HONESTY-ENFORCERS-MISS-GRAIN-ABSENCE — OPEN · decisions 1 · queue 3 · last 2026-08-01
 - ★HOUR-GRAIN-CAPTURE-HOLE — OPEN · decisions 1 · queue 2 · last 2026-07-19
+- ★IAD1-UI-ROUTES-NEAR-DB — DONE · decisions 0 · queue 1 · last 2026-09-26
 - ★IDLE-CHECK-REUSES-ITS-ANSWERS — DONE · decisions 0 · queue 1 · last 2026-09-18
 - ★IDLE-PROBE-PAST-LINE-WITNESS — DONE · decisions 0 · queue 1 · last 2026-09-24
 - ★IMPRESSION-SHARE-READER-REACH — OPEN · decisions 0 · queue 1 · last 2026-09-22
@@ -2889,6 +2900,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★LIVENESS-PREDICATE-TOO-COARSE — OPEN · decisions 0 · queue 2 · last 2026-12-14
 - ★LM-MARK-LIVE — OPEN · decisions 0 · queue 3 · last 2026-09-30
 - ★LOCAL-META-APP-ID-STALE — OPEN · decisions 0 · queue 1 · last 2026-08-22
+- ★LOOKBACK-BASIC-ACCESS-DEAD-BRANCH — DONE · decisions 0 · queue 1 · last 2026-09-26
 - ★LOOKBACK-LANE-OWNS-PROMOTION — OPEN · decisions 0 · queue 5 · last 2026-11-17
 - ★LOOKBACK-WIDTH-FOLLOWS-GRANT — OPEN · decisions 0 · queue 2 · last 2026-09-24
 - ★LORA-ANSWER-EXPORT — OPEN · decisions 0 · queue 2 · last 2026-08-15
@@ -2911,6 +2923,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★LORA-VOICE — OPEN · decisions 0 · queue 6 · last 2026-09-30
 - ★LORAMER-R2-BACKUPS-ARE-INVISIBLE-TO-THE-CLOUDFLARE-CONNECTOR — OPEN · decisions 0 · queue 1 · last 2026-08-19
 - ★M2 — OPEN · decisions 1 · queue 2 · last 2026-07-31
+- ★MACHINE-PARITY-OPEN — DONE · decisions 0 · queue 2 · last 2026-09-26
 - ★MAP — OPEN · decisions 0 · queue 1 · last 2026-07-17
 - ★MAP-IS-NOT-RECHECKED-WHEN-CODE-CHANGES — OPEN · decisions 0 · queue 1 · last 2026-09-17
 - ★MATH-MAX-CONNS-DAYS-BANNED-BY-ITS-OWN-FILE-STILL-USED — OPEN · decisions 0 · queue 1 · last 2026-08-09
@@ -2924,6 +2937,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★META-CAPTURE-HOLE-INFLUENTIAL-DRONES — OPEN · decisions 0 · queue 2 · last 2026-09-24
 - ★META-CLICK-WINDOWS-IDENTICAL — OPEN · decisions 0 · queue 1 · last 2026-07-27
 - ★META-COMMERCE-EVENTS-SCOPING — OPEN · decisions 0 · queue 1 · last 2026-07-29
+- ★META-DELETE-SECOND-REQUEST — DONE · decisions 0 · queue 1 · last 2026-09-26
 - ★META-ENGAGE-THROUGH-UNCAPTURED — OPEN · decisions 0 · queue 1 · last 2026-07-27
 - ★META-FETCH-WRAPPER — OPEN · decisions 0 · queue 1 · last 2026-07-27
 - ★META-FIELD-COVERAGE-ASYMMETRY — DONE · decisions 1 · queue 1 · last 2026-07-27
@@ -2941,6 +2955,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★MISCAVEATED — OPEN · decisions 0 · queue 1 · last 2026-08-16
 - ★MISCAVEATED-VENDOR-RETENTION — OPEN · decisions 0 · queue 2 · last 2026-08-15
 - ★MISSED-DAY-WALK — OPEN · decisions 3 · queue 3 · last 2026-10-28
+- ★MISSED-LANE-SIZING-LATENT — DONE · decisions 0 · queue 1 · last 2026-09-26
 - ★MISSED-SWEEP-PACE — OPEN · decisions 0 · queue 2 · last 2026-10-28
 - ★MISSIZE-DROPS-THE-UPPER-HALF — OPEN · decisions 0 · queue 2 · last 2026-08-19
 - ★MOBILE-WIDTH-GUARD — OPEN · decisions 1 · queue 1 · last 2026-08-23
@@ -3016,6 +3031,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★PROTOCOL-GATE-REFUSES-CLOCK-WALL-CONSTANTS — OPEN · decisions 0 · queue 1 · last 2026-09-04
 - ★PROVE-ONE-SURFACE-TO-INCEPTION — OPEN · decisions 0 · queue 3 · last 2026-12-14
 - ★PROVISIONED-DISK-IS-A-HUMAN-STEP — OPEN · decisions 0 · queue 2 · last 2026-08-19
+- ★PUMP-STEP-ERROR-ALERT — DONE · decisions 0 · queue 1 · last 2026-09-26
 - ★QUERY-BREAKDOWN-NO-STALENESS — OPEN · decisions 0 · queue 4 · last 2026-08-15
 - ★QUESTION-SCOPED-DOC-REQUIREMENTS — OPEN · decisions 0 · queue 1 · last 2026-07-31
 - ★QUEUE-TAG-BLIND-TO-TREE — OPEN · decisions 0 · queue 2 · last 2026-08-22
@@ -3028,12 +3044,14 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★READER-SCOPE-IS-NINE-FILES — OPEN · decisions 0 · queue 1 · last 2026-09-16
 - ★READINESS-SIGNALS-RPC-TIMEOUT — OPEN · decisions 0 · queue 1 · last 2026-08-13
 - ★REASK-QUEUE — OPEN · decisions 0 · queue 2 · last 2026-09-24
+- ★REASK-REQUESTS-PER-RUN-GUARDS-NOTHING — DONE · decisions 0 · queue 1 · last 2026-09-26
 - ★RECONCILE-TO-VENDOR-UI-UNRECORDED — OPEN · decisions 0 · queue 2 · last 2026-12-14
 - ★RECONNECT-HAS-NO-STATE-MACHINE — OPEN · decisions 0 · queue 2 · last 2026-08-23
 - ★REFUSAL-STATUS-UNMEASURED-READ-AS-CLEAN — DONE · decisions 0 · queue 1 · last 2026-08-25
 - ★REJUDGE-SET-PARITY — DONE · decisions 0 · queue 1 · last 2026-08-14
 - ★REMOVED-AD-GROUPS-UNCONFIRMED — OPEN · decisions 0 · queue 1 · last 2026-09-17
 - ★REPORTING-WITH-LORA-OVERLAY — OPEN · decisions 0 · queue 1 · last 2026-08-15
+- ★RESCAN-CAP-FROM-PLAN-SPEED — DONE · decisions 0 · queue 1 · last 2026-09-26
 - ★RESERVATION-FLOOR-REDERIVE-OVERDUE — OPEN · decisions 0 · queue 1 · last 2026-09-16
 - ★RESOLVECHAIN-SCANS-LINEARLY — OPEN · decisions 0 · queue 1 · last 2026-09-16
 - ★REST-PAGING-NEEDS-STABLE-ORDER — DONE · decisions 0 · queue 1 · last 2026-09-24
@@ -3041,6 +3059,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★REST-ROW-CAP-BURN-DOWN — OPEN · decisions 0 · queue 1 · last 2026-09-12
 - ★RESTATEMENT-SWEEP-FLEET — OPEN · decisions 2 · queue 3 · last 2026-09-05
 - ★RESTATEMENT-WINDOW-UNDER-ASKS-CONVERSIONS — OPEN · decisions 0 · queue 2 · last 2026-09-05
+- ★RESUME-CHECKS-MACHINE-PARITY — DONE · decisions 0 · queue 1 · last 2026-09-26
 - ★RESUMER-HEADER-STATES-THE-OLD-CADENCE — OPEN · decisions 0 · queue 1 · last 2026-08-17
 - ★RESUMER-ROTATES-ELIGIBLE-CLIENTS-LEAST-RECENTLY-SERVED — OPEN · decisions 0 · queue 1 · last 2026-09-12
 - ★RESUMER-SCAN-CAP-NEVER-ROTATES — OPEN · decisions 0 · queue 2 · last 2026-08-13
@@ -3079,7 +3098,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★STALE-MAX-REQUESTS-COMMENT — OPEN · decisions 0 · queue 1 · last 2026-08-22
 - ★STATUS-TAIL-WITHOUT-BRACKET-TAG — OPEN · decisions 0 · queue 1 · last 2026-08-20
 - ★STEADY-STATE-NUMBERS-MOVE-WITH-CACHE-STATE — OPEN · decisions 0 · queue 1 · last 2026-08-04
-- ★STRIP-RATIONING-SHORTCUTS-AFTER-PROOF — DONE · decisions 0 · queue 1 · last 2026-09-24
+- ★STRIP-RATIONING-SHORTCUTS-AFTER-PROOF — DONE · decisions 0 · queue 2 · last 2026-09-26
 - ★SUPPORT-BOT — DECIDED · decisions 1 · queue 0 · last 2026-07-17
 - ★SURFACE-PERMANENTLY-UNASKABLE-ERROR-49 — OPEN · decisions 0 · queue 2 · last 2026-08-21
 - ★SURFACE-TRUNCATION-TO-THE-USER — OPEN · decisions 0 · queue 1 · last 2026-08-16
@@ -3159,6 +3178,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★VALUE-MODEL-COVERAGE-GAP — OPEN · decisions 1 · queue 3 · last 2026-07-24
 - ★VERCEL-CANCELLATION-KILLS-THE-CLOSE-PATH — OPEN · decisions 1 · queue 2 · last 2026-08-08
 - ★VERCEL-SILENT-NO-DEPLOY — OPEN · decisions 0 · queue 1 · last 2026-08-01
+- ★VERCEL-WORKFLOWS-VS-QUEUES — DONE · decisions 0 · queue 1 · last 2026-09-26
 - ★VERDICT-ENFORCER-BEFORE-PUSH — OPEN · decisions 1 · queue 2 · last 2026-09-10
 - ★VET-MASTERMIND-META-HAS-MORE-ROWS-THAN-DAYS — OPEN · decisions 0 · queue 1 · last 2026-08-24
 - ★VETERINARY-GEO-FROZEN — OPEN · decisions 0 · queue 1 · last 2026-07-29
@@ -3225,7 +3245,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_CAMPAIGN_TYPE_MATRIX_V1 — OPEN · decisions 0 · queue 2 · last 2026-08-01
 - LORAMER_CANONICAL_CLIENT_REGISTRY_V1 — DONE · decisions 1 · queue 1 · last 2026-08-23
 - LORAMER_CANONICAL_KEY_SPELLING_V1 — DONE · decisions 0 · queue 1 · last 2026-08-26
-- LORAMER_CAP_FOLLOWS_GRANT_V1 — OPEN · decisions 0 · queue 2 · last 2026-09-15
+- LORAMER_CAP_FOLLOWS_GRANT_V1 — OPEN · decisions 0 · queue 3 · last 2026-09-26
 - LORAMER_CAPABILITY_DENOMINATOR_V1 — OPEN · decisions 0 · queue 2 · last 2026-08-03
 - LORAMER_CAPTURE_FACTS_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-01
 - LORAMER_CAPTURE_LIMIT_IS_MEASURED_V1 — OPEN · decisions 0 · queue 1 · last 2026-08-06
@@ -3405,6 +3425,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_GOOGLE_CONV_ACTION_IS_PERSIST_V1 — OPEN · decisions 0 · queue 2 · last 2026-09-22
 - LORAMER_GOOGLE_DELETE_JOB_V1 — OPEN · decisions 1 · queue 4 · last 2026-09-24
 - LORAMER_GOOGLE_DELETE_MY_DATA_V1 — DECIDED · decisions 1 · queue 0 · last 2026-09-21
+- LORAMER_GOOGLE_DELETE_SECOND_REQUEST_V1 — DONE · decisions 0 · queue 1 · last 2026-09-26
 - LORAMER_GOOGLE_DEMOGRAPHIC_CAPTURE_V1 — DONE · decisions 0 · queue 1 · last 2026-07-18
 - LORAMER_GOOGLE_DRAIN_THROTTLE_V1 — OPEN · decisions 0 · queue 2 · last 2026-09-06
 - LORAMER_GOOGLE_FORWARD_RESTATE_V1 — OPEN · decisions 0 · queue 2 · last 2026-09-12
@@ -3436,6 +3457,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_IDLE_SKIP_V1 — DECIDED · decisions 1 · queue 0 · last 2026-09-18
 - LORAMER_IMPLICIT_PRESENCE_REASK_V1 — DONE · decisions 1 · queue 2 · last 2026-09-24
 - LORAMER_IMPRESSION_SHARE_FAMILY_V1 — OPEN · decisions 1 · queue 3 · last 2026-09-24
+- LORAMER_IN_PROCESS_FIRE_BUNDLES_CATALOG_V1 — DONE · decisions 0 · queue 1 · last 2026-09-26
 - LORAMER_INSIGHT_OPUS_FLOOR_V1 — DONE · decisions 2 · queue 1 · last 2026-07-17
 - LORAMER_INSTRUMENT_CLIENT_LITERAL_GUARD_V1 — DONE · decisions 0 · queue 1 · last 2026-09-15
 - LORAMER_INSTRUMENT_MUST_NAME_ITS_PHASE_V1 — DECIDED · decisions 4 · queue 0 · last 2026-07-31
@@ -3603,6 +3625,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_PERIOD_RESOLUTION_NAMED_V1 — DONE · decisions 0 · queue 1 · last 2026-08-16
 - LORAMER_PINNED_ELEMENT_SWEEP_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-07
 - LORAMER_PINS_ARE_WRITTEN_STALE_V1 — OPEN · decisions 1 · queue 2 · last 2026-07-27
+- LORAMER_PLAN_PHASE_REGION_INDEX_V1 — DONE · decisions 1 · queue 1 · last 2026-09-26
 - LORAMER_PLATFORM_SURFACE_AUDIT_V1 — DECIDED · decisions 1 · queue 0 · last 2026-07-17
 - LORAMER_POLL_DRAINS_BEFORE_EXITING_V1 — DONE · decisions 0 · queue 1 · last 2026-08-22
 - LORAMER_POLL_MODE_CUTOVER_V1 — DONE · decisions 0 · queue 2 · last 2026-08-22
@@ -3624,7 +3647,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_QUERY_NONADDITIVE_V1 — DONE · decisions 0 · queue 1 · last 2026-07-02
 - LORAMER_QUEUE_CONCURRENCY_ABOVE_THE_BURST_V1 — DONE · decisions 0 · queue 1 · last 2026-08-22
 - LORAMER_QUEUE_MESSAGES_DIE_SILENTLY_V1 — DONE · decisions 1 · queue 1 · last 2026-08-14
-- LORAMER_QUEUE_REMOVED_INLINE_WALK_V1 — DONE · decisions 1 · queue 3 · last 2026-08-22
+- LORAMER_QUEUE_REMOVED_INLINE_WALK_V1 — DONE · decisions 1 · queue 4 · last 2026-09-26
 - LORAMER_QUEUE_TAG_MATCHES_TEXT_V1 — OPEN · decisions 0 · queue 2 · last 2026-08-20
 - LORAMER_QUOTA_ARM_AT_ERROR_BOUNDARY_V1 — OPEN · decisions 1 · queue 4 · last 2026-08-09
 - LORAMER_QUOTA_OUTAGE_IS_NOT_ABSENCE_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-01
@@ -3638,6 +3661,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_RBAC_ORG_PROVISION_V1 — OPEN · decisions 0 · queue 1 · last 2026-07-12
 - LORAMER_RBAC_ORG_SPINE_V1 — OPEN · decisions 1 · queue 1 · last 2026-07-12
 - LORAMER_REAL_INPUT_GATE_A_V1 — OPEN · decisions 3 · queue 2 · last 2026-08-23
+- LORAMER_REASK_ADMISSION_FITS_V1 — DONE · decisions 0 · queue 1 · last 2026-09-26
 - LORAMER_RECONCILE_DAY_V1 — DONE · decisions 0 · queue 1 · last 2026-06-26
 - LORAMER_RECONCILE_ZERO_DELIVERY_V1 — OPEN · decisions 0 · queue 1 · last 2026-07-13
 - LORAMER_RECONNECT_STATE_MACHINE_V1 — OPEN · decisions 1 · queue 1 · last 2026-08-23
@@ -3669,7 +3693,8 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_SESSION_2026_09_17_18_RATE_AND_WALL_V1 — OPEN · decisions 0 · queue 1 · last 2026-09-22
 - LORAMER_SESSION_2026_09_21_RULINGS_V1 — OPEN · decisions 1 · queue 2 · last 2026-09-24
 - LORAMER_SESSION_2026_09_23_RULINGS_V1 — DONE · decisions 1 · queue 3 · last 2026-09-24
-- LORAMER_SESSION_2026_09_24_RULINGS_V1 — OPEN · decisions 1 · queue 2 · last 2026-09-24
+- LORAMER_SESSION_2026_09_24_RULINGS_V1 — OPEN · decisions 1 · queue 3 · last 2026-09-26
+- LORAMER_SESSION_2026_09_25_RULINGS_V1 — DONE · decisions 1 · queue 1 · last 2026-09-26
 - LORAMER_SESSION_CLOSE_2026_08_07_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-07
 - LORAMER_SESSION_WRAP_2026_08_03_V1 — DECIDED · decisions 2 · queue 0 · last 2026-08-03
 - LORAMER_SHELF_DVH_RETIRED_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-11

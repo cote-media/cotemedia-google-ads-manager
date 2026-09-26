@@ -1,4 +1,58 @@
-╔═══ SESSION CLOSE 2026-09-25 (NIGHT) — THE DAY THE INSTRUMENTS CAUGHT THREE ENGINE DEFECTS, THE ENGINE WAS FROZEN, AND THE RULE ON PUSHING WAS BANKED IN RUSS'S WORDS ═══╗
+╔═══ SESSION CLOSE 2026-09-25 (NIGHT, closed 2026-09-26 ~01:45 ET) — THE 600-SECOND DAY: THE CEILING THAT NEVER DEPLOYED, THE FIRE MOVED BESIDE THE DATABASE, AND FIVE RULINGS IN RUSS'S WORDS ═══╗
+
+⛔ READ LORAMER_MAP.md FIRST (the resume command prints it). This block is the session narrative; the MAP is the picture.
+Times: Eastern first (Russ's ruling (e), 2026-09-25), UTC beside it.
+
+── WHAT SHIPPED 2026-09-25 → 26, oldest-first, each with what it proved (all READY, polled to terminal) ──
+· `291bd23` LORAMER_REASK_ADMISSION_FITS_V1 — a re-ask unit is sized against what is LEFT of the fire. Proved (rounds 350–351): Bath Fitter's
+  6 queued rows settled after the hold lapsed — 4 asked whole, 2 settled by the ledger from 180-day chunks; the counters reconcile (8 selected = 4 + 4).
+· `dc08428` LORAMER_FIRE_CEILING_600_V1 — a 600 s fire, ≤ 3 concurrent fires with one free for a press, no unit over half a fire, and a durable
+  re-ask/deferral witness. Proved: the witness columns write on every fire. ⛔ NOT proved: the 600 s ceiling never deployed — the imported constant
+  compiled to `{}` and the live lambdas ran at 300 s until 1281bf5.
+· `62a3223` LORAMER_GOOGLE_DELETE_SECOND_REQUEST_V1 and `7ccb01c` LORAMER_GOOGLE_DELETE_DIALOG_GATE_V1 — a later delete opens a new job and code;
+  a finished deletion is dated history, not a gate. Proved: Tri-Copy's second delete (a4aab7f9) completed at 21:37 ET (01:37:41Z) with every
+  table re-counted 0, the 09-21 row untouched, the connection gone.
+· `1281bf5` LORAMER_PLAN_PHASE_REGION_INDEX_V1 (migrations 109, 110 live) — the four in-process fire and delete hosts pinned to pdx1; resume and
+  drive at maxDuration 600 as literals; the provenance read indexed with its text unchanged; fire rows carry region and plan_ms. Proved: all six
+  hosts pdx1 and 600 s live; provenance query 0.54 ms (was 582.6); rotation fires planning 60 surfaces at 543–732 ms/surface (was ~1,190).
+  ⛔ It BROKE the pressed Backfill — the pump lost the catalog file it had borrowed from forward-driver's function; Tri-Copy's run failed at
+  23:55 ET (03:55:35Z).
+· `74a29d7` LORAMER_IN_PROCESS_FIRE_BUNDLES_CATALOG_V1 — every fire host traces the catalog; postbuild fails when a fire host's built trace lacks a
+  file the fire reads. Proved at build (RED on 1281bf5's build, GREEN on this); live READY 01:04 ET (05:04:56Z). The pressed path itself is
+  UNPROVEN in production: no run was live after it, and a run starts only from Russ's signed-in Backfill press.
+· THIS PUSH — LORAMER_WRAP_2026_09_25_V1, docs only: the five rulings, the two ship entries, fourteen queue items.
+
+── ▶▶ NEXT STEP, IN ORDER — first one first ──
+(1) RUSS: press Backfill on Tri-Copy (its run is 'failed' since 23:55 ET; nothing else restarts it). Then the MORNING READ, read-only, 10 fires or
+    45 minutes: region pdx1 on every fire · plan ms/surface p50 ≤ 849 (plan_ms ÷ scanned on universe_fire_log; iad1 baseline 1,397 with the index,
+    1,697 before) · 0 fires ≥ 582,000 · 0 step errors (universe_run.stop_reason, fire rows) · provenance mean · units/hour against 1,636 ·
+    "progress/asking clock unreadable" timeouts (★ATTESTING-TERMINALS-STATEMENT-TIMEOUT).
+(2) THE CONCURRENCY CAP DESIGN — ★FLEET-CONCURRENCY-CAP-AND-RAMP (ruling (c)): the shared cap's home, the ramp, the two stop signals. Then
+    ★RESCAN-CAP-FROM-PLAN-SPEED from (1)'s p50.
+(3) THE STALL AND STEP-ERROR ALERTS by Resend — ★BACKFILL-STALL-ALERT-EMAIL with ★PUMP-STEP-ERROR-ALERT (a failed run answers 200 today).
+(4) TRI-COPY PROOF when its owed days reach zero on the fixed engine (it was wiped and restarted from zero on 2026-09-25, ruling (a)).
+(5) Then the prior order, unchanged: the coarse-grain and reach-frequency lanes · strip the rationing shortcuts (with ★LOOKBACK-BASIC-ACCESS-DEAD-BRANCH
+    and ★REASK-REQUESTS-PER-RUN-GUARDS-NOTHING) · the cold proof on russ@loramer.com · Bath Fitter stress test · fleet delete-reconnect-backfill ·
+    WIRE (with ★IAD1-UI-ROUTES-NEAR-DB) · delete the old Google path.
+RUSS'S OPEN ACTIONS: press Backfill on Tri-Copy; invite russ@loramer.com on Veterinary Mastermind 3110968443 with Standard access, then accept it;
+machine parity on the iMac (★MACHINE-PARITY-OPEN).
+
+── STANDING ──
+· ⛔ THE ENGINE IS FROZEN until Tri-Copy's proof passes — only fixes for something proven broken, each on Russ's go (LORAMER_ENGINE_FREEZE_UNTIL_PROOF_V1).
+· ⛔ NO PUSH WITHOUT RUSS'S GO, FIXES INCLUDED (LORAMER_NO_PUSH_WITHOUT_GO_V1). Round 354 held its fix-forward for a go; round 356 carried the go.
+· ⛔ A FUNCTION'S TRACED FILES ARE A SEAM: a region or config change regroups functions; Gate-A walks the built traces, and the postbuild legs enforce it.
+· Rulings of 2026-09-25 (DECISIONS LORAMER_SESSION_2026_09_25_RULINGS_V1): fix limits at the source · machine parity every morning · throttle as wide as
+  correctness allows · compliance cites Google's API Services User Data Policy and the CCPA · times in Eastern.
+· One-block output with the round-id footer · deploy-poll-until-terminal · the CITED gate · every source opened before it is cited ·
+  check:data before a push — all bind. ⛔ LEGACY IS FROZEN for the other four platforms; Google's old writers stay until the old path is deleted.
+· check:data at close (74a29d7's run): 28 green · 8 red · 4 crashed — completion-claims, drain-alias-coverage, coverage-density, fleet-meter-visibility,
+  anchor (C), top-edge-is-held (standing); Tri-Copy's conversion-action and driver-day legs (red by design until its first forward fire after the
+  wipe); retention-canary and rotation-buffers crashed on single-digit-ms budget overruns; impression-share-parity crashed (vendor unauthorized_client);
+  no-owed-day exit 2. Guards 239/239.
+
+╚═══════════════════════════════════════════════════════════════════════════════════════════════════════════════╝
+
+╔═══ ⛔ SUPERSEDED 2026-09-26 · HISTORY · DO NOT ACT ON ITS HEAD — SESSION CLOSE 2026-09-25 (NIGHT) — THE DAY THE INSTRUMENTS CAUGHT THREE ENGINE DEFECTS, THE ENGINE WAS FROZEN, AND THE RULE ON PUSHING WAS BANKED IN RUSS'S WORDS ═══╗
 
 ⛔ READ LORAMER_MAP.md FIRST (the resume command prints it). This block is the session narrative; the MAP is the picture.
 

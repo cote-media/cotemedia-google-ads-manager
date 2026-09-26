@@ -8,7 +8,7 @@
 >
 > ⛔ **EVERY FACTUAL LINE HERE IS VERIFIED AGAINST THE CODE, and is dated.** If a line and the code disagree,
 > THE CODE IS RIGHT and this file is stale — say so and fix it the same day.
-> Last verified against the code: **2026-09-25** (round 54 wrap: the engine is frozen until Tri-Copy's proof, no push without Russ's go; round 53: every rest-all Range read carries the table's unique key; round 50: an absent implicit-presence bool is its default, and named re-asks go through a queue the fire consumes; round 45: a wrong attestation is retracted by an appended row and one view owns what attests; round 41: an empty past the 37-month line is recorded empty; round 38: instruments ask the engine which row is the account row; round 34: the fire plans only what it can execute, coverage as one RPC per candidate, one chain per run; round 26: 360-day windows with a time cap and the lane-only hold; round 23 one engine; rounds 12, 14 and 18 the driver's catalogue, its settings writer and the impression-share family)
+> Last verified against the code: **2026-09-26** (round 356 wrap: in-process fire and delete hosts pinned to pdx1, resume/drive maxDuration 600 as literals, the provenance read indexed, every fire host traces the catalog, the 2026-09-25 rulings; round 54 wrap: the engine is frozen until Tri-Copy's proof, no push without Russ's go; round 53: every rest-all Range read carries the table's unique key; round 50: an absent implicit-presence bool is its default, and named re-asks go through a queue the fire consumes; round 45: a wrong attestation is retracted by an appended row and one view owns what attests; round 41: an empty past the 37-month line is recorded empty; round 38: instruments ask the engine which row is the account row; round 34: the fire plans only what it can execute, coverage as one RPC per candidate, one chain per run; round 26: 360-day windows with a time cap and the lane-only hold; round 23 one engine; rounds 12, 14 and 18 the driver's catalogue, its settings writer and the impression-share family)
 
 ---
 
@@ -218,6 +218,15 @@ changed. Days older than the limit are asked; an empty answer there is held and 
 - **An empty answer past the 37-month line is recorded empty** (round 41, 2026-09-24; DECISIONS LORAMER_PAST_LINE_EMPTY_V1; Russ: "If there's data go get it"): Google serves daily rows to inception on our token (measured on every surface, two accounts, 0 refusals) and no held window was a silent omission (2,481 month-grain witness asks); so a past-line zero attests like any zero, a DateRangeError of any spelling is the stop with its code, inception is the floor. The line stays as the instrument's label (pastLineEmpty) and the canary keeps detecting. Reach/frequency (campaign only; 36 months / 92 days, omitted silently) and the coarse grains are queued lanes.
 - **No reader work in GET; Lora reading the walk's new rows is WIRE, queued by name** (Russ, 2026-09-22, round 18): the walk captures the whole impression-share family for walk connections now; the projection that would read it is its own live-path change (QUEUE ★IMPRESSION-SHARE-READER-REACH), never folded into a capture commit (DECISIONS LORAMER_IMPRESSION_SHARE_FAMILY_V1).
 - **A connection's engine marker must never lie** (Russ, round 8): platform_connections.engine says which engine serves the connection; a row may say walk only when the old engine cannot write for it. Every row is legacy today and new rows default legacy until the one-engine build flips the default in the commit that stops the old writers. The check:data leg engine-marker reads the old engine's own traces and goes red on any walk-marked connection they touch (DECISIONS LORAMER_CONNECTION_ENGINE_MARKER_V1).
+
+**2026-09-25**
+
+- **Fix limits at the source; never work around a self-imposed limit. Work on a wrong engine is scrap** — stopping it is fine unless something crucial is at risk (DECISIONS LORAMER_SESSION_2026_09_25_RULINGS_V1 (a); Tri-Copy was wiped and re-run on the fixed engine).
+- **Machine parity every morning** — code current, settings complete, CLI logins, the Claude Code version, on whichever Mac Russ uses; the resume checks it and flags any gap (ruling (b); not built — ★RESUME-CHECKS-MACHINE-PARITY).
+- **Throttle as wide as correctness allows** — a fleet-wide shared cap on concurrent work, raised step by step while watching Google rate-limit errors and database write speed; "one job at a time" is not acceptable (ruling (c); ★FLEET-CONCURRENCY-CAP-AND-RAMP).
+- **Compliance citations are Google's API Services User Data Policy and US law (CCPA)**, not UK or EU regulators (ruling (d)).
+- **Times are reported in Eastern** (ruling (e)).
+- **The fire and the delete job run in pdx1 beside the database; the 600 s ceiling is a literal the build reads; every fire host traces the catalog it reads** (round 356, 2026-09-26; DECISIONS LORAMER_PLAN_PHASE_REGION_INDEX_V1).
 
 **Earlier, still standing**
 
